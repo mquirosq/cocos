@@ -1,0 +1,31 @@
+{% load static %}
+<footer class="sevi-footer" role="contentinfo" aria-label="Site footer">
+
+	<div class="container">
+		<div class="brand" aria-hidden="false">
+			<!-- <img src="{% static 'images/logo.png' %}" alt="TFG Logo" class="brand-logo"> -->
+			<div class="brand-text">
+				<strong>TFG</strong>
+				<p>By María Quirós Quiroga</p>
+			</div>
+		</div>
+	</div>
+
+	<div class="container footer-bottom">
+		<div class="legal">
+			<div>
+				<span>&copy; <span id="tfg-year"></span> TFG</span>
+			</div>
+
+			<div class="actions">
+				<nav class="footer-nav" aria-label="Footer navigation">
+					<a href="/" title="Inicio">Inicio</a>
+				</nav>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		(function(){var y=new Date().getFullYear();var el=document.getElementById('tfg-year');if(el)el.textContent=y;})();
+	</script>
+</footer>
