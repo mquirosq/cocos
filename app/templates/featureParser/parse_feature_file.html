@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<main class="container py-4">
+    <h1 class="h4 mb-4 fw-bold">Upload Bakta JSON File</h1>
+    <form id="uploadForm" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="featureFile" class="form-label">Select Bakta JSON File</label>
+            <input class="form-control" type="file" id="featureFile" name="feature_file" required>
+        </div>
+        <button id="uploadBtn" type="submit" class="btn btn-primary">Upload</button>
+    </form>
+
+    <div id="loadingIndicator" style="display:none;">
+        <p>Uploading and processing file, please wait...</p>
+    </div>
+
+
+    {% if file_upload %}
+      <section class="mt-4">
+        <h2>Uploaded file: {{ file_upload.file.name }}</h2>
+        <p>{{ file_upload.genes.count }} gene(s) associated (showing first 50)</p>
+
+        <ul>
+          {% for fg in file_upload.filegene_set.all|slice:":50" %}
+            <li>
+              gene identifiers: {{ fg.gene.identifiers|default:"-" }} —
+              expert: {{ fg.expert|default:"unknown" }}
+            </li>
+          {% empty %}
+            <li>No features found for this upload.</li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+</main>
+
+<script src="{% static 'js/featureParser/parse_feature_file.js' %}"></script>
+{% endblock %}
