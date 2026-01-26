@@ -4,13 +4,16 @@ from model.models import FileGene, Gene, FileUpload
 from django.db import transaction
 
 def parse_feature_file(request):
+    """View to handle feature file parsing"""
     if request.method == 'POST':
         file_upload = parse_bakta_json(request.FILES.get('feature_file'))
         return render(request, 'featureParser/parse_feature_file.html', {'messages': ['File parsed successfully!'], 'file_upload': file_upload})
     return render(request, 'featureParser/parse_feature_file.html')
 
 
+# TODO: Aplicar patrón de diseño para tener múltiples parsers según el tipo de archivo
 def parse_bakta_json(file):
+    """Parse a Bakta JSON feature file and create FileUpload, Gene, and FileGene entries"""
     try:
         data = json.load(file)
     except json.JSONDecodeError:

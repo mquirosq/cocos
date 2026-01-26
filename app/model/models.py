@@ -2,6 +2,7 @@ import re
 from django.db import models
 
 class FileUpload(models.Model):
+    """File that has been uploaded"""
     uploaded_at = models.DateTimeField(auto_now_add=True)
     file = models.FileField(upload_to='uploads/')
     genes = models.ManyToManyField('Gene', related_name='files', blank=True, through='FileGene')
@@ -10,6 +11,7 @@ class FileUpload(models.Model):
         return f"File uploaded at {self.uploaded_at}"
 
 class GeneQuerySet(models.QuerySet):
+    """Custom QuerySet for Gene model"""
     def search_identifiers(self, identifiers):
         """Search for genes containing any of the identifiers (case insensitive)"""
         queries = models.Q()
@@ -20,6 +22,7 @@ class GeneQuerySet(models.QuerySet):
         return self.filter(queries)
     
 class Gene(models.Model):
+    """Gene with multiple identifiers"""
     identifiers = models.TextField()
 
     objects = GeneQuerySet.as_manager()
@@ -48,6 +51,7 @@ class Gene(models.Model):
     
     
 class FileGene(models.Model):
+    """Through model linking FileUpload and Gene with expert info"""
     file_upload = models.ForeignKey(FileUpload, on_delete=models.CASCADE)
     gene = models.ForeignKey(Gene, on_delete=models.CASCADE)
     expert = models.CharField(max_length=255)
