@@ -1,11 +1,12 @@
 import requests
-from app.converter.models import AnnotationTask
+import os
+from .models import AnnotationTask
 
-BASE = "http://127.0.0.1:8000"
+BASE = os.getenv("ANNOTATION_BASE", "http://localhost:8000")
 
 def load_results_from_job(job_id):
     """Load results from local AnnotationTask model based on job_id."""
-    out_path = AnnotationTask.objects.filter(job_id=job_id).first().output_path
+    out_path = AnnotationTask.objects.filter(external_job_id=job_id).first().output_path
     with open(out_path, "r") as f:
         import json
         return json.load(f)
@@ -34,5 +35,4 @@ def annotate_from_fasta(fasta_content,):
         timeout=30,
     )
     resp.raise_for_status()
-
     return resp.json()

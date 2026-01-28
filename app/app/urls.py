@@ -21,4 +21,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('home.urls')),
     path('feature-parser/', include('featureParser.urls')),
+    path('converter/', include('converter.urls')),
 ]

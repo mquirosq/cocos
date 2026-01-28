@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}Iniciar tarea externa{% endblock %}
+
+{% block override_style %}
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+  <h1 class="h4 mb-4 fw-bold">Subir FASTA y lanzar anotación</h1>
+
+  <form id="upload-form" method="post" enctype="multipart/form-data" action="{% url 'converter:external_task_ui' %}">
+    {% csrf_token %}
+    <div class="mb-3">
+      <label class="form-label">Archivo FASTA:
+        <input type="file" name="fasta_file" accept=".fasta,.fa" required class="form-control">
+      </label>
+    </div>
+    <button type="submit" class="btn btn-primary">Iniciar</button>
+  </form>
+
+  <div id="result" class="status" style="display:none">
+    <p><strong>ID de tarea:</strong> <span id="task-id"></span></p>
+    <p><strong>Estado:</strong> <span id="task-status"></span></p>
+    <p><strong>ID externo:</strong> <span id="external-id"></span></p>
+  </div>
+</div>
+
+<script>
+  const form = document.getElementById('upload-form');
+  const result = document.getElementById('result');
+  const taskIdEl = document.getElementById('task-id');
+  const statusEl = document.getElementById('task-status');
+  const externalEl = document.getElementById('external-id');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const url = form.getAttribute('action');
+    try {
+      const res = await fetch(url, {method: 'POST', body: fd, credentials: 'same-origin'});
+      const data = await res.json();
+      const taskId = data.task_id;
+      taskIdEl.textContent = taskId;
+      statusEl.textContent = 'pending';
+      externalEl.textContent = '';
+      result.style.display = '';
+      pollStatus(taskId);
+    } catch (err) {
+      alert('Error al iniciar la tarea');
+      console.error(err);
+    }
+  });
+
+  let pollInterval = null;
+  async function pollStatus(taskId){
+    const url = new URL('{% url "converter:task_status" 0 %}', window.location.origin);
+    // replace the trailing 0 with actual id
+    const base = url.pathname.replace('/0/', '/');
+    const endpoint = base + taskId + '/';
+
+    async function check(){
+      try{
+        const r = await fetch(endpoint, {credentials: 'same-origin'});
+        const j = await r.json();
+        statusEl.textContent = j.status;
+        externalEl.textContent = j.external_id || '';
+        if (j.status === 'completed' || j.status === 'failed'){
+          clearInterval(pollInterval);
+          pollInterval = null;
+        }
+      }catch(e){
+        console.error('Polling error', e);
+      }
+    }
+
+    // first immediate check then every 3s
+    await check();
+    if (!pollInterval) pollInterval = setInterval(check, 3000);
+  }
+</script>
+
+{% endblock %}
