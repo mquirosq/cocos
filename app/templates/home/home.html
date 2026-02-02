@@ -1,12 +1,13 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block override_style %}
-    <!--<link rel="stylesheet" href="{% static 'css/home.css' %}">!-->
-{% endblock %}
-
 {% block content %}
 <main class="container py-4">
     <h1 class="h4 mb-4 fw-bold">Hi :)</h1>
+
+    <form method="post" action="{% url 'delete_all_tasks' %}" onsubmit="return confirm('Delete all tasks? This cannot be undone.');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger mt-3">Delete All Tasks (Testing Only)</button>
+    </form>
 </main>
 {% endblock %}

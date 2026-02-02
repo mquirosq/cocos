@@ -22,4 +22,5 @@ urlpatterns = [
     path('', include('home.urls')),
     path('feature-parser/', include('featureParser.urls')),
     path('converter/', include('converter.urls')),
+    path('tasks/', include('model.urls')),
 ]

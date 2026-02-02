@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+  <a href="{% url 'task_list' %}" class="btn btn-link mb-3">&larr; Back to Tasks</a>
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">Task #{{ task.id }}</h4>
+      <p class="mb-2"><strong>Status:</strong> {{ task.status }}</p>
+      <p class="mb-2"><strong>External job id:</strong> {{ task.external_job_id }}</p>
+      {% if task.created_at %}
+      <p class="mb-1 text-muted small">Created: {{ task.created_at }}</p>
+      {% endif %}
+      {% if task.updated_at %}
+      <p class="mb-3 text-muted small">Updated: {{ task.updated_at }}</p>
+      {% endif %}
+
+      {% if task.status == 'completed' %}
+      <a href="{% url 'download_json' task.id %}" class="btn btn-success">Download JSON</a>
+      {% else %}
+      <button class="btn btn-secondary" disabled>Download JSON</button>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}
