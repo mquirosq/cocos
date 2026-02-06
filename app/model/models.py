@@ -55,6 +55,10 @@ class FileGene(models.Model):
     file_upload = models.ForeignKey(FileUpload, on_delete=models.CASCADE)
     gene = models.ForeignKey(Gene, on_delete=models.CASCADE)
     expert = models.CharField(max_length=255)
+    start = models.IntegerField(null=True, blank=True)
+    stop = models.IntegerField(null=True, blank=True)
+    nt = models.TextField(null=True, blank=True)
+    aa = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.file_upload} - {self.gene} ({self.expert})"
