@@ -8,11 +8,23 @@ from celery.exceptions import MaxRetriesExceededError
 # TODO: Cambiar notificaciones para que sean a usuarios
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=10, max_retries=100)
 def poll_annotation_status(self, task_id):
-    task = AnnotationTask.objects.get(id=task_id)
+    try:
+        task = AnnotationTask.objects.get(id=task_id)
+    except AnnotationTask.DoesNotExist:
+        # If some task is missing, just stop polling
+        return
+
     print("Polling status for task:", task.external_job_id)
 
-    status = get_job_status(task.external_job_id)
+    status, code = get_job_status(task.external_job_id)
 
+    if code == 404:
+        print("Job not found for task:", task.external_job_id)
+        task.status = "failed"
+        task.save()
+        notify_user_annotation_failed(None, task)
+        return
+    
     if status != task.status:
         print("Status changed from", task.status, "to", status)
         if status == "annotated":
@@ -26,7 +38,6 @@ def poll_annotation_status(self, task_id):
         return
 
     if status == "failed":
-
         notify_user_annotation_failed(None, task)
         return
 
