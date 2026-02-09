@@ -14,6 +14,8 @@ class ConversionTask(models.Model):
         ('annotation', 'Annotation'),
         ('sequencing_ont', 'ONT Sequencing'),
         ('sequencing_illumina', 'Illumina Sequencing'),
+        ('sequencing_ont_annotated', 'ONT Sequencing with Annotation'),
+        ('sequencing_illumina_annotated', 'Illumina Sequencing with Annotation'),
     ]
     
     # Future: add user association

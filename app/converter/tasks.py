@@ -77,7 +77,7 @@ def poll_annotation_start(self, fasta_bytes, dest_path=None):
         return
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
-def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=None):
+def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=None, annotate=False):
 
     print("Trying to start sequencing task for uploaded FASTQ (reading from disk)")
 
@@ -108,11 +108,11 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
             notify_user_conversion_failed(None, None, message="Failed to read second fastq file")
             return
         
-        external_resp = sequence_illumina(fastq_bytes, fastq_2_bytes)
+        external_resp = sequence_illumina(fastq_bytes, fastq_2_bytes, annotate=annotate)
     
     #ONT
     elif sequencing_type == "ont":
-        external_resp = sequence_ont(fastq_bytes)
+        external_resp = sequence_ont(fastq_bytes, annotate=annotate)
 
     if external_resp.get("status") == "running" or external_resp.get("status") == "pending":
         print("Sequencing started with job ID:", external_resp["job_id"])
@@ -120,7 +120,7 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
             external_job_id=external_resp["job_id"],
             status="running",
             input_path=dest_path + ("," + dest_path_2 if dest_path_2 else ""),
-            task_type="sequencing" + ("_" + sequencing_type)
+            task_type="sequencing" + ("_" + sequencing_type) + ("_annotated" if annotate else "")
         )
         poll_conversion_status.delay(task.id)
         return

@@ -44,6 +44,7 @@ def sequencing_task(request):
     if request.method == 'POST':
         print("Received sequencing task request")
         sequencing_type = request.POST.get('sequencing_type')
+        annotate = request.POST.get('annotate') == 'on'  # Checkbox value
 
         fastq = request.FILES.get('fastq_file')
         if not fastq:
@@ -60,7 +61,7 @@ def sequencing_task(request):
         
         # Start the sequencing task asynchronously
         print(f"Starting sequencing task with type {sequencing_type} for file {fastq.name}")
-        poll_sequencing_start.delay(sequencing_type, dest_path, dest_path_2)
+        poll_sequencing_start.delay(sequencing_type, dest_path, dest_path_2, annotate=annotate)
 
         message = f"Sequencing task started for file {fastq.name}. You will be notified when it's complete."
         messages.info(request, message)
