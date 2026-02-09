@@ -4,18 +4,18 @@ def notify_user(user, message):
     """ Notifies the user with the given message. """
     print(message)
 
-def notify_user_annotation_complete(user, task):
+def notify_user_conversion_complete(user, task):
     """
-    Notifies user that the annotation is complete.
+    Notifies user that the conversion is complete.
     """
-    message = f"The annotation for the task with ID {task.external_job_id} is complete. You can now access your results."
+    message = f"The conversion for the task with ID {task.external_job_id} is complete. You can now access your results."
     notify_user(user, message)
 
-def notify_user_annotation_failed(user, task):
+def notify_user_conversion_failed(user, task):
     """
-    Notifies user that the annotation has failed.
+    Notifies user that the conversion has failed.
     """
-    message = f"The annotation for the task with ID {task.external_job_id} has failed. Please try again."
+    message = f"The conversion for the task with ID {task.external_job_id} has failed. Please try again."
     notify_user(user, message)
 
 def notify_user_server_busy(user):

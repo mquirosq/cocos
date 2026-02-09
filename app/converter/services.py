@@ -1,6 +1,6 @@
 import requests
 import os
-from .models import AnnotationTask
+from .models import ConversionTask
 
 BASE = os.getenv("ANNOTATION_BASE", "http://localhost:8000")
 
@@ -33,4 +33,35 @@ def annotate_from_fasta(fasta_content):
         return resp.json()
     
     # resp.raise_for_status()
+    return resp.json()
+
+def sequence_illumina(fastq_content, fastq_2_content, annotate=False):
+    resp = requests.post(
+        f"{BASE}/assembly/illumina?annotate=" + str(annotate).lower(),
+        files={
+            "r1": ("r1", fastq_content, "application/gzip"),
+            "r2": ("r2", fastq_2_content, "application/gzip"),
+        },
+        timeout=60,
+    )
+
+    if resp.status_code == 503:
+        print("Received 503 Server Busy response")
+        return resp.json()
+
+    resp.raise_for_status()
+    return resp.json()
+
+def sequence_ont(fastq_content, annotate=False):
+    resp = requests.post(
+        f"{BASE}/assembly/ont?annotate=" + str(annotate).lower(),
+        files={"reads": ("reads", fastq_content, "application/gzip")},
+        timeout=30,
+    )
+    
+    if resp.status_code == 503:
+        print("Received 503 Server Busy response")
+        return resp.json()
+    
+    resp.raise_for_status()
     return resp.json()

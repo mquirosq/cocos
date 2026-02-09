@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h1>Annotation Tasks</h1>
+  <h1>Conversion Tasks</h1>
   <div class="row g-3">
     {% for task in tasks %}
     <div class="col-12 col-md-6 col-lg-4">
@@ -11,6 +11,9 @@
           <h5 class="card-title">Task #{{ task.id }}</h5>
           <p class="card-text mb-1"><strong>Status:</strong> {{ task.status }}</p>
           <p class="card-text mb-2"><strong>External job id:</strong> {{ task.external_job_id }}</p>
+          {% if task.type or task.task_type %}
+          <p class="card-text mb-2"><strong>Type:</strong> {{ task.type|default:task.task_type }}</p>
+          {% endif %}
           {% if task.created_at %}
           <p class="card-text text-muted small">Created: {{ task.created_at }}</p>
           {% endif %}
@@ -22,7 +25,7 @@
     </div>
     {% empty %}
     <div class="col-12">
-      <p>No annotation tasks found.</p>
+      <p>No conversion tasks found.</p>
     </div>
     {% endfor %}
   </div>
