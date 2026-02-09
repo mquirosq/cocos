@@ -9,3 +9,4 @@ uploads/
 ai_model/
 
 *.gz
+example_files/ATCC25922.fastq.gz
