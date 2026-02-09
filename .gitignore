@@ -7,3 +7,5 @@ __pycache__/
 uploads/
 *.sqlite3
 ai_model/
+
+*.gz
