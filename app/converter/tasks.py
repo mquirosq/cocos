@@ -1,6 +1,6 @@
 from celery import shared_task
 from .models import ConversionTask
-from .services import annotate_from_fasta, get_job_status, sequence_illumina, sequence_ont
+from .services import annotate_from_fasta, annotate_from_sequencing_job, get_job_status, sequence_illumina, sequence_ont
 from .notification import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed
 from celery.exceptions import MaxRetriesExceededError
 
@@ -27,7 +27,7 @@ def poll_conversion_status(self, task_id):
     
     if status != task.status:
         print("Status changed from", task.status, "to", status)
-        if status == "annotated":
+        if status == "annotated" or status == "assembled":
             status = "completed"
         task.status = status
         task.save()
@@ -121,6 +121,37 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
             status="running",
             input_path=dest_path + ("," + dest_path_2 if dest_path_2 else ""),
             task_type="sequencing" + ("_" + sequencing_type) + ("_annotated" if annotate else "")
+        )
+        poll_conversion_status.delay(task.id)
+        return
+
+    print("Server busy response received, will retry later.")
+    try:
+        self.retry(countdown=60)  # Retry after 60 seconds
+    except MaxRetriesExceededError: # When retries are exhausted
+        notify_user_server_busy(None)
+        return
+    
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
+def poll_annotation_from_sequencing_start(self, job_id):
+    
+    print("Trying to start annotation task for uploaded FASTA")
+    
+    previous_job = ConversionTask.objects.filter(external_job_id=job_id).first()
+    if not previous_job:
+        print("Previous sequencing job not found for annotation task with job ID:", job_id)
+        notify_user_conversion_failed(None, None, message="Previous sequencing job not found")
+        return
+    
+    external_resp = annotate_from_sequencing_job(job_id)
+
+    if external_resp.get("status") == "running" or external_resp.get("status") == "annotation_pending":
+        print("Annotation started with job ID:", external_resp["job_id"])
+        task = ConversionTask.objects.create(
+            external_job_id=external_resp["job_id"],
+            status="running",
+            input_path=previous_job.input_path,
+            task_type="annotation"
         )
         poll_conversion_status.delay(task.id)
         return

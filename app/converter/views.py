@@ -3,7 +3,7 @@ from django.http import HttpResponseBadRequest
 from django.contrib import messages
 from django.views.decorators.http import require_POST
 
-from .tasks import poll_annotation_start, poll_sequencing_start
+from .tasks import poll_annotation_from_sequencing_start, poll_annotation_start, poll_sequencing_start
 from .utils import upload_file
 
 # TODO: Move upload logic to a separate utility module (so it can be reused)
@@ -64,6 +64,24 @@ def sequencing_task(request):
         poll_sequencing_start.delay(sequencing_type, dest_path, dest_path_2, annotate=annotate)
 
         message = f"Sequencing task started for file {fastq.name}. You will be notified when it's complete."
+        messages.info(request, message)
+
+        return redirect('task_list')
+    
+@require_POST
+def annotation_from_sequencing_task(request, job_id):
+    """
+    Start an annotation task based on the result of a previous sequencing task.
+    Expects a job_id from the sequencing task to be provided in the POST data.
+    """
+    if request.method == 'POST':
+        if not job_id:
+            return HttpResponseBadRequest('No job_id provided for annotation task')
+
+        print(f"Starting annotation task from sequencing job with ID: {job_id}")
+        poll_annotation_from_sequencing_start.delay(job_id)
+
+        message = f"Annotation task started for sequencing job {job_id}. You will be notified when it's complete."
         messages.info(request, message)
 
         return redirect('task_list')

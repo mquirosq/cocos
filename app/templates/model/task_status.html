@@ -21,6 +21,13 @@
       <button class="btn btn-secondary" disabled>Download JSON</button>
       {% endif %}
 
+      {% if "annotation" not in task.task_type and task.status == "completed" %}
+      <form method="post" action="{% url 'converter:annotation_from_sequencing_task' task.external_job_id %}" class="d-inline ml-2">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary">Annotate</button>
+      </form>
+      {% endif %}
+
     </div>
   </div>
 </div>

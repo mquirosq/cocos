@@ -1,6 +1,5 @@
 import requests
 import os
-from .models import ConversionTask
 
 BASE = os.getenv("ANNOTATION_BASE", "http://localhost:8000")
 
@@ -53,15 +52,32 @@ def sequence_illumina(fastq_content, fastq_2_content, annotate=False):
     return resp.json()
 
 def sequence_ont(fastq_content, annotate=False):
-    resp = requests.post(
-        f"{BASE}/assembly/ont?annotate=" + str(annotate).lower(),
-        files={"reads": ("reads", fastq_content, "application/gzip")},
-        timeout=30,
-    )
-    
+    try:
+        resp = requests.post(
+            f"{BASE}/assembly/ont?annotate=" + str(annotate).lower(),
+            files={"reads": ("reads", fastq_content, "application/gzip")},
+            timeout=300,
+        )
+    except requests.exceptions.ReadTimeout:
+        print("ReadTimeout when contacting bio-assembly-api for ONT assembly")
+        return {"status": "busy"}
+    except requests.exceptions.RequestException as e:
+        print("Request error when contacting bio-assembly-api for ONT assembly:", str(e))
+        raise
+
     if resp.status_code == 503:
         print("Received 503 Server Busy response")
         return resp.json()
-    
+
+    resp.raise_for_status()
+    return resp.json()
+
+def annotate_from_sequencing_job(job_id):
+    resp = requests.post(f"{BASE}/annotation/bakta/existing/{job_id}?threads=4")
+
+    if resp.status_code == 503:
+        print("Received 503 Server Busy response")
+        return resp.json()
+
     resp.raise_for_status()
     return resp.json()
