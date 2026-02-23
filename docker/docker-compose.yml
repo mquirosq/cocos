@@ -40,8 +40,13 @@ services:
 
   redis:
     image: redis:7
+    container_name: bio-web-redis
     volumes:
-      - redis_data:/data
+      - redis_data_web:/data
+    networks:
+      bio-network:
+        aliases:
+          - bio-web-redis
 
 networks:
   bio-network:
@@ -49,4 +54,4 @@ networks:
     name: bio-network
 
 volumes:
-  redis_data:
+  redis_data_web:
