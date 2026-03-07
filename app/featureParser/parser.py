@@ -12,12 +12,13 @@ def parse_bakta_json(data, file, complete_version=False):
         features = data.get('features', [])
         try:
             for gene in features:
-                gene_name = gene.get('gene', [])
-                gene_db_xrefs = gene.get('db_xref', [])
-                gene_product = gene.get('product', [])
+                gene_name = gene.get('gene')
+                gene_db_xrefs = gene.get('db_xrefs')
+                gene_product = gene.get('product')
                 identifiers = []
                 if gene_db_xrefs:
-                    identifiers.extend(gene_db_xrefs.split(','))
+                    for xref in gene_db_xrefs:
+                        identifiers.append(xref)
                 if gene_product:
                     identifiers.append(gene_product)
                 if gene_name:
