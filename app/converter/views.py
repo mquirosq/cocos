@@ -34,7 +34,6 @@ def annotation_task(request):
 
         return redirect('task_list')
 
-# TODO: Allow only post requests:
 @require_POST
 def sequencing_task(request):
     """
