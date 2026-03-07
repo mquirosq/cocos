@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}Prediction - TFG{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+  <h1>Model Prediction</h1>
+
+  {% if error %}
+  <div class="alert alert-danger">{{ error }}</div>
+  {% endif %}
+
+  {% if prediction is not None %}
+  <div class="alert alert-info">Prediction probability: <strong>{{ prediction }}</strong></div>
+  {% endif %}
+
+  <form method="post" class="row g-3">
+    {% csrf_token %}
+    <div class="col-md-4">
+      <label class="form-label">Model name</label>
+      <select name="model_name" class="form-select">
+        <option value="">-- choose --</option>
+        <option value="BaselineMLP" {% if model_name == 'BaselineMLP' %}selected{% endif %}>BaselineMLP</option>
+        <option value="TowerMLP" {% if model_name == 'TowerMLP' %}selected{% endif %}>TowerMLP</option>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <label class="form-label">Antibiotic (weights filename)</label>
+      <input type="text" name="antibiotic" value="{{ antibiotic }}" class="form-control" placeholder="e.g. ampicillin">
+    </div>
+
+    <div class="col-md-4">
+      <label class="form-label">FileUpload id (optional)</label>
+      <input type="text" name="file_id" value="{{ file_id }}" class="form-control" placeholder="Database FileUpload id">
+    </div>
+
+    <div class="col-12">
+      <button type="submit" class="btn btn-primary">Get prediction</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

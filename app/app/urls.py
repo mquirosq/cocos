@@ -23,4 +23,5 @@ urlpatterns = [
     path('feature-parser/', include('featureParser.urls')),
     path('converter/', include('converter.urls', namespace='converter')),
     path('tasks/', include('model.urls')),
+    path('input-parser/', include('inputParser.urls')),
 ]
