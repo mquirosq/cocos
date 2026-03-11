@@ -6,7 +6,7 @@ __pycache__/
 # App specific ignores
 uploads/
 *.sqlite3
-ai_model/
+app/ai_model/pesos/
 
 *.gz
 example_files/ATCC25922.fastq.gz
