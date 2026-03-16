@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'model',
     'featureParser',
     'converter',
+    "inputParser.apps.InputparserConfig",
     'django_celery_results',
 ]
 
