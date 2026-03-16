@@ -12,7 +12,6 @@ from .services import download_bakta_json_result
 import json
 from .models import ConversionTask
 
-# TODO: Move upload logic to a separate utility module (so it can be reused)
 def conversion_task_ui(request):
     """Render a simple UI for starting external tasks like annotation and sequencing."""
     return render(request, 'converter/start_external_task.html')
