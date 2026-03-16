@@ -5,7 +5,7 @@ from django.views.decorators.http import require_POST
 
 from .utils import upload_file
 import json
-from .parsers import parse_bakta_json
+from .parsers import parse_file
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse, HttpResponseServerError
 from .services import download_bakta_json_result
@@ -128,7 +128,7 @@ def parse_feature_file(request):
         except Exception:
             return render(None, 'featureParser/parse_feature_file.html', {'messages': ['Error decoding JSON file!']})
         
-        file_upload = parse_bakta_json(data, request.FILES.get('feature_file'), complete_version)
+        file_upload = parse_file("bakta_json", data, request.FILES.get('feature_file'), {"complete_version": complete_version})
         return render(request, 'featureParser/parse_feature_file.html', {'messages': ['File parsed successfully!'], 'file_upload': file_upload})
     return render(request, 'featureParser/parse_feature_file.html')
 
