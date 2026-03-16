@@ -1,4 +1,4 @@
-"""Model registry utilities (moved from inputParser)."""
+"""Model registry utilities. Allow registering model adapter classes with a simple decorator and retrieving them by name."""
 import inspect
 
 # Registry mapping lowercase name -> adapter class
