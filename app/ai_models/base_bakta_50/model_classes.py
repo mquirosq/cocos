@@ -1,9 +1,9 @@
 from typing import List, Iterable
 import torch
 import torch.nn as nn
-from inputParser.utils import presence_from_list, get_columns_from_pickle, get_model_weights_path
-from inputParser.model_interface import ModelInterface
-from inputParser.registry import register_model
+from prediction.utils import presence_from_list, get_columns_from_pickle, get_model_weights_path
+from prediction.model_interface import ModelInterface
+from prediction.registry import register_model
 
 # --- Model definition ---
 class BaselineMLP(nn.Module):

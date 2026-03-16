@@ -20,8 +20,6 @@ from django.urls import include, path
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('home.urls')),
-    path('feature-parser/', include('featureParser.urls')),
-    path('converter/', include('converter.urls', namespace='converter')),
-    path('tasks/', include('model.urls')),
-    path('input-parser/', include('inputParser.urls')),
+    path('conversion/', include(('conversion.urls', 'conversion'), namespace='conversion')),
+    path('prediction/', include(('prediction.urls', 'prediction'), namespace='prediction')),
 ]

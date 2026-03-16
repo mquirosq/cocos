@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container mt-4">
-  <a href="{% url 'task_list' %}" class="btn btn-link mb-3">&larr; Back to Tasks</a>
+  <a href="{% url 'conversion:task_list' %}" class="btn btn-link mb-3">&larr; Back to Tasks</a>
   <div class="card">
     <div class="card-body">
       <h4 class="card-title">Task #{{ task.id }}</h4>
@@ -16,13 +16,13 @@
       {% endif %}
 
       {% if task.status == 'completed' %}
-      <a href="{% url 'download_json' task.id %}" class="btn btn-success">Download JSON</a>
+      <a href="{% url 'conversion:download_json' task.id %}" class="btn btn-success">Download JSON</a>
       {% else %}
       <button class="btn btn-secondary" disabled>Download JSON</button>
       {% endif %}
 
       {% if "annotation" not in task.task_type and task.status == "completed" %}
-      <form method="post" action="{% url 'converter:annotation_from_sequencing_task' task.external_job_id %}" class="d-inline ml-2">
+      <form method="post" action="{% url 'conversion:annotation_from_sequencing_task' task.external_job_id %}" class="d-inline ml-2">
         {% csrf_token %}
         <button type="submit" class="btn btn-primary">Annotate</button>
       </form>

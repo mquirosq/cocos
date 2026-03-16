@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from converter.models import ConversionTask
+from conversion.models import ConversionTask
 
 def home(request):
     return render(request, 'home/home.html')

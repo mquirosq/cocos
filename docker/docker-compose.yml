@@ -26,7 +26,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    command: celery -A app worker -l info
+    command: sh -c "export PYTHONPATH=/app && celery -A app worker -l info"
     volumes:
       - ../app:/app
     # Ejecutar con UID 1000 - No arrancar como root

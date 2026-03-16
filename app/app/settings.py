@@ -38,10 +38,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'home',
-    'model',
-    'featureParser',
-    'converter',
-    "inputParser.apps.InputparserConfig",
+    'conversion.apps.ConversionConfig',
+    'prediction.apps.PredictionConfig',
     'django_celery_results',
 ]
 

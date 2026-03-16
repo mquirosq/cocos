@@ -21,7 +21,7 @@
 
   <div class="tab-content mt-3">
     <div class="tab-pane fade show active" id="fasta" role="tabpanel" aria-labelledby="fasta-tab">
-      <form id="upload-form-fasta" method="post" enctype="multipart/form-data" action="{% url 'converter:annotation_task' %}">
+      <form id="upload-form-fasta" method="post" enctype="multipart/form-data" action="{% url 'conversion:annotation_task' %}">
         {% csrf_token %}
         <input type="hidden" name="task_type" value="annotation">
         <div class="mb-3">
@@ -34,7 +34,7 @@
     </div>
 
     <div class="tab-pane fade" id="fastq" role="tabpanel" aria-labelledby="fastq-tab">
-      <form id="upload-form-fastq" method="post" enctype="multipart/form-data" action="{% url 'converter:sequencing_task' %}">
+      <form id="upload-form-fastq" method="post" enctype="multipart/form-data" action="{% url 'conversion:sequencing_task' %}">
         {% csrf_token %}
         <select id="sequencingTypeSelect" name="sequencing_type" class="form-select mb-3" required>
           <option value="" disabled selected>Tipo de secuenciación</option>
