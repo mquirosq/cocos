@@ -44,11 +44,11 @@ def prediction_view(request):
 		if not model_cls:
 			error = f"Model '{model_name}' not found."
 		else:
-			# Build list of available antibiotics from ai_model/<model_name>/pesos/*.pt
+			# Build list of available antibiotics from ai_models/<model_name>/pesos/*.pt
 			available_antibiotics = []
 			try:
 				base_dir = Path(__file__).resolve().parents[1]
-				ai_root = base_dir / 'ai_model'
+				ai_root = base_dir / 'ai_models'
 				# Try to find the model directory robustly: exact, or by replacing '-' with '_' or viceversa
 				model_dir = ai_root / model_name
 				if not (model_dir.exists() and model_dir.is_dir()):

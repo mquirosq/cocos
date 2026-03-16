@@ -3,12 +3,12 @@ Framework to easily access and offer prediction models for predicting antibiotic
 
 ## Add new prediction models
 
-To add a new prediction model include a folder under `ai_model/` with the model name and the required files. Minimal layout and rules:
+To add a new prediction model include a folder under `ai_models/` with the model name and the required files. Minimal layout and rules:
 
 - Folder layout
 
 ```
-ai_model/<model_name>/
+ai_models/<model_name>/
 	pesos/
 		<antibiotic>.pt       # model weights per-antibiotic
 	model_classes.py          # model definition and adapter implementation
@@ -20,7 +20,7 @@ ai_model/<model_name>/
 - Use the provided decorator to register your adapter implementation:
 
 ```py
-from app.ai_model.registry import register_model
+from app.ai_models.registry import register_model
 
 @register_model("model_alias")
 class MyAdapter:
@@ -34,5 +34,5 @@ class MyAdapter:
 Important: the adapter `__init__` signature should be exactly `__init__(antibiotic: str)`.
 
 
-An example implementation can be found in `ai_model/base_bakta-50/`.
+An example implementation can be found in `ai_models/base_bakta-50/`.
 

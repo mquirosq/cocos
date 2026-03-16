@@ -46,7 +46,7 @@ def get_columns_from_pickle(model_name: str, column_file_name: str) -> list:
         A list of column names loaded from the pickle file.
     """
     base_dir = Path(__file__).resolve().parents[1]
-    pkl_path = base_dir / 'ai_model' / model_name / column_file_name
+    pkl_path = base_dir / 'ai_models' / model_name / column_file_name
     with open(pkl_path, 'rb') as f:
         columns = pickle.load(f)
     return columns
@@ -61,7 +61,7 @@ def get_model_weights_path(antibiotic: str, model_name: str) -> str:
         A string path to the .pt file containing the model weights.
     """
     base_dir = Path(__file__).resolve().parents[1]
-    pesos_dir = base_dir / 'ai_model' / model_name / 'pesos'
+    pesos_dir = base_dir / 'ai_models' / model_name / 'pesos'
     candidate = pesos_dir / f"{antibiotic}.pt"
     if not candidate.exists():
         raise FileNotFoundError(f"Weights file not found: {candidate}")
