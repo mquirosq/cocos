@@ -49,7 +49,11 @@ def annotation_task(request):
 
         # Start the annotation task asynchronously (import tasks lazily to avoid app registry issues)
         from .tasks import poll_annotation_start
-        poll_annotation_start.delay(fasta_bytes, dest_path, task.id, task.user_id)
+        poll_annotation_start.delay(
+            fasta_bytes=fasta_bytes,
+            dest_path=dest_path,
+            task_id=task.id,
+        )
 
         message = f"Annotation task started for file {fasta.name}. You will be notified when it's complete."
         messages.info(request, message)
@@ -93,7 +97,13 @@ def sequencing_task(request):
         # Start the sequencing task asynchronously (lazy import)
         print(f"Starting sequencing task with type {sequencing_type} for file {fastq.name}")
         from .tasks import poll_sequencing_start
-        poll_sequencing_start.delay(sequencing_type, dest_path, dest_path_2, annotate, task.id, task.user_id)
+        poll_sequencing_start.delay(
+            sequencing_type=sequencing_type,
+            dest_path=dest_path,
+            dest_path_2=dest_path_2,
+            annotate=annotate,
+            task_id=task.id,
+        )
 
         message = f"Sequencing task started for file {fastq.name}. You will be notified when it's complete."
         messages.info(request, message)
@@ -121,13 +131,16 @@ def annotation_from_sequencing_task(request, job_id):
         task = ConversionTask.objects.create(
             external_job_id=None,
             status='pending',
-            input_path='',
+            input_path=previous_task.input_path,
             task_type='annotation',
             user=request.user
         )
 
         from .tasks import poll_annotation_from_sequencing_start
-        poll_annotation_from_sequencing_start.delay(job_id, task.id, task.user_id)
+        poll_annotation_from_sequencing_start.delay(
+            job_id=job_id,
+            new_task_id=task.id,
+        )
 
         message = f"Annotation task started for sequencing job {job_id}. You will be notified when it's complete."
         messages.info(request, message)

@@ -63,6 +63,8 @@ def poll_annotation_start(self, fasta_bytes, dest_path=None, task_id=None, user_
         if task_id:
             try:
                 task = ConversionTask.objects.get(id=task_id)
+                if user_id is None:
+                    user_id = task.user_id
                 task.external_job_id = external_resp["job_id"]
                 task.status = "running"
                 task.save()
@@ -135,6 +137,8 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
         if task_id:
             try:
                 task = ConversionTask.objects.get(id=task_id)
+                if user_id is None:
+                    user_id = task.user_id
                 task.external_job_id = external_resp["job_id"]
                 task.status = "running"
                 task.save()
@@ -168,6 +172,11 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
 def poll_annotation_from_sequencing_start(self, job_id, new_task_id=None, user_id=None):
     
     print("Trying to start annotation task for uploaded FASTA")
+
+    if user_id is None and new_task_id:
+        pending_task = ConversionTask.objects.filter(id=new_task_id).first()
+        if pending_task:
+            user_id = pending_task.user_id
     
     previous_job_qs = ConversionTask.objects.filter(external_job_id=job_id)
     if user_id:
