@@ -1,7 +1,7 @@
 from typing import List, Iterable
 import torch
 import torch.nn as nn
-from prediction.utils import presence_from_list, get_columns_from_pickle, get_model_weights_path
+from tfg.app.prediction.input_utils import presence_from_list, get_columns_from_pickle, get_model_weights_path
 from prediction.model_interface import ModelInterface
 from prediction.registry import register_model
 
