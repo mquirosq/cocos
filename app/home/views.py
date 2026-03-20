@@ -22,8 +22,3 @@ def register(request):
         form = RegistroUsuarioForm()
 
     return render(request, 'registration/register.html', {'form': form})
-
-# TODO: Remove, only for testing purposes
-def delete_all_tasks(request):
-    ConversionTask.objects.all().delete()
-    return render(request, 'home/home.html', {'message': 'All tasks deleted.'})
