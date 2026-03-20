@@ -10,28 +10,35 @@ def prediction_view(request):
     model_name = None
     antibiotic = None
     file_upload = None
+    file_id = None
 
     if request.method == 'POST':
         model_name = request.POST.get('model_name')
         if model_name:
             model_name = model_name.strip().lower()
         antibiotic = request.POST.get('antibiotic') or None
-        file_id = request.POST.get('file_id') or None
+        file_id = (request.POST.get('file_id') or '').strip() or None
     else:
         model_name = request.GET.get('model_name')
         if model_name:
             model_name = model_name.strip().lower()
         antibiotic = request.GET.get('antibiotic') or None
-        file_id = request.GET.get('file_id') or None
+        file_id = (request.GET.get('file_id') or '').strip() or None
 
+    file_id_error = None
     if file_id:
         try:
-            file_upload = FileUpload.objects.filter(pk=int(file_id)).filter(user=request.user).first()
+            parsed_file_id = int(file_id)
         except (ValueError, TypeError):
             file_upload = None
+            file_id_error = 'FileUpload id must be a numeric database id.'
+        else:
+            file_upload = FileUpload.objects.filter(pk=parsed_file_id, user=request.user).first()
+            if file_upload is None:
+                file_id_error = f"FileUpload id '{file_id}' was not found for your user."
 
     prediction = None
-    error = None
+    error = file_id_error
     available_antibiotics = []
     if model_name:
         model_cls = get_model_adapter_class(model_name)
@@ -69,5 +76,5 @@ def prediction_view(request):
         'antibiotic': antibiotic,
         'available_models': list_registered_models(),
         'available_antibiotics': available_antibiotics,
-        'file_id': getattr(file_upload, 'pk', None) if file_upload is not None else None,
+        'file_id': file_id,
     })
