@@ -14,10 +14,12 @@
     <div class="collapse navbar-collapse" id="mainNavbar">
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
         <li class="nav-item"><a class="nav-link" href="{% url 'home' %}">Home</a></li>
-        <li class="nav-item"><a class="nav-link" href="{% url 'conversion:parse_feature_file' %}">Feature Parser</a></li>
-        <li class="nav-item"><a class="nav-link" href="{% url 'conversion:conversion_task_ui' %}">Conversion</a></li>
-        <li class="nav-item"><a class="nav-link" href="{% url 'conversion:task_list' %}">Tasks</a></li>
-        <li class="nav-item"><a class="nav-link" href="{% url 'prediction:prediction' %}">Prediction</a></li>
+        {% if user.is_authenticated %}
+          <li class="nav-item"><a class="nav-link" href="{% url 'conversion:parse_feature_file' %}">Feature Parser</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'conversion:conversion_task_ui' %}">Conversion</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'conversion:task_list' %}">Tasks</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'prediction:prediction' %}">Prediction</a></li>
+        {% endif %}
       </ul>
       <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
         {% if user.is_authenticated %}

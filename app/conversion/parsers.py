@@ -7,7 +7,8 @@ import os
 PARSERS = {}
 
 def register_parser(name, extensions=None):
-    """Decorator to register a parser instance under `name`.
+    """
+    Decorator to register a parser instance under `name`.
     """
     def decorator(cls):
         PARSERS[name] = cls()
@@ -18,7 +19,7 @@ def get_parser(name):
     return PARSERS.get(name)
 
 # --- Main parsing function ---
-def parse_file(parser, data, file, options=None):
+def parse_file(parser, data, file, user=None, options=None):
     """
     Detect parser from `filename` extension and parse.
     Raises `RuntimeError` if no parser matches the extension.
@@ -26,11 +27,11 @@ def parse_file(parser, data, file, options=None):
     parser = get_parser(parser)
     if not parser:
         raise RuntimeError(f'No parser registered for parser: {parser}')
-    return parser.parse(data, file, options=options)
+    return parser.parse(data, file, user=user, options=options)
 
 # --- Base Parser, extend this for specific file types or parsing ---
 class BaseParser():
-    def parse(self, data, file, options=None):
+    def parse(self, data, file, user=None, options=None):
         """Parse data and persist results.
 
         `options` is a dict for parser-specific flags (e.g. {'complete_version': True}).
@@ -43,7 +44,7 @@ class BaseParser():
 @register_parser('bakta_json')
 class BaktaJsonParser(BaseParser):
     
-    def parse(self, data, file, options=None):
+    def parse(self, data, file, user=None, options=None):
         """Parse a Bakta JSON feature file and create FileUpload, Gene, and FileGene entries.
 
         Reads `complete_version` from `options` (defaults to False).
@@ -51,7 +52,7 @@ class BaktaJsonParser(BaseParser):
         complete_version = False if options is None else bool(options.get('complete_version', False))
         
         with transaction.atomic():
-            file_upload = FileUpload.objects.create(file=file)
+            file_upload = FileUpload.objects.create(file=file, user=user)
             features = data.get('features', [])
             try:
                 for gene in features:

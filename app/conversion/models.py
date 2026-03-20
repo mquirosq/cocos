@@ -1,10 +1,13 @@
 import re
 from django.db import models
+from django.core.exceptions import ValidationError
+from django.conf import settings
 
 class FileUpload(models.Model):
     """File that has been uploaded"""
     uploaded_at = models.DateTimeField(auto_now_add=True)
     file = models.FileField(upload_to='uploads/')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='uploaded_files')
     genes = models.ManyToManyField('Gene', related_name='files', blank=True, through='FileGene')
 
     def __str__(self):
@@ -69,10 +72,6 @@ class FileGene(models.Model):
     class Meta:
         db_table = 'model_filegene'
 
-
-# Conversion task model (moved from converter.models)
-from django.core.exceptions import ValidationError
-
 class ConversionTask(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -89,7 +88,6 @@ class ConversionTask(models.Model):
         ('sequencing_illumina_annotated', 'Illumina Sequencing with Annotation'),
     ]
     
-    # Future: add user association
     # Allow blank so we can create a pending task before an external job id exists.
     external_job_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES)
@@ -97,6 +95,7 @@ class ConversionTask(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     input_path = models.CharField(max_length=255)
     task_type = models.CharField(max_length=50, choices=TYPE_CHOICES)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='conversion_tasks')
 
     # Model-level validation
     def clean(self):

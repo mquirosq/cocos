@@ -1,10 +1,11 @@
 from django.shortcuts import render
-from django.http import HttpResponseBadRequest
 from pathlib import Path
 from conversion.models import FileUpload
 from .service import get_prediction
 from .registry import list_registered_models, get_model_adapter_class
+from django.contrib.auth.decorators import login_required
 
+@login_required()
 def prediction_view(request):
     model_name = None
     antibiotic = None
@@ -25,7 +26,7 @@ def prediction_view(request):
 
     if file_id:
         try:
-            file_upload = FileUpload.objects.filter(pk=int(file_id)).first()
+            file_upload = FileUpload.objects.filter(pk=int(file_id)).filter(user=request.user).first()
         except (ValueError, TypeError):
             file_upload = None
 

@@ -14,6 +14,7 @@
           {% if task.type or task.task_type %}
           <p class="card-text mb-2"><strong>Type:</strong> {{ task.type|default:task.task_type }}</p>
           {% endif %}
+          <p class="card-text mb-2"><strong>User:</strong> {{ task.user.username }}</p>
           {% if task.created_at %}
           <p class="card-text text-muted small">Created: {{ task.created_at }}</p>
           {% endif %}

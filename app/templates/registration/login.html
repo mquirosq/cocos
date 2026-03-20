@@ -14,13 +14,13 @@
   <div class="auth-card">
     <div class="auth-card-header">
       <span class="auth-eyebrow">Acceso</span>
-      <h1 class="auth-card-title">Iniciar sesion</h1>
+      <h1 class="auth-card-title">Iniciar sesión</h1>
       <p class="auth-card-subtitle">Entra para gestionar conversiones y ejecutar predicciones con tu cuenta.</p>
     </div>
     <div class="auth-card-body">
       {% if form.non_field_errors %}
         <div class="alert alert-danger py-2" role="alert">
-          Usuario o contrasena incorrectos.
+          Usuario o contraseña incorrectos.
         </div>
       {% endif %}
 
@@ -36,7 +36,7 @@
         </div>
 
         <div class="mb-1">
-          <label for="id_password" class="form-label">Contrasena</label>
+          <label for="id_password" class="form-label">Contraseña</label>
           <input type="password" name="password" id="id_password" class="form-control" required>
           {% if form.password.errors %}
             <div class="text-danger small mt-1">{{ form.password.errors|striptags }}</div>
@@ -48,8 +48,6 @@
           <button class="btn btn-primary" type="submit">Entrar</button>
         </div>
       </form>
-
-      <p class="auth-footer-note mb-0">No compartas tus credenciales con terceros.</p>
     </div>
   </div>
 </section>

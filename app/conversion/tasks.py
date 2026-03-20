@@ -53,7 +53,7 @@ def poll_conversion_status(self, task_id):
 
 # TODO: Por ahora aguanta máx 100 minutos, ver si es suficiente   
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
-def poll_annotation_start(self, fasta_bytes, dest_path=None, task_id=None):
+def poll_annotation_start(self, fasta_bytes, dest_path=None, task_id=None, user_id=None):
     
     print("Trying to start annotation task for uploaded FASTA")
     external_resp = annotate_from_fasta(fasta_bytes)
@@ -71,14 +71,16 @@ def poll_annotation_start(self, fasta_bytes, dest_path=None, task_id=None):
                     external_job_id=external_resp["job_id"],
                     status="running",
                     input_path=dest_path,
-                    task_type="annotation"
+                    task_type="annotation",
+                    user_id=user_id
                 )
         else:
             task = ConversionTask.objects.create(
                 external_job_id=external_resp["job_id"],
                 status="running",
                 input_path=dest_path,
-                task_type="annotation"
+                task_type="annotation",
+                user_id=user_id
             )
         poll_conversion_status.delay(task.id)
         return
@@ -91,7 +93,7 @@ def poll_annotation_start(self, fasta_bytes, dest_path=None, task_id=None):
         return
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
-def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=None, annotate=False, task_id=None):
+def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=None, annotate=False, task_id=None, user_id=None):
 
     print("Trying to start sequencing task for uploaded FASTQ (reading from disk)")
 
@@ -141,14 +143,16 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
                     external_job_id=external_resp["job_id"],
                     status="running",
                     input_path=dest_path + ("," + dest_path_2 if dest_path_2 else ""),
-                    task_type="sequencing" + ("_" + sequencing_type) + ("_annotated" if annotate else "")
+                    task_type="sequencing" + ("_" + sequencing_type) + ("_annotated" if annotate else ""),
+                    user_id=user_id
                 )
         else:
             task = ConversionTask.objects.create(
                 external_job_id=external_resp["job_id"],
                 status="running",
                 input_path=dest_path + ("," + dest_path_2 if dest_path_2 else ""),
-                task_type="sequencing" + ("_" + sequencing_type) + ("_annotated" if annotate else "")
+                task_type="sequencing" + ("_" + sequencing_type) + ("_annotated" if annotate else ""),
+                user_id=user_id
             )
         poll_conversion_status.delay(task.id)
         return
@@ -161,11 +165,15 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
         return
     
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
-def poll_annotation_from_sequencing_start(self, job_id, new_task_id=None):
+def poll_annotation_from_sequencing_start(self, job_id, new_task_id=None, user_id=None):
     
     print("Trying to start annotation task for uploaded FASTA")
     
-    previous_job = ConversionTask.objects.filter(external_job_id=job_id).first()
+    previous_job_qs = ConversionTask.objects.filter(external_job_id=job_id)
+    if user_id:
+        previous_job_qs = previous_job_qs.filter(user_id=user_id)
+
+    previous_job = previous_job_qs.first()
     if not previous_job:
         print("Previous sequencing job not found for annotation task with job ID:", job_id)
         notify_user_conversion_failed(None, None, message="Previous sequencing job not found")
@@ -187,14 +195,16 @@ def poll_annotation_from_sequencing_start(self, job_id, new_task_id=None):
                     external_job_id=external_resp["job_id"],
                     status="running",
                     input_path=previous_job.input_path,
-                    task_type="annotation"
+                    task_type="annotation",
+                    user_id=user_id
                 )
         else:
             task = ConversionTask.objects.create(
                 external_job_id=external_resp["job_id"],
                 status="running",
                 input_path=previous_job.input_path,
-                task_type="annotation"
+                task_type="annotation",
+                user_id=user_id
             )
         poll_conversion_status.delay(task.id)
         return
