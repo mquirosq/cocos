@@ -22,9 +22,15 @@
       <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
         {% if user.is_authenticated %}
           <li class="nav-item"><a class="nav-link" href="#">Hola, {{ user.username }}</a></li>
-          <li class="nav-item"><a class="nav-link" href="{% url 'accounts:logout' %}">Logout</a></li>
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'accounts:logout' %}" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">Cerrar sesion</a>
+            <form id="logout-form" method="post" action="{% url 'accounts:logout' %}" class="d-none">
+              {% csrf_token %}
+            </form>
+          </li>
         {% else %}
-          <li class="nav-item"><a class="nav-link" href="{% url 'accounts:login' %}">Login</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'accounts:login' %}">Iniciar sesion</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'accounts:register' %}">Registro</a></li>
         {% endif %}
       </ul>
     </div>
