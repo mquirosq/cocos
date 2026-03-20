@@ -1,4 +1,5 @@
 from celery import shared_task
+import requests
 from .models import ConversionTask
 from .services import annotate_from_fasta, annotate_from_sequencing_job, get_job_status, sequence_illumina, sequence_ont
 from .notification import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed
@@ -170,7 +171,6 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
     
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
 def poll_annotation_from_sequencing_start(self, job_id, new_task_id=None, user_id=None):
-    
     print("Trying to start annotation task for uploaded FASTA")
 
     if user_id is None and new_task_id:
@@ -186,6 +186,11 @@ def poll_annotation_from_sequencing_start(self, job_id, new_task_id=None, user_i
     if not previous_job:
         print("Previous sequencing job not found for annotation task with job ID:", job_id)
         notify_user_conversion_failed(None, None, message="Previous sequencing job not found")
+        return
+
+    if previous_job.status != "completed":
+        print("Previous sequencing job is not completed yet, will retry. Status:", previous_job.status)
+        notify_user_conversion_failed(None, None, message="Previous sequencing job is not completed yet. Please wait a bit and try again.")
         return
     
     external_resp = annotate_from_sequencing_job(job_id)
