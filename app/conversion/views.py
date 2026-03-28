@@ -183,8 +183,7 @@ def parse_feature_file(request):
         return render(request, 'featureParser/parse_feature_file.html', {'messages': ['File parsed successfully!'], 'file_upload': file_upload})
     return render(request, 'featureParser/parse_feature_file.html')
 
-
-# --- Task list / detail / download views moved from model ---
+# Tasks
 @login_required
 def task_list_view(request):
     """Render a list of annotation tasks as cards including external_job_id and status."""
@@ -220,3 +219,4 @@ def download_json_view(request, task_id):
     filename = f'annotation_{task.external_job_id}.json'
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+

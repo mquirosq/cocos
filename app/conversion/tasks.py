@@ -3,7 +3,7 @@ import requests
 from django.core.files.base import ContentFile
 from .models import ConversionTask, FileUpload
 from .services import annotate_from_fasta, annotate_from_sequencing_job, download_assembly_fasta_result, get_job_status, sequence_illumina, sequence_ont
-from .notification import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed
+from notifications.services import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed
 from celery.exceptions import MaxRetriesExceededError
 from .utils import delete_file_safely
 
@@ -58,7 +58,7 @@ def poll_conversion_status(self, task_id):
         print("Job not found for task:", task.external_job_id)
         task.status = "failed"
         task.save()
-        notify_user_conversion_failed(None, task)
+        notify_user_conversion_failed(task.user, task)
         return
     
     if status != task.status:
@@ -81,14 +81,14 @@ def poll_conversion_status(self, task_id):
                     print("Max retries exceeded while persisting FASTA for task:", task.external_job_id)
                     task.status = "failed"
                     task.save()
-                    notify_user_conversion_failed(None, task)
+                    notify_user_conversion_failed(task.user, task)
                 return
         _cleanup_temp_fastq_inputs(task)
-        notify_user_conversion_complete(None, task)
+        notify_user_conversion_complete(task.user, task)
         return
 
     if status == "failed":
-        notify_user_conversion_failed(None, task)
+        notify_user_conversion_failed(task.user, task)
         return
 
     try:
@@ -98,7 +98,7 @@ def poll_conversion_status(self, task_id):
         print("Max retries exceeded for task:", task.external_job_id)
         task.status = "failed"
         task.save()
-        notify_user_conversion_failed(None, task)
+        notify_user_conversion_failed(task.user, task)
         return
 
 # TODO: Por ahora aguanta máx 100 minutos, ver si es suficiente   
@@ -106,6 +106,7 @@ def poll_conversion_status(self, task_id):
 def poll_annotation_start(self, fasta_bytes, dest_path=None, task_id=None, user_id=None):
     
     print("Trying to start annotation task for uploaded FASTA")
+    task = ConversionTask.objects.filter(id=task_id).first() if task_id else None
     external_resp = annotate_from_fasta(fasta_bytes)
 
     if external_resp.get("status") == "running" or external_resp.get("status") == "annotation_pending":
@@ -141,7 +142,7 @@ def poll_annotation_start(self, fasta_bytes, dest_path=None, task_id=None, user_
     try:
         self.retry(countdown=60)  # Retry after 60 seconds
     except MaxRetriesExceededError: # When retries are exhausted
-        notify_user_server_busy(None)
+        notify_user_server_busy(task.user if task else None, task=task)
         return
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
@@ -149,8 +150,11 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
 
     print("Trying to start sequencing task for uploaded FASTQ (reading from disk)")
 
+    task = ConversionTask.objects.filter(id=task_id).first() if task_id else None
+    effective_user = task.user if task else None
+
     if sequencing_type not in ["illumina", "ont"]:
-        notify_user_conversion_failed(None, None, message="Invalid sequencing type")
+        notify_user_conversion_failed(effective_user, task=task, message="Invalid sequencing type")
         return
 
     # Read files
@@ -159,21 +163,21 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
             fastq_bytes = f.read()
     except Exception as e:
         print("Failed to read fastq file from path:", dest_path, str(e))
-        notify_user_conversion_failed(None, None, message="Failed to read fastq file")
+        notify_user_conversion_failed(effective_user, task=task, message="Failed to read fastq file")
         return
 
     # Illumina
     if sequencing_type == "illumina":
         if not dest_path_2:
             print("Illumina sequencing requires a second FASTQ file but dest_path_2 is missing")
-            notify_user_conversion_failed(None, None, message="Missing second FASTQ for Illumina")
+            notify_user_conversion_failed(effective_user, task=task, message="Missing second FASTQ for Illumina")
             return
         try:
             with open(dest_path_2, 'rb') as f2:
                 fastq_2_bytes = f2.read()
         except Exception as e:
             print("Failed to read second fastq file from path:", dest_path_2, str(e))
-            notify_user_conversion_failed(None, None, message="Failed to read second fastq file")
+            notify_user_conversion_failed(effective_user, task=task, message="Failed to read second fastq file")
             return
         
         external_resp = sequence_illumina(fastq_bytes, fastq_2_bytes, annotate=annotate)
@@ -215,7 +219,7 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
     try:
         self.retry(countdown=60)  # Retry after 60 seconds
     except MaxRetriesExceededError: # When retries are exhausted
-        notify_user_server_busy(None)
+        notify_user_server_busy(effective_user, task=task)
         return
     
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
@@ -234,12 +238,22 @@ def poll_annotation_from_sequencing_start(self, job_id, new_task_id=None, user_i
     previous_job = previous_job_qs.first()
     if not previous_job:
         print("Previous sequencing job not found for annotation task with job ID:", job_id)
-        notify_user_conversion_failed(None, None, message="Previous sequencing job not found")
+        pending_task = ConversionTask.objects.filter(id=new_task_id).first() if new_task_id else None
+        notify_user_conversion_failed(
+            pending_task.user if pending_task else None,
+            task=pending_task,
+            message="Previous sequencing job not found",
+        )
         return
 
     if previous_job.status != "completed":
         print("Previous sequencing job is not completed yet, will retry. Status:", previous_job.status)
-        notify_user_conversion_failed(None, None, message="Previous sequencing job is not completed yet. Please wait a bit and try again.")
+        pending_task = ConversionTask.objects.filter(id=new_task_id).first() if new_task_id else None
+        notify_user_conversion_failed(
+            pending_task.user if pending_task else None,
+            task=pending_task,
+            message="Previous sequencing job is not completed yet. Please wait a bit and try again.",
+        )
         return
     
     external_resp = annotate_from_sequencing_job(job_id)
@@ -276,5 +290,6 @@ def poll_annotation_from_sequencing_start(self, job_id, new_task_id=None, user_i
     try:
         self.retry(countdown=60)  # Retry after 60 seconds
     except MaxRetriesExceededError: # When retries are exhausted
-        notify_user_server_busy(None)
+        task = ConversionTask.objects.filter(id=new_task_id).first() if new_task_id else None
+        notify_user_server_busy(task.user if task else None, task=task)
         return

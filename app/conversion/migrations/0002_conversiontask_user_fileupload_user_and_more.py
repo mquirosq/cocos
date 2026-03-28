@@ -16,13 +16,13 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='conversiontask',
             name='user',
-            field=models.ForeignKey(default='admin', on_delete=django.db.models.deletion.PROTECT, related_name='conversion_tasks', to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(null=True, blank=True, on_delete=django.db.models.deletion.PROTECT, related_name='conversion_tasks', to=settings.AUTH_USER_MODEL),
             preserve_default=False,
         ),
         migrations.AddField(
             model_name='fileupload',
             name='user',
-            field=models.ForeignKey(default='admin', on_delete=django.db.models.deletion.PROTECT, related_name='uploaded_files', to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(null=True, blank=True, on_delete=django.db.models.deletion.PROTECT, related_name='uploaded_files', to=settings.AUTH_USER_MODEL),
             preserve_default=False,
         ),
         migrations.AlterField(

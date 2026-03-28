@@ -21,5 +21,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('home.urls')),
     path('conversion/', include(('conversion.urls', 'conversion'), namespace='conversion')),
+    path('notifications/', include(('notifications.urls', 'notifications'), namespace='notifications')),
     path('prediction/', include(('prediction.urls', 'prediction'), namespace='prediction')),
 ]

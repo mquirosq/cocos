@@ -18,6 +18,14 @@
           <li class="nav-item"><a class="nav-link" href="{% url 'conversion:parse_feature_file' %}">Feature Parser</a></li>
           <li class="nav-item"><a class="nav-link" href="{% url 'conversion:conversion_task_ui' %}">Conversion</a></li>
           <li class="nav-item"><a class="nav-link" href="{% url 'conversion:task_list' %}">Tasks</a></li>
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'notifications:list' %}">
+              Notifications
+              {% if unread_notifications_count > 0 %}
+                <span class="badge rounded-pill bg-danger">{{ unread_notifications_count }}</span>
+              {% endif %}
+            </a>
+          </li>
           <li class="nav-item"><a class="nav-link" href="{% url 'prediction:prediction' %}">Prediction</a></li>
         {% endif %}
       </ul>

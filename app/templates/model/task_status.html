@@ -3,6 +3,7 @@
 {% block content %}
 <div class="container mt-4">
   <a href="{% url 'conversion:task_list' %}" class="btn btn-link mb-3">&larr; Back to Tasks</a>
+  <a href="{% url 'notifications:list' %}" class="btn btn-link mb-3">View Notifications</a>
   <div class="card">
     <div class="card-body">
       <h4 class="card-title">Task #{{ task.id }}</h4>

@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'home',
     'conversion.apps.ConversionConfig',
+    'notifications.apps.NotificationsConfig',
     'prediction.apps.PredictionConfig',
     'django_celery_results',
 ]
@@ -65,6 +66,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'notifications.context_processors.unread_notifications_count',
             ],
         },
     },
@@ -147,3 +149,14 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 
 CELERY_RESULT_BACKEND = "django-db"
+
+# Email Configuration
+# Development: console backend (prints to terminal)
+# Production: SendGrid backend (requires sendgrid-django package and SENDGRID_API_KEY env var)
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@tfg.com')
+NOTIFICATION_EMAIL_SUBJECT = os.getenv('NOTIFICATION_EMAIL_SUBJECT', 'TFG Conversion Notification')
+
+# SendGrid Configuration (for production)
+# Set EMAIL_BACKEND=sendgrid_backend.SendgridBackend and SENDGRID_API_KEY in environment
+SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY', '')

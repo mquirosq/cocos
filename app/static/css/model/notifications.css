@@ -1,0 +1,21 @@
+.notification-item {
+  border-radius: 0.6rem;
+  border: 1px solid #d9e0ee;
+  margin-bottom: 0.7rem;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.notification-item:hover {
+  border-color: #bfcbe3;
+  box-shadow: 0 4px 14px rgba(22, 34, 66, 0.08);
+}
+
+.notification-item-unread {
+  border-left: 5px solid #2b72f7;
+  background: linear-gradient(90deg, rgba(43, 114, 247, 0.08) 0%, rgba(43, 114, 247, 0.01) 24%, #ffffff 60%);
+}
+
+.notification-item-read {
+  border-left: 5px solid #d9e0ee;
+  background-color: #ffffff;
+}
