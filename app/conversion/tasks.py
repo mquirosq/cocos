@@ -41,7 +41,6 @@ def _persist_sequencing_fasta_output(task):
     file_upload.file.save(filename, ContentFile(fasta_content), save=True)
 
 # TODO: Por ahora aguanta máx 100 minutos, ver si es suficiente
-# TODO: Cambiar notificaciones para que sean a usuarios
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=10, max_retries=100)
 def poll_conversion_status(self, task_id):
     try:
@@ -221,7 +220,8 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
     except MaxRetriesExceededError: # When retries are exhausted
         notify_user_server_busy(effective_user, task=task)
         return
-    
+
+# TODO: Is this still broken?   
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
 def poll_annotation_from_sequencing_start(self, job_id, new_task_id=None, user_id=None):
     print("Trying to start annotation task for uploaded FASTA")

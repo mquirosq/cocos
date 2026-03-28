@@ -25,7 +25,6 @@ def download_assembly_fasta_result(job_id):
     response.raise_for_status()
     return response.content
 
-# TODO: Check commented code
 def annotate_from_fasta(fasta_content):
     resp = requests.post(
         f"{BASE}/annotation/bakta/upload?threads=4",
@@ -37,7 +36,7 @@ def annotate_from_fasta(fasta_content):
         print("Received 503 Server Busy response")
         return resp.json()
     
-    # resp.raise_for_status()
+    resp.raise_for_status()
     return resp.json()
 
 def sequence_illumina(fastq_content, fastq_2_content, annotate=False):
