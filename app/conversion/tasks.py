@@ -1,9 +1,44 @@
 from celery import shared_task
 import requests
-from .models import ConversionTask
-from .services import annotate_from_fasta, annotate_from_sequencing_job, get_job_status, sequence_illumina, sequence_ont
+from django.core.files.base import ContentFile
+from .models import ConversionTask, FileUpload
+from .services import annotate_from_fasta, annotate_from_sequencing_job, download_assembly_fasta_result, get_job_status, sequence_illumina, sequence_ont
 from .notification import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed
 from celery.exceptions import MaxRetriesExceededError
+from .utils import delete_file_safely
+
+
+def _cleanup_temp_fastq_inputs(task):
+    """Remove temporary FASTQ files used as sequencing inputs."""
+    if not task or not task.input_path:
+        return
+    if not task.task_type.startswith("sequencing_"):
+        return
+
+    for candidate in task.input_path.split(','):
+        path = (candidate or '').strip()
+        if not path:
+            continue
+        if 'uploads\\temp\\' in path or 'uploads/temp/' in path:
+            delete_file_safely(path)
+
+
+def _persist_sequencing_fasta_output(task):
+    """Download and persist assembled FASTA for sequencing tasks."""
+    if not task or not task.external_job_id:
+        return
+    if not task.task_type.startswith("sequencing_"):
+        return
+
+    filename = f"assembly_{task.external_job_id}.fasta"
+    if FileUpload.objects.filter(user_id=task.user_id, file__contains=filename).exists():
+        return
+
+    fasta_content = download_assembly_fasta_result(task.external_job_id)
+    if not fasta_content:
+        raise ValueError("Downloaded FASTA content is empty")
+    file_upload = FileUpload(user_id=task.user_id)
+    file_upload.file.save(filename, ContentFile(fasta_content), save=True)
 
 # TODO: Por ahora aguanta máx 100 minutos, ver si es suficiente
 # TODO: Cambiar notificaciones para que sean a usuarios
@@ -35,6 +70,20 @@ def poll_conversion_status(self, task_id):
 
     if status == "completed":
         print("Conversion completed for task:", task.external_job_id)
+        if task.task_type.startswith("sequencing_"):
+            try:
+                _persist_sequencing_fasta_output(task)
+            except Exception as e:
+                print("Unable to persist assembled FASTA, will retry:", str(e))
+                try:
+                    self.retry(countdown=60)
+                except MaxRetriesExceededError:
+                    print("Max retries exceeded while persisting FASTA for task:", task.external_job_id)
+                    task.status = "failed"
+                    task.save()
+                    notify_user_conversion_failed(None, task)
+                return
+        _cleanup_temp_fastq_inputs(task)
         notify_user_conversion_complete(None, task)
         return
 

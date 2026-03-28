@@ -36,7 +36,12 @@ def annotation_task(request):
 
         fasta_bytes = fasta.read()
         
-        dest_path = upload_file(fasta, upload_dir='uploads/fasta')
+        dest_path = upload_file(
+            fasta,
+            user_id=request.user.id,
+            file_kind='fasta',
+            persistent=True,
+        )
 
         # Create a pending ConversionTask immediately so the UI shows the task.
         task = ConversionTask.objects.create(
@@ -80,10 +85,20 @@ def sequencing_task(request):
         if not sequencing_type == "illumina" and fastq_2:
             return HttpResponseBadRequest('Second FASTQ file provided for non-Illumina sequencing type')
         
-        dest_path = upload_file(fastq, upload_dir='uploads/fastq')
+        dest_path = upload_file(
+            fastq,
+            user_id=request.user.id,
+            file_kind='fastq',
+            persistent=False,
+        )
         dest_path_2 = None
         if fastq_2:
-            dest_path_2 = upload_file(fastq_2, upload_dir='uploads/fastq')
+            dest_path_2 = upload_file(
+                fastq_2,
+                user_id=request.user.id,
+                file_kind='fastq',
+                persistent=False,
+            )
         
         # Create a pending ConversionTask so it appears in the UI immediately.
         task = ConversionTask.objects.create(

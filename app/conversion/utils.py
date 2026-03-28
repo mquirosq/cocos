@@ -1,17 +1,30 @@
-
 import os
 from django.utils.text import get_valid_filename
 import uuid
+from django.conf import settings
 
-def upload_file(file, upload_dir='uploads/fasta'):
+
+def get_upload_dir(user_id, file_kind, persistent=False):
+    """Build upload directory path segmented by storage class, user and file kind."""
+    base_subdir = settings.UPLOADS_PERSISTENT_SUBDIR if persistent else settings.UPLOADS_TEMP_SUBDIR
+    return os.path.join(settings.BASE_DIR, base_subdir, f"user_{user_id}", file_kind)
+
+
+def upload_file(file, upload_dir=None, user_id=None, file_kind=None, persistent=False):
     if not file:
         raise ValueError("No file provided for upload.")
+
+    if upload_dir is None:
+        if user_id is None or not file_kind:
+            raise ValueError("user_id and file_kind are required when upload_dir is not provided.")
+        upload_dir = get_upload_dir(user_id=user_id, file_kind=file_kind, persistent=persistent)
+    elif not os.path.isabs(upload_dir):
+        upload_dir = os.path.join(settings.BASE_DIR, upload_dir)
     
     # Read the file content
     file_bytes = file.read()
     
     # Uploads file, creating dir and avoiding collisions
-    upload_dir = os.path.join(upload_dir)
     os.makedirs(upload_dir, exist_ok=True)
 
     safe_name = get_valid_filename(file.name) # Makes filename safe
@@ -25,3 +38,11 @@ def upload_file(file, upload_dir='uploads/fasta'):
         f.write(file_bytes)
 
     return dest_path
+
+
+def delete_file_safely(path):
+    """Delete a file if present, never raising errors. Returns True when deleted."""
+    if not path:
+        raise ValueError("No path provided for deletion.")
+
+    os.remove(path)

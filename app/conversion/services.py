@@ -19,6 +19,12 @@ def download_bakta_json_result(job_id):
     response.raise_for_status()
     return response.json()
 
+
+def download_assembly_fasta_result(job_id):
+    response = requests.get(f"{BASE}/assembly/{job_id}/download")
+    response.raise_for_status()
+    return response.content
+
 # TODO: Check commented code
 def annotate_from_fasta(fasta_content):
     resp = requests.post(

@@ -1,12 +1,29 @@
 import re
+import os
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.conf import settings
 
+
+def _infer_file_type(filename):
+    ext = os.path.splitext((filename or '').lower())[1]
+    if ext in {'.fa', '.fasta', '.fna', '.ffn', '.faa', '.frn'}:
+        return 'fasta'
+    if ext in {'.json'}:
+        return 'json'
+    return 'other'
+
+
+def file_upload_path(instance, filename):
+    user_id = instance.user_id or 'unknown'
+    file_type = _infer_file_type(filename)
+    safe_name = os.path.basename(filename)
+    return f"uploads/persistent/user_{user_id}/{file_type}/{safe_name}"
+
 class FileUpload(models.Model):
     """File that has been uploaded"""
     uploaded_at = models.DateTimeField(auto_now_add=True)
-    file = models.FileField(upload_to='uploads/')
+    file = models.FileField(upload_to=file_upload_path)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='uploaded_files')
     genes = models.ManyToManyField('Gene', related_name='files', blank=True, through='FileGene')
 
