@@ -32,16 +32,14 @@ def _send_email_notification(user, message):
         logger.exception('Failed to send notification email for user=%s', user.id)
         return False
 
-
 def _create_notification(user, event_type, message, task=None):
-    if not user:
+    if not user or not user.is_authenticated or not task:
         logger.warning(
-            'Skipping notification without user. event_type=%s task_id=%s',
+            'Skipping notification without user or task. event_type=%s task_id=%s',
             event_type,
             getattr(task, 'id', None),
         )
         return None
-
     channels = [TaskNotification.CHANNEL_IN_APP]
     if _send_email_notification(user, message):
         channels.append(TaskNotification.CHANNEL_EMAIL)
@@ -54,7 +52,6 @@ def _create_notification(user, event_type, message, task=None):
         channels=channels,
     )
 
-
 def notify_user_conversion_complete(user, task):
     task_ref = getattr(task, 'external_job_id', 'unknown')
     message = f"The conversion for task {task_ref} is complete. You can now access your results."
@@ -65,8 +62,7 @@ def notify_user_conversion_complete(user, task):
         task=task,
     )
 
-
-def notify_user_conversion_failed(user, task=None, message=None):
+def notify_user_conversion_failed(user, task, message=None):
     if not message:
         task_ref = getattr(task, 'external_job_id', 'unknown')
         message = f"The conversion for task {task_ref} has failed. Please try again."
@@ -77,8 +73,7 @@ def notify_user_conversion_failed(user, task=None, message=None):
         task=task,
     )
 
-
-def notify_user_server_busy(user, task=None):
+def notify_user_server_busy(user, task):
     message = 'The conversion server is currently at maximum capacity. Please try again later.'
     return _create_notification(
         user=user,
