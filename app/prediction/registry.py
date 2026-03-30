@@ -17,7 +17,6 @@ def _validate_adapter_init(cls) -> None:
             f"Adapter {cls.__name__} must accept an 'antibiotic' parameter in __init__"
         )
 
-
 def register_model(name: str = None):
     def _decorator(cls):
         _validate_adapter_init(cls)
