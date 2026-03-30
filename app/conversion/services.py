@@ -19,7 +19,6 @@ def download_bakta_json_result(job_id):
     response.raise_for_status()
     return response.json()
 
-
 def download_assembly_fasta_result(job_id):
     response = requests.get(f"{BASE}/assembly/{job_id}/download")
     response.raise_for_status()

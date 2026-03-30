@@ -1,12 +1,11 @@
 from conversion.models import FileGene, Gene, FileUpload
 from django.db import transaction
 from django.shortcuts import render
-import os
 
 # --- Registry for parsers ---
 PARSERS = {}
 
-def register_parser(name, extensions=None):
+def register_parser(name):
     """
     Decorator to register a parser instance under `name`.
     """
@@ -35,7 +34,7 @@ class BaseParser():
         """Parse data and persist results.
 
         `options` is a dict for parser-specific flags (e.g. {'complete_version': True}).
-        Must return `FileUpload` or a Django response on error.
+        Must return `FileUpload`.
         """
         raise NotImplementedError
 
@@ -45,7 +44,8 @@ class BaseParser():
 class BaktaJsonParser(BaseParser):
     
     def parse(self, data, file, user=None, options=None):
-        """Parse a Bakta JSON feature file and create FileUpload, Gene, and FileGene entries.
+        """
+        Parse a Bakta JSON feature file and create FileUpload, Gene, and FileGene entries.
 
         Reads `complete_version` from `options` (defaults to False).
         """
