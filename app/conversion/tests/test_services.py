@@ -5,7 +5,6 @@ from django.test import TestCase
 
 from conversion.services import (
     annotate_from_fasta,
-    annotate_from_sequencing_job,
     download_assembly_fasta_result,
     download_bakta_json_result,
     get_job_status,
@@ -79,16 +78,6 @@ class ServiceTests(TestCase):
         self.assertEqual(out["job_id"], "s2")
         self.assertEqual(out["status"], "running")
 
-    @patch("conversion.services.requests.post")
-    def test_annotate_from_sequencing_job_success(self, mock_post):
-        response = MagicMock(status_code=200)
-        response.json.return_value = {"job_id": "a2", "status": "running"}
-        mock_post.return_value = response
-
-        out = annotate_from_sequencing_job("job-1")
-        self.assertEqual(out["job_id"], "a2")
-        self.assertEqual(out["status"], "running")
-
     def test_raise_http_error(self):
         cases = [
             (get_job_status, "get", ("job-1",)),
@@ -110,7 +99,6 @@ class ServiceTests(TestCase):
             (annotate_from_fasta, (b"fasta",)),
             (sequence_illumina, (b"r1", b"r2")),
             (sequence_ont, (b"reads",)),
-            (annotate_from_sequencing_job, ("job-1",)),
         ]
         for function, args in cases:
             with self.subTest(fn=function.__name__):

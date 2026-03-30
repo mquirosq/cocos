@@ -1,11 +1,10 @@
 from celery import shared_task
-import requests
 from django.core.files.base import ContentFile
 from .models import ConversionTask, FileUpload
-from .services import annotate_from_fasta, annotate_from_sequencing_job, download_assembly_fasta_result, get_job_status, sequence_illumina, sequence_ont
+from .services import annotate_from_fasta, download_assembly_fasta_result, get_job_status, sequence_illumina, sequence_ont
 from notifications.services import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed, notify_user_conversion_started
 from celery.exceptions import MaxRetriesExceededError
-from .utils import delete_file_safely
+from .utils import delete_file_safely, find_latest_persisted_upload, get_result_filename_stem, read_persisted_upload_bytes
 
 
 def _cleanup_temp_fastq_inputs(task):
@@ -30,8 +29,9 @@ def _persist_sequencing_fasta_output(task):
     if not task.task_type.startswith("sequencing_"):
         return
 
-    filename = f"assembly_{task.external_job_id}.fasta"
-    if FileUpload.objects.filter(user_id=task.user_id, file__contains=filename).exists():
+    filename_stem = get_result_filename_stem("assembly", task.external_job_id)
+    filename = f"{filename_stem}.fasta"
+    if find_latest_persisted_upload(user_id=task.user_id, filename_stem=filename_stem):
         return
 
     fasta_content = download_assembly_fasta_result(task.external_job_id)
@@ -205,80 +205,54 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
         notify_user_server_busy(effective_user, task=task)
         return
 
-# TODO: Is this still broken?   
+    
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
-def poll_annotation_from_sequencing_start(self, job_id, new_task_id=None, user_id=None):
+def poll_annotation_from_sequencing_start(self, job_id, user_id, new_task_id=None):
     print("Trying to start annotation task for uploaded FASTA")
 
-    if user_id is None and new_task_id:
-        pending_task = ConversionTask.objects.filter(id=new_task_id).first()
-        if pending_task:
-            user_id = pending_task.user_id
-    
-    previous_job_qs = ConversionTask.objects.filter(external_job_id=job_id)
-    if user_id:
-        previous_job_qs = previous_job_qs.filter(user_id=user_id)
+    pending_task = ConversionTask.objects.filter(id=new_task_id).first() if new_task_id else None
+    pending_user = pending_task.user if pending_task else None
 
-    previous_job = previous_job_qs.first()
-    if not previous_job:
+    def _fail_pending_annotation(message):
+        notify_user_conversion_failed(
+            pending_user,
+            task=pending_task,
+            message=message,
+        )
+
+    previous_job_qs = ConversionTask.objects.filter(
+        external_job_id=job_id,
+        task_type__startswith="sequencing_",
+        status="completed"
+    )
+    previous_job_qs = previous_job_qs.filter(user_id=user_id)
+
+    previous_task = previous_job_qs.first()
+    if not previous_task:
         print("Previous sequencing job not found for annotation task with job ID:", job_id)
-        pending_task = ConversionTask.objects.filter(id=new_task_id).first() if new_task_id else None
-        notify_user_conversion_failed(
-            pending_task.user if pending_task else None,
-            task=pending_task,
-            message="Previous sequencing job not found",
+        _fail_pending_annotation(
+            "Invalid previous sequencing job. Please make sure the sequencing task has completed successfully before starting annotation."
         )
         return
 
-    if previous_job.status != "completed":
-        print("Previous sequencing job is not completed yet, will retry. Status:", previous_job.status)
-        pending_task = ConversionTask.objects.filter(id=new_task_id).first() if new_task_id else None
-        notify_user_conversion_failed(
-            pending_task.user if pending_task else None,
-            task=pending_task,
-            message="Previous sequencing job is not completed yet. Please wait a bit and try again.",
-        )
-        return
-    
-    external_resp = annotate_from_sequencing_job(job_id)
-
-    if external_resp.get("status") == "running" or external_resp.get("status") == "annotation_pending":
-        print("Annotation started with job ID:", external_resp["job_id"])
-        if new_task_id:
-            try:
-                task = ConversionTask.objects.get(id=new_task_id)
-                should_notify_started = task.status != "running"
-                task.external_job_id = external_resp["job_id"]
-                task.status = "running"
-                task.input_path = previous_job.input_path
-                task.save()
-                if should_notify_started:
-                    notify_user_conversion_started(task.user, task)
-            except ConversionTask.DoesNotExist:
-                task = ConversionTask.objects.create(
-                    external_job_id=external_resp["job_id"],
-                    status="running",
-                    input_path=previous_job.input_path,
-                    task_type="annotation",
-                    user_id=user_id
-                )
-                notify_user_conversion_started(task.user, task)
-        else:
-            task = ConversionTask.objects.create(
-                external_job_id=external_resp["job_id"],
-                status="running",
-                input_path=previous_job.input_path,
-                task_type="annotation",
-                user_id=user_id
-            )
-            notify_user_conversion_started(task.user, task)
-        poll_conversion_status.delay(task.id)
-        return
-
-    print("Server busy response received, will retry later.")
+    retrieval_error_message = "Could not retrieve assembled FASTA from persistent uploads for the previous sequencing task."
     try:
-        self.retry(countdown=60)  # Retry after 60 seconds
-    except MaxRetriesExceededError: # When retries are exhausted
-        task = ConversionTask.objects.filter(id=new_task_id).first() if new_task_id else None
-        notify_user_server_busy(task.user if task else None, task=task)
+        fasta_bytes = read_persisted_upload_bytes(
+            user_id=previous_task.user_id,
+            filename_stem=get_result_filename_stem("assembly", previous_task.external_job_id),
+        )
+    except Exception as e:
+        print("Failed to read persisted FASTA file:", str(e))
+        _fail_pending_annotation(retrieval_error_message)
         return
+
+    if fasta_bytes is None or not fasta_bytes:
+        _fail_pending_annotation(retrieval_error_message)
+        return
+
+
+    poll_annotation_start.delay(
+        fasta_bytes=fasta_bytes,
+        task_id=new_task_id,
+        user_id=user_id,
+    )

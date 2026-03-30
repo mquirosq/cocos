@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from celery.exceptions import MaxRetriesExceededError
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
 from django.test import TestCase
 
 from conversion.models import ConversionTask, FileUpload
@@ -10,6 +11,7 @@ from conversion.tasks import (
     _cleanup_temp_fastq_inputs,
     _persist_sequencing_fasta_output,
     poll_conversion_status,
+    poll_annotation_from_sequencing_start,
     poll_annotation_start,
     poll_sequencing_start,
 )
@@ -393,3 +395,76 @@ class SequencingStartTests(TestCase):
                 task.delete()
                 mock_retry.reset_mock()
                 mock_notify.reset_mock()
+
+
+class AnnotationFromSequencingStartTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="testuser4", password="pass1234")
+
+    def _create_previous_sequencing_task(self, external_job_id="seq-job-123"):
+        return ConversionTask.objects.create(
+            external_job_id=external_job_id,
+            status="completed",
+            input_path="/tmp/reads.fastq.gz",
+            task_type="sequencing_ont",
+            user=self.user,
+        )
+
+    def _create_pending_annotation_task(self):
+        return ConversionTask.objects.create(
+            external_job_id=None,
+            status="pending",
+            input_path="/tmp/reads.fastq.gz",
+            task_type="annotation",
+            user=self.user,
+        )
+
+    @patch("conversion.tasks.poll_annotation_start.delay")
+    def test_uses_persisted_fasta_and_starts_annotation(self, mock_poll_annotation_start_delay):
+        previous_task = self._create_previous_sequencing_task("seq-job-ok")
+        pending_task = self._create_pending_annotation_task()
+
+        upload = FileUpload.objects.create(user=self.user)
+        upload.file.save(
+            f"assembly_{previous_task.external_job_id}.fasta",
+            ContentFile(b">seq\nATGC\n"),
+            save=True,
+        )
+
+        poll_annotation_from_sequencing_start(
+            job_id=previous_task.external_job_id,
+            user_id=self.user.id,
+            new_task_id=pending_task.id,
+        )
+
+        mock_poll_annotation_start_delay.assert_called_once_with(
+            fasta_bytes=b">seq\nATGC\n",
+            task_id=pending_task.id,
+            user_id=self.user.id,
+        )
+
+    @patch("conversion.tasks.notify_user_conversion_failed")
+    @patch("conversion.tasks.poll_annotation_start.delay")
+    def test_failure_paths_notify_and_do_not_start_annotation(self, mock_poll_annotation_start_delay, mock_notify_failed):
+        cases = [
+            ("missing previous sequencing task", "missing-job", False),
+            ("missing persisted fasta", "seq-job-no-file", True),
+        ]
+        for label, job_id, create_previous_task in cases:
+            with self.subTest(label=label):
+                pending_task = self._create_pending_annotation_task()
+                effective_job_id = job_id
+                if create_previous_task:
+                    previous_task = self._create_previous_sequencing_task(job_id)
+                    effective_job_id = previous_task.external_job_id
+
+                poll_annotation_from_sequencing_start(
+                    job_id=effective_job_id,
+                    user_id=self.user.id,
+                    new_task_id=pending_task.id,
+                )
+
+                mock_notify_failed.assert_called_once()
+                mock_poll_annotation_start_delay.assert_not_called()
+                mock_notify_failed.reset_mock()
+                mock_poll_annotation_start_delay.reset_mock()

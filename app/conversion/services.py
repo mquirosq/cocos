@@ -75,13 +75,3 @@ def sequence_ont(fastq_content, annotate=False):
 
     resp.raise_for_status()
     return resp.json()
-
-def annotate_from_sequencing_job(job_id):
-    resp = requests.post(f"{BASE}/annotation/bakta/existing/{job_id}?threads=4")
-
-    if resp.status_code == 503:
-        print("Received 503 Server Busy response")
-        return resp.json()
-
-    resp.raise_for_status()
-    return resp.json()

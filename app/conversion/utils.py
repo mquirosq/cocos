@@ -3,6 +3,8 @@ from django.utils.text import get_valid_filename
 import uuid
 from django.conf import settings
 
+from .models import FileUpload
+
 
 def get_upload_dir(user_id, file_kind, persistent=False):
     """Build upload directory path segmented by storage class, user and file kind."""
@@ -46,3 +48,25 @@ def delete_file_safely(path):
         raise ValueError("No path provided for deletion.")
 
     os.remove(path)
+
+
+def get_result_filename_stem(result_prefix, job_id):
+    """Build persisted result filename stem like '<prefix>_<job_id>'."""
+    return f"{result_prefix}_{job_id}"
+
+
+def find_latest_persisted_upload(user_id, filename_stem):
+    """Return latest persisted upload matching a filename stem, or None."""
+    return FileUpload.objects.filter(
+        user_id=user_id,
+        file__contains=filename_stem,
+    ).order_by("-uploaded_at").first()
+
+
+def read_persisted_upload_bytes(user_id, filename_stem):
+    """Read bytes from latest persisted upload matching a filename stem."""
+    persisted_upload = find_latest_persisted_upload(user_id=user_id, filename_stem=filename_stem)
+    if not persisted_upload:
+        return None
+    with persisted_upload.file.open("rb") as persisted_file:
+        return persisted_file.read()

@@ -153,6 +153,7 @@ def annotation_from_sequencing_task(request, job_id):
 
         from .tasks import poll_annotation_from_sequencing_start
         poll_annotation_from_sequencing_start.delay(
+            user_id = request.user.id,
             job_id=job_id,
             new_task_id=task.id,
         )
