@@ -9,6 +9,7 @@ from notifications.services import (
     _send_email_notification,
     notify_user_conversion_complete,
     notify_user_conversion_failed,
+    notify_user_conversion_started,
     notify_user_server_busy,
 )
 
@@ -29,6 +30,12 @@ class NotificationServiceTests(TestCase):
 
     def test_notification_persist_events(self):
         scenarios = [
+            (
+                'started',
+                lambda: notify_user_conversion_started(self.user, self.task),
+                TaskNotification.EVENT_STARTED,
+                'The conversion for task job-1 has started and is now processing.',
+            ),
             (
                 'complete',
                 lambda: notify_user_conversion_complete(self.user, self.task),

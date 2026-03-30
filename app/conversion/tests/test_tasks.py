@@ -185,8 +185,9 @@ class AnnotationStartTests(TestCase):
         )
     
     @patch("conversion.tasks.poll_conversion_status")
+    @patch("conversion.tasks.notify_user_conversion_started")
     @patch("conversion.tasks.annotate_from_fasta")
-    def test_annotation_starts_for_existing_task(self, mock_annotate, mock_poll):
+    def test_annotation_starts_for_existing_task(self, mock_annotate, mock_started, mock_poll):
         fasta_bytes = b">seq1\nATGC\n"
         cases = [
             ("running status", "running", "ann-job-running"),
@@ -202,9 +203,11 @@ class AnnotationStartTests(TestCase):
                 task.refresh_from_db()
                 self.assertEqual(task.external_job_id, job_id)
                 self.assertEqual(task.status, "running")
+                mock_started.assert_called_once_with(self.user, task)
                 mock_poll.delay.assert_called_once_with(task.id)
                 mock_annotate.assert_called_once_with(fasta_bytes)
                 mock_annotate.reset_mock()
+                mock_started.reset_mock()
                 mock_poll.reset_mock()
 
     @patch("conversion.tasks.notify_user_conversion_failed")
@@ -273,10 +276,11 @@ class SequencingStartTests(TestCase):
         )
 
     @patch("conversion.tasks.poll_conversion_status")
+    @patch("conversion.tasks.notify_user_conversion_started")
     @patch("builtins.open", create=True)
     @patch("conversion.tasks.sequence_ont")
     @patch("conversion.tasks.sequence_illumina")
-    def test_sequencing_start_works(self, mock_illumina, mock_ont, mock_open, mock_poll):
+    def test_sequencing_start_works(self, mock_illumina, mock_ont, mock_open, mock_started, mock_poll):
         self._set_open_bytes(mock_open)
         mock_ont.return_value = self._mock_sequencing_response()
         mock_illumina.return_value = self._mock_sequencing_response()
@@ -307,9 +311,34 @@ class SequencingStartTests(TestCase):
                 self.assertEqual(task.task_type, expected_type)
                 self.assertEqual(task.status, "running")
                 self.assertEqual(task.external_job_id, "seq-job")
+                mock_started.assert_called_once_with(self.user, task)
                 mock_poll.delay.assert_called_once_with(task.id)
                 ConversionTask.objects.all().delete()
+                mock_started.reset_mock()
                 mock_poll.reset_mock()
+
+    @patch("conversion.tasks.poll_conversion_status")
+    @patch("conversion.tasks.notify_user_conversion_started")
+    @patch("builtins.open", create=True)
+    @patch("conversion.tasks.sequence_ont")
+    def test_existing_running_task_does_not_duplicate_started_notification(self, mock_ont, mock_open, mock_started, mock_poll):
+        self._set_open_bytes(mock_open)
+        mock_ont.return_value = {"job_id": "seq-job", "status": "running"}
+        task = self._create_task(external_job_id="existing-running")
+        task.status = "running"
+        task.save(update_fields=["status"])
+
+        poll_sequencing_start(
+            sequencing_type="ont",
+            dest_path=self.temp_fastq1,
+            user_id=self.user.id,
+            task_id=task.id,
+        )
+
+        task.refresh_from_db()
+        self.assertEqual(task.status, "running")
+        mock_started.assert_not_called()
+        mock_poll.delay.assert_called_once_with(task.id)
 
     @patch("conversion.tasks.notify_user_conversion_failed")
     @patch("builtins.open", create=True)
@@ -350,7 +379,7 @@ class SequencingStartTests(TestCase):
             ("server busy", None, "retries on 503"),
             ("max retries", MaxRetriesExceededError(), "notifies on exhaustion"),
         ]
-        for label, retry_effect in cases:
+        for label, retry_effect, _ in cases:
             with self.subTest(label=label):
                 task = self._create_task(external_job_id="seq-job")
                 mock_retry.side_effect = retry_effect

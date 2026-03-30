@@ -3,7 +3,7 @@ import requests
 from django.core.files.base import ContentFile
 from .models import ConversionTask, FileUpload
 from .services import annotate_from_fasta, annotate_from_sequencing_job, download_assembly_fasta_result, get_job_status, sequence_illumina, sequence_ont
-from notifications.services import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed
+from notifications.services import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed, notify_user_conversion_started
 from celery.exceptions import MaxRetriesExceededError
 from .utils import delete_file_safely
 
@@ -116,9 +116,12 @@ def poll_annotation_start(self, fasta_bytes, task_id, dest_path=None, user_id=No
         print("Annotation started with job ID:", external_resp["job_id"])
         if user_id is None:
             user_id = task.user_id
+        should_notify_started = task.status != "running"
         task.external_job_id = external_resp["job_id"]
         task.status = "running"
         task.save()
+        if should_notify_started:
+            notify_user_conversion_started(task.user, task)
         poll_conversion_status.delay(task.id)
         return
 
@@ -177,9 +180,12 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
         if task:
             if user_id is None:
                 user_id = task.user_id
+            should_notify_started = task.status != "running"
             task.external_job_id = external_resp["job_id"]
             task.status = "running"
             task.save()
+            if should_notify_started:
+                notify_user_conversion_started(task.user, task)
         else:
             task = ConversionTask.objects.create(
                 external_job_id=external_resp["job_id"],
@@ -188,6 +194,7 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
                 task_type=sequencing_task_type,
                 user_id=user_id,
             )
+            notify_user_conversion_started(task.user, task)
         poll_conversion_status.delay(task.id)
         return
 
@@ -240,10 +247,13 @@ def poll_annotation_from_sequencing_start(self, job_id, new_task_id=None, user_i
         if new_task_id:
             try:
                 task = ConversionTask.objects.get(id=new_task_id)
+                should_notify_started = task.status != "running"
                 task.external_job_id = external_resp["job_id"]
                 task.status = "running"
                 task.input_path = previous_job.input_path
                 task.save()
+                if should_notify_started:
+                    notify_user_conversion_started(task.user, task)
             except ConversionTask.DoesNotExist:
                 task = ConversionTask.objects.create(
                     external_job_id=external_resp["job_id"],
@@ -252,6 +262,7 @@ def poll_annotation_from_sequencing_start(self, job_id, new_task_id=None, user_i
                     task_type="annotation",
                     user_id=user_id
                 )
+                notify_user_conversion_started(task.user, task)
         else:
             task = ConversionTask.objects.create(
                 external_job_id=external_resp["job_id"],
@@ -260,6 +271,7 @@ def poll_annotation_from_sequencing_start(self, job_id, new_task_id=None, user_i
                 task_type="annotation",
                 user_id=user_id
             )
+            notify_user_conversion_started(task.user, task)
         poll_conversion_status.delay(task.id)
         return
 

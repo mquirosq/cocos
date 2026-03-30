@@ -62,6 +62,16 @@ def notify_user_conversion_complete(user, task):
         task=task,
     )
 
+def notify_user_conversion_started(user, task):
+    task_ref = getattr(task, 'external_job_id', 'unknown')
+    message = f"The conversion for task {task_ref} has started and is now processing."
+    return _create_notification(
+        user=user,
+        event_type=TaskNotification.EVENT_STARTED,
+        message=message,
+        task=task,
+    )
+
 def notify_user_conversion_failed(user, task, message=None):
     if not message:
         task_ref = getattr(task, 'external_job_id', 'unknown')
