@@ -181,7 +181,8 @@ def parse_feature_file(request):
             user=request.user,
             options={"complete_version": complete_version}
         )
-        return render(request, 'featureParser/parse_feature_file.html', {'messages': ['File parsed successfully!'], 'file_upload': file_upload})
+        messages.success(request, 'File parsed successfully!')
+        return render(request, 'featureParser/parse_feature_file.html', {'file_upload': file_upload})
     return render(request, 'featureParser/parse_feature_file.html')
 
 # Tasks
