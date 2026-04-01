@@ -1,48 +1,73 @@
 {% load static %}
-<nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
-  <div class="container-md" style="width: 80vw; max-width: 80vw;">
-    <a class="navbar-brand d-flex align-items-center" href="{% url 'home' %}">
-      <img src="{% static 'images/logo.png' %}" alt="TFG" class="me-2 navbar-logo">
-      <strong class="ms-1">TFG</strong>
-    </a>
+{% with current_view=request.resolver_match.view_name %}
+<nav class="navbar bg-base-100 shadow-sm border-b border-base-300 sticky top-0 z-40 text-base">
+  <div class="site-shell w-full px-2 sm:px-4 flex items-center">
+    <div class="navbar-start min-w-0 gap-1">
+      <div class="dropdown lg:hidden">
+        <div tabindex="0" role="button" class="btn btn-ghost btn-md btn-square" aria-label="Open navigation menu">
+          <i class="bi bi-list text-2xl" aria-hidden="true"></i>
+        </div>
+        <ul tabindex="0" class="menu dropdown-content bg-base-100 rounded-box z-50 mt-3 w-64 p-2 shadow-lg border border-base-300 text-base">
+          {% if user.is_authenticated %}
+          <li><a data-nav-link href="{% url 'home' %}">Home</a></li>
+          <li><a data-nav-link href="{% url 'conversion:parse_feature_file' %}">Feature Parser</a></li>
+          <li><a data-nav-link href="{% url 'conversion:conversion_task_ui' %}">Conversion</a></li>
+          <li><a data-nav-link href="{% url 'conversion:task_list' %}">Tasks</a></li>
+          <li><a data-nav-link href="{% url 'prediction:prediction' %}">Prediction</a></li>
+          {% endif %}
+        </ul>
+      </div>
 
-    <!-- Three bars for menu in smaller screens -->
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-    </button>
+      <a class="btn btn-ghost rounded-md normal-case text-lg sm:text-xl gap-2 min-w-0" href="{% url 'home' %}">
+        <img src="{% static 'images/logo.png' %}" alt="TFG" class="navbar-logo">
+        <span class="font-semibold tracking-tight truncate">TFG</span>
+      </a>
+    </div>
 
-    <div class="collapse navbar-collapse" id="mainNavbar">
-      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-        <li class="nav-item"><a class="nav-link" href="{% url 'home' %}">Home</a></li>
+    <div class="navbar-center hidden lg:flex flex-1 justify-center">
+      <ul class="flex flex-row items-center gap-1">
         {% if user.is_authenticated %}
-          <li class="nav-item"><a class="nav-link" href="{% url 'conversion:parse_feature_file' %}">Feature Parser</a></li>
-          <li class="nav-item"><a class="nav-link" href="{% url 'conversion:conversion_task_ui' %}">Conversion</a></li>
-          <li class="nav-item"><a class="nav-link" href="{% url 'conversion:task_list' %}">Tasks</a></li>
-          <li class="nav-item">
-            <a class="nav-link" href="{% url 'notifications:list' %}">
-              Notifications
-              {% if unread_notifications_count > 0 %}
-                <span class="badge rounded-pill bg-danger">{{ unread_notifications_count }}</span>
-              {% endif %}
-            </a>
-          </li>
-          <li class="nav-item"><a class="nav-link" href="{% url 'prediction:prediction' %}">Prediction</a></li>
-        {% endif %}
-      </ul>
-      <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-        {% if user.is_authenticated %}
-          <li class="nav-item"><a class="nav-link" href="#">Hola, {{ user.username }}</a></li>
-          <li class="nav-item">
-            <a class="nav-link" href="{% url 'accounts:logout' %}" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">Cerrar sesion</a>
-            <form id="logout-form" method="post" action="{% url 'accounts:logout' %}" class="d-none">
-              {% csrf_token %}
-            </form>
-          </li>
-        {% else %}
-          <li class="nav-item"><a class="nav-link" href="{% url 'accounts:login' %}">Iniciar sesion</a></li>
-          <li class="nav-item"><a class="nav-link" href="{% url 'accounts:register' %}">Registro</a></li>
+        <li><a class="btn btn-ghost btn-md rounded-md nav-menu-link {% if current_view == 'home' %}is-active{% endif %}" href="{% url 'home' %}">Home</a></li>
+        <li><a class="btn btn-ghost btn-md rounded-md nav-menu-link {% if current_view == 'conversion:parse_feature_file' %}is-active{% endif %}" href="{% url 'conversion:parse_feature_file' %}">Feature Parser</a></li>
+        <li><a class="btn btn-ghost btn-md rounded-md nav-menu-link {% if current_view == 'conversion:conversion_task_ui' %}is-active{% endif %}" href="{% url 'conversion:conversion_task_ui' %}">Conversion</a></li>
+        <li><a class="btn btn-ghost btn-md rounded-md nav-menu-link {% if current_view == 'conversion:task_list' %}is-active{% endif %}" href="{% url 'conversion:task_list' %}">Tasks</a></li>
+        <li><a class="btn btn-ghost btn-md rounded-md nav-menu-link {% if current_view == 'prediction:prediction' %}is-active{% endif %}" href="{% url 'prediction:prediction' %}">Prediction</a></li>
         {% endif %}
       </ul>
     </div>
+
+    <div class="navbar-end gap-1">
+      {% if user.is_authenticated %}
+      <a class="btn btn-ghost btn-md btn-circle relative" href="{% url 'notifications:list' %}" aria-label="Notifications">
+        <i class="bi bi-bell-fill text-xl" aria-hidden="true"></i>
+        {% if unread_notifications_count > 0 %}
+        <span class="badge badge-error badge-sm absolute -top-1 -right-1">{{ unread_notifications_count }}</span>
+        {% endif %}
+      </a>
+
+      <div class="dropdown dropdown-end">
+        <div tabindex="0" role="button" class="btn btn-ghost btn-md btn-circle" aria-label="Profile menu">
+          <i class="bi bi-person-fill text-xl" aria-hidden="true"></i>
+        </div>
+        <ul tabindex="0" class="menu dropdown-content mt-3 z-50 p-2 shadow-lg bg-base-100 rounded-box w-60 border border-base-300 text-base">
+          <li><a class="pointer-events-none opacity-80">Hello, {{ user.username }}</a></li>
+          <li>
+            <a href="{% url 'accounts:logout' %}" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+              <i class="bi bi-box-arrow-right text-base"></i>
+              Logout
+            </a>
+          </li>
+        </ul>
+      </div>
+      {% else %}
+      <a class="btn btn-md btn-outline rounded-md" href="{% url 'accounts:login' %}">Login</a>
+      <a class="btn btn-md btn-primary rounded-md" href="{% url 'accounts:register' %}">Register</a>
+      {% endif %}
+    </div>
+
+    <form id="logout-form" method="post" action="{% url 'accounts:logout' %}" class="hidden">
+      {% csrf_token %}
+    </form>
   </div>
 </nav>
+{% endwith %}
