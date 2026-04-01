@@ -1,0 +1,12 @@
+.git
+.gitignore
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+app/node_modules/
+app/.npm/
+app/static/css/tailwind.css

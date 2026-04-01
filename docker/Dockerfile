@@ -1,3 +1,14 @@
+FROM node:20-alpine AS frontend
+
+WORKDIR /frontend
+
+COPY app/package.json app/package-lock.json ./
+RUN npm ci
+
+COPY app/ ./
+RUN npm run build:css
+
+
 FROM python:3.11-slim
 
 # Python no genera archivos .pyc
@@ -11,6 +22,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+
+# Bring compiled Tailwind + daisyUI stylesheet into Django static files.
+COPY --from=frontend /frontend/static/css/tailwind.css /app/app/static/css/tailwind.css
 
 # Crear un usuario no-root llamado 'app'
 RUN addgroup --system app && adduser --system --ingroup app app

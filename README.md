@@ -1,5 +1,20 @@
 # tfg
+
 Framework to easily access and offer prediction models for predicting antibiotic resistance
+
+## One-command setup (Windows)
+
+From the `tfg` folder run:
+
+```powershell
+.\setup.ps1
+```
+
+This single command installs:
+
+- Python dependencies from `requirements.txt`
+- Frontend dependencies (`tailwindcss` + `daisyui`) from `app/package.json`
+- Compiled CSS output at `app/static/css/tailwind.css`
 
 ## Add new prediction models
 
@@ -33,6 +48,4 @@ class MyAdapter:
 
 Important: the adapter `__init__` signature should be exactly `__init__(antibiotic: str)`.
 
-
 An example implementation can be found in `ai_models/base_bakta-50/`.
-

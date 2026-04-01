@@ -7,6 +7,8 @@ __pycache__/
 uploads/
 *.sqlite3
 app/ai_models/*/pesos/*.pt
+app/node_modules/
+app/static/css/tailwind.css
 
 *.gz
 example_files/ATCC25922.fastq.gz
