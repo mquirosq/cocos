@@ -1,64 +1,117 @@
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Manrope:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
-@source "./templates/**/*.html";
-@source "./**/*.py";
+@source "../templates/**/*.html";
+@source "../**/*.py";
 
 @plugin "daisyui" {
   themes: false;
 }
 
 @plugin "daisyui/theme" {
-  name: "tfgbrand";
-  default: true;
+  name: "mytheme";
+  default: false;
   prefersdark: false;
-  color-scheme: light;
-
-  --color-base-100: #f8fbff;
-  --color-base-200: #eef4fb;
-  --color-base-300: #dbe8f7;
-  --color-base-content: #0f2a4d;
-
-  --color-primary: #1d6ac9;
-  --color-primary-content: #f5f9ff;
-  --color-secondary: #0c8f87;
-  --color-secondary-content: #f2fffd;
-  --color-accent: #1f9aa8;
-  --color-accent-content: #f3feff;
-
-  --color-neutral: #20334f;
-  --color-neutral-content: #eff4fb;
-  --color-info: #2f7de0;
-  --color-info-content: #f4f9ff;
-  --color-success: #1f9c58;
-  --color-success-content: #f4fff8;
-  --color-warning: #cb8b13;
-  --color-warning-content: #fff9ed;
-  --color-error: #cc425d;
-  --color-error-content: #fff4f6;
-
-  --radius-selector: 0.65rem;
-  --radius-field: 0.65rem;
-  --radius-box: 0.9rem;
-  --size-selector: 0.24rem;
-  --size-field: 0.24rem;
+  color-scheme: "light";
+  
+  --color-base-100: oklch(98.6% 0.005 205);
+  --color-base-200: oklch(96.9% 0.007 205);
+  --color-base-300: oklch(93.5% 0.01 205);
+  --color-base-content: oklch(24% 0.02 235);
+  
+  --color-primary: oklch(61% 0.12 196);
+  --color-primary-content: oklch(99% 0.004 210);
+  --color-secondary: oklch(47% 0.07 236);
+  --color-secondary-content: oklch(98% 0.004 210);
+  --color-accent: oklch(73% 0.14 192);
+  --color-accent-content: oklch(20% 0.03 230);
+  --color-neutral: oklch(33% 0.03 235);
+  --color-neutral-content: oklch(98% 0 0);
+  
+  --color-info: oklch(67% 0.08 202);
+  --color-info-content: oklch(24% 0.04 222);
+  --color-success: oklch(70% 0.13 164);
+  --color-success-content: oklch(27% 0.05 165);
+  --color-warning: oklch(80% 0.14 88);
+  --color-warning-content: oklch(33% 0.07 72);
+  --color-error: oklch(67% 0.17 25);
+  --color-error-content: oklch(26% 0.08 22);
+  
+  --radius-selector: 0.75rem;
+  --radius-field: 1rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
   --border: 1px;
-  --depth: 0;
-  --noise: 0;
+  --depth: 1;
+  --noise: 0.08;
 }
 
 @layer base {
   html,
   body {
-    font-family: 'Manrope', 'Segoe UI', sans-serif;
+    font-family: 'IBM Plex Sans';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
 
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    font-family: 'Sora', 'Segoe UI', sans-serif;
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'IBM Plex Sans';
+    letter-spacing: -0.01em;
+  }
+
+  h1, h2, h3 {
+    font-weight: 700;
+  }
+
+  code, kbd, samp, pre, .font-output {
+    font-family: 'JetBrains Mono';
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-primary) 28%, white);
+    color: var(--color-base-content);
+  }
+}
+
+@layer components {
+
+  .app-bg {
+    background-color: var(--color-base-100);
+    background-image: var(--fx-noise);
+    background-repeat: repeat;
+    background-size: 140px 140px;
+    background-blend-mode: multiply;
+  }
+
+  .page-enter {
+    animation: page-enter 360ms ease-out;
+  }
+
+  .card:hover {
+    transform: translateY(-2px);
+  }
+  
+  .btn:hover {
+    transform: translateY(-1px);
+  }
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
