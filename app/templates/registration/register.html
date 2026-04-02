@@ -13,13 +13,13 @@
   <div class="auth-orb auth-orb-two"></div>
   <div class="auth-card">
     <div class="auth-card-header">
-      <span class="auth-eyebrow">Nuevo usuario</span>
-      <h1 class="auth-card-title">Crear cuenta</h1>
-      <p class="auth-card-subtitle">Crea tu acceso para empezar a trabajar con el flujo completo de analisis.</p>
+      <span class="auth-eyebrow">New user</span>
+      <h1 class="auth-card-title">Create account</h1>
+      <p class="auth-card-subtitle">Create an account to get started.</p>
     </div>
     <div class="auth-card-body">
       {% if form.non_field_errors %}
-        <div class="alert alert-danger py-2" role="alert">
+        <div class="alert alert-error" role="alert">
           {% for error in form.non_field_errors %}
             <div>{{ error }}</div>
           {% endfor %}
@@ -30,46 +30,61 @@
         {% csrf_token %}
 
         <div class="mb-3">
-          <label for="id_username" class="form-label">Usuario</label>
-          <input type="text" name="username" id="id_username" class="form-control" value="{{ form.username.value|default_if_none:'' }}" required autofocus>
-          {% if form.username.help_text %}
-            <div class="form-text">{{ form.username.help_text|striptags }}</div>
-          {% endif %}
+          <label for="id_username" class="label-text font-semibold">Username</label>
+          <input type="text" name="username" id="id_username" class="input input-bordered w-full" value="{{ form.username.value|default_if_none:'' }}" required autofocus>
           {% if form.username.errors %}
-            <div class="text-danger small mt-1">{{ form.username.errors|striptags }}</div>
+            <div class="text-error text-sm mt-1">{{ form.username.errors|striptags }}</div>
           {% endif %}
         </div>
 
         <div class="mb-3">
-          <label for="id_password1" class="form-label">Contrasena</label>
-          <input type="password" name="password1" id="id_password1" class="form-control" required>
-          {% if form.password1.help_text %}
-            <div class="form-text">{{ form.password1.help_text|striptags }}</div>
-          {% endif %}
+          <label for="id_password1" class="label-text font-semibold">Password</label>
+          <div class="password-input-wrapper">
+            <input type="password" name="password1" id="id_password1" class="input input-bordered w-full pr-12" required>
+            <label class="swap swap-rotate password-toggle" title="Toggle password visibility">
+              <input type="checkbox" class="passwordVisibilityToggle" data-target="id_password1" />
+              <i class="swap-on bi bi-eye-slash-fill text-lg"></i>
+              <i class="swap-off bi bi-eye-fill text-lg"></i>
+            </label>
+          </div>
           {% if form.password1.errors %}
-            <div class="text-danger small mt-1">{{ form.password1.errors|striptags }}</div>
+            <div class="text-error text-sm mt-1">{{ form.password1.errors|striptags }}</div>
           {% endif %}
         </div>
 
         <div class="mb-1">
-          <label for="id_password2" class="form-label">Repite la contrasena</label>
-          <input type="password" name="password2" id="id_password2" class="form-control" required>
-          {% if form.password2.help_text %}
-            <div class="form-text">{{ form.password2.help_text|striptags }}</div>
-          {% endif %}
+          <label for="id_password2" class="label-text font-semibold">Confirm Password</label>
+          <div class="password-input-wrapper">
+            <input type="password" name="password2" id="id_password2" class="input input-bordered w-full pr-12" required>
+            <label class="swap swap-rotate password-toggle" title="Toggle password visibility">
+              <input type="checkbox" class="passwordVisibilityToggle" data-target="id_password2" />
+              <i class="swap-on bi bi-eye-slash-fill text-lg"></i>
+              <i class="swap-off bi bi-eye-fill text-lg"></i>
+            </label>
+          </div>
           {% if form.password2.errors %}
-            <div class="text-danger small mt-1">{{ form.password2.errors|striptags }}</div>
+            <div class="text-error text-sm mt-1">{{ form.password2.errors|striptags }}</div>
           {% endif %}
         </div>
 
         <div class="auth-actions">
-          <a href="{% url 'accounts:login' %}" class="small">Ya tengo cuenta</a>
-          <button class="btn btn-primary" type="submit">Registrarme</button>
+          <a href="{% url 'accounts:login' %}" class="text-sm">Already have an account?</a>
+          <button class="btn btn-primary" type="submit">Register</button>
         </div>
       </form>
-
-      <p class="auth-footer-note mb-0">Tu cuenta te permitira guardar y gestionar tareas con seguridad.</p>
     </div>
   </div>
 </section>
+
+<script>
+  const passwordToggles = document.querySelectorAll('.passwordVisibilityToggle');
+  
+  passwordToggles.forEach(toggle => {
+    toggle.addEventListener('change', (e) => {
+      const targetId = e.target.getAttribute('data-target');
+      const passwordInput = document.getElementById(targetId);
+      passwordInput.type = e.target.checked ? 'text' : 'password';
+    });
+  });
+</script>
 {% endblock %}

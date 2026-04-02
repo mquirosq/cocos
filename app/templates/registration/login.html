@@ -13,14 +13,14 @@
   <div class="auth-orb auth-orb-two"></div>
   <div class="auth-card">
     <div class="auth-card-header">
-      <span class="auth-eyebrow">Acceso</span>
-      <h1 class="auth-card-title">Iniciar sesión</h1>
-      <p class="auth-card-subtitle">Entra para gestionar conversiones y ejecutar predicciones con tu cuenta.</p>
+      <span class="auth-eyebrow">Continue your journey</span>
+      <h1 class="auth-card-title">Login</h1>
+      <p class="auth-card-subtitle">Enter your credentials to access your account.</p>
     </div>
     <div class="auth-card-body">
       {% if form.non_field_errors %}
-        <div class="alert alert-danger py-2" role="alert">
-          Usuario o contraseña incorrectos.
+        <div class="alert alert-error" role="alert">
+          Incorrect username or password. Please try again.
         </div>
       {% endif %}
 
@@ -28,27 +28,43 @@
         {% csrf_token %}
 
         <div class="mb-3">
-          <label for="id_username" class="form-label">Usuario</label>
-          <input type="text" name="username" id="id_username" class="form-control" value="{{ form.username.value|default_if_none:'' }}" required autofocus>
+          <label for="id_username" class="label-text font-semibold">Username</label>
+          <input type="text" name="username" id="id_username" class="input input-bordered w-full" value="{{ form.username.value|default_if_none:'' }}" required autofocus>
           {% if form.username.errors %}
-            <div class="text-danger small mt-1">{{ form.username.errors|striptags }}</div>
+            <div class="text-error text-sm mt-1">{{ form.username.errors|striptags }}</div>
           {% endif %}
         </div>
 
         <div class="mb-1">
-          <label for="id_password" class="form-label">Contraseña</label>
-          <input type="password" name="password" id="id_password" class="form-control" required>
+          <label for="id_password" class="label-text font-semibold">Password</label>
+          <div class="password-input-wrapper">
+            <input type="password" name="password" id="id_password" class="input input-bordered w-full pr-12" required>
+            <label class="swap swap-rotate password-toggle" title="Toggle password visibility">
+              <input type="checkbox" id="passwordVisibility" />
+              <i class="swap-on bi bi-eye-slash-fill text-lg"></i>
+              <i class="swap-off bi bi-eye-fill text-lg"></i>
+            </label>
+          </div>
           {% if form.password.errors %}
-            <div class="text-danger small mt-1">{{ form.password.errors|striptags }}</div>
+            <div class="text-error text-sm mt-1">{{ form.password.errors|striptags }}</div>
           {% endif %}
         </div>
 
         <div class="auth-actions">
-          <a href="{% url 'accounts:register' %}" class="small">Crear cuenta nueva</a>
-          <button class="btn btn-primary" type="submit">Entrar</button>
+          <a href="{% url 'accounts:register' %}" class="text-sm">Create new account</a>
+          <button class="btn btn-primary" type="submit">Login</button>
         </div>
       </form>
     </div>
   </div>
 </section>
+
+<script>
+  const passwordVisibility = document.getElementById('passwordVisibility');
+  const passwordInput = document.getElementById('id_password');
+
+  passwordVisibility.addEventListener('change', (e) => {
+    passwordInput.type = e.target.checked ? 'text' : 'password';
+  });
+</script>
 {% endblock %}

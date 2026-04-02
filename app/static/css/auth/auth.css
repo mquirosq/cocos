@@ -1,13 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Manrope:wght@400;500;600&display=swap');
-
 :root {
-  --auth-bg-start: #f4f9ff;
-  --auth-bg-end: #e8f1ff;
-  --auth-ink: #0f2a4d;
-  --auth-muted: #52667f;
-  --auth-edge: #c9dcf5;
-  --auth-accent: #0c8f87;
-  --auth-accent-2: #1d6ac9;
+  --auth-bg-start: color-mix(in oklab, var(--color-base-100) 92%, white);
+  --auth-bg-end: color-mix(in oklab, var(--color-base-200) 92%, white);
+  --auth-ink: var(--color-base-content);
+  --auth-muted: color-mix(in oklab, var(--color-base-content) 58%, var(--color-base-100));
+  --auth-edge: color-mix(in oklab, var(--color-primary) 20%, var(--color-base-300));
+  --auth-accent: var(--color-accent);
+  --auth-accent-2: var(--color-primary);
 }
 
 .auth-wrapper {
@@ -19,8 +17,8 @@
   padding: 2.2rem 1rem;
   overflow: hidden;
   background:
-    radial-gradient(circle at 12% 18%, rgba(29, 106, 201, 0.2) 0%, rgba(29, 106, 201, 0) 38%),
-    radial-gradient(circle at 84% 80%, rgba(12, 143, 135, 0.18) 0%, rgba(12, 143, 135, 0) 36%),
+    radial-gradient(circle at 12% 18%, color-mix(in oklab, var(--auth-accent-2) 24%, transparent) 0%, color-mix(in oklab, var(--auth-accent-2) 0%, transparent) 38%),
+    radial-gradient(circle at 84% 80%, color-mix(in oklab, var(--auth-accent) 24%, transparent) 0%, color-mix(in oklab, var(--auth-accent) 0%, transparent) 36%),
     linear-gradient(165deg, var(--auth-bg-start) 0%, var(--auth-bg-end) 100%);
 }
 
@@ -37,7 +35,7 @@
   height: 240px;
   top: -70px;
   right: 5vw;
-  background: rgba(29, 106, 201, 0.2);
+  background: color-mix(in oklab, var(--auth-accent-2) 20%, transparent);
 }
 
 .auth-orb-two {
@@ -45,7 +43,7 @@
   height: 190px;
   bottom: -50px;
   left: 8vw;
-  background: rgba(12, 143, 135, 0.2);
+  background: color-mix(in oklab, var(--auth-accent) 20%, transparent);
 }
 
 .auth-card {
@@ -54,9 +52,9 @@
   max-width: 500px;
   border: 1px solid var(--auth-edge);
   border-radius: 1.15rem;
-  background: rgba(255, 255, 255, 0.9);
+  background: color-mix(in oklab, white 94%, var(--color-base-100));
   backdrop-filter: blur(8px);
-  box-shadow: 0 22px 48px rgba(19, 48, 96, 0.16);
+  box-shadow: 0 24px 54px rgba(16, 38, 72, 0.16);
   overflow: hidden;
   animation: auth-enter 0.55s ease-out;
 }
@@ -65,7 +63,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(130deg, rgba(29, 106, 201, 0.1), rgba(12, 143, 135, 0.03));
+  background: linear-gradient(130deg, color-mix(in oklab, var(--auth-accent-2) 12%, transparent), color-mix(in oklab, var(--auth-accent) 8%, transparent));
   pointer-events: none;
 }
 
@@ -83,7 +81,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  font-family: 'Sora', 'Segoe UI', sans-serif;
+  font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
   font-size: 0.72rem;
   letter-spacing: 0.09em;
   font-weight: 700;
@@ -101,7 +99,7 @@
 
 .auth-card-title {
   margin: 0.55rem 0 0;
-  font-family: 'Sora', 'Segoe UI', sans-serif;
+  font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
   font-size: clamp(1.45rem, 2.6vw, 1.95rem);
   color: var(--auth-ink);
   font-weight: 800;
@@ -111,35 +109,38 @@
 .auth-card-subtitle {
   margin: 0.62rem 0 0;
   color: var(--auth-muted);
-  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
   font-size: 0.96rem;
 }
 
 .auth-card-body {
   padding: 0.9rem 1.7rem 1.7rem;
-  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
 }
 
-.auth-card .form-label {
+.auth-card .label-text {
   color: var(--auth-ink);
   font-weight: 600;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.4rem;
+  display: inline-block;
 }
 
-.auth-card .form-control {
+.auth-card .input {
   border-radius: 0.75rem;
-  border-color: #b7ceec;
+  border-color: color-mix(in oklab, var(--auth-accent-2) 24%, var(--color-base-300));
   padding: 0.66rem 0.78rem;
-  background: #fdfefe;
+  background: color-mix(in oklab, white 92%, var(--color-base-100));
+  width: 100%;
 }
 
-.auth-card .form-control:focus {
+.auth-card .input:focus,
+.auth-card .input:focus-within {
   border-color: var(--auth-accent-2);
-  box-shadow: 0 0 0 0.22rem rgba(29, 106, 201, 0.14);
+  box-shadow: 0 0 0 0.22rem color-mix(in oklab, var(--auth-accent-2) 14%, transparent);
 }
 
 .auth-card .form-text {
-  color: #5a6f8d;
+  color: color-mix(in oklab, var(--auth-ink) 52%, white);
 }
 
 .auth-actions {
@@ -151,31 +152,75 @@
 }
 
 .auth-actions a {
-  color: #1653a0;
+  color: var(--auth-accent);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 700;
+  transition: all 0.2s ease;
 }
 
 .auth-actions a:hover {
+  color: var(--color-primary);
   text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
 }
 
 .auth-card .btn-primary {
   border: none;
   border-radius: 0.76rem;
   padding: 0.62rem 1.2rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--auth-accent-2), var(--auth-accent));
-}
+  font-weight: 700;}
 
 .auth-card .btn-primary:hover {
-  filter: brightness(1.04);
+  filter: brightness(1.05) saturate(1.02);
+}
+
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 0.75rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--auth-muted);
+  transition: color 0.2s ease;
+  padding: 0.4rem;
+}
+
+.password-toggle:hover {
+  color: var(--auth-accent-2);
+}
+
+.password-toggle i {
+  font-size: 1.1rem;
+  position: absolute;
+}
+
+.password-toggle input {
+  display: none;
+}
+
+.auth-card .alert-error {
+  margin: -0.3rem 0 1.2rem 0;
+  border: 1px solid color-mix(in oklab, var(--color-error) 26%, var(--color-base-300));
+  background: color-mix(in oklab, var(--color-error) 14%, var(--color-base-100));
+  color: color-mix(in oklab, var(--color-error) 82%, black);
+  border-radius: 0.9rem;
+  display: flex;
+  align-items: center;
+  padding: 0.65rem 1rem;
 }
 
 .auth-footer-note {
   text-align: center;
   margin-top: 1.1rem;
-  color: #4a607f;
+  color: color-mix(in oklab, var(--auth-ink) 60%, white);
 }
 
 @keyframes auth-enter {
