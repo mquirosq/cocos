@@ -14,7 +14,8 @@ def _get_current_user_notifications(request):
 def notifications_view(request):
     status_filter = request.GET.get('status', 'all')
     page_number = request.GET.get('page', '1')
-    notifications = _get_current_user_notifications(request)
+    base_notifications = _get_current_user_notifications(request)
+    notifications = base_notifications
     if status_filter == 'read':
         notifications = notifications.filter(is_read=True)
     elif status_filter == 'unread':
@@ -27,6 +28,7 @@ def notifications_view(request):
         'notifications': page_obj.object_list,
         'status_filter': status_filter,
         'page_obj': page_obj,
+        'has_unread_notifications': base_notifications.filter(is_read=False).exists(),
     }
     template_name = 'model/_notifications_panel.html' if request.GET.get('partial') == '1' else 'model/notifications.html'
     return render(request, template_name, context)

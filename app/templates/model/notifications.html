@@ -13,14 +13,16 @@
     <div>
       <h3 class="text-3xl font-bold">Notifications</h3>
     </div>
-    <form id="mark-all-read-form" method="post" action="{% url 'notifications:mark_all_read' %}">
-      {% csrf_token %}
-      <input type="hidden" name="next" value="{{ request.get_full_path }}">
-      <button type="submit" class="btn btn-accent btn-sm gap-2 shadow-sm text-accent-content text-sm">
-        <i class="bi bi-check-all text-lg leading-none" aria-hidden="true"></i>
-        <span class="text-xs sm:text-sm">Mark all as read</span>
-      </button>
-    </form>
+    {% if has_unread_notifications %}
+      <form id="mark-all-read-form" method="post" action="{% url 'notifications:mark_all_read' %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button type="submit" class="btn btn-accent btn-sm gap-2 shadow-sm text-accent-content text-sm">
+          <i class="bi bi-check-all text-lg leading-none" aria-hidden="true"></i>
+          <span class="text-xs sm:text-sm">Mark all as read</span>
+        </button>
+      </form>
+    {% endif %}
   </div>
 
   <div id="notifications-panel" data-list-url="{% url 'notifications:list' %}">
