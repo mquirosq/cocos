@@ -57,7 +57,7 @@ class NotificationServiceTests(TestCase):
             (
                 'server-busy',
                 lambda: notify_user_server_busy(self.user, self.task),
-                TaskNotification.EVENT_SERVER_BUSY,
+                TaskNotification.EVENT_WARNING,
                 'The conversion server is currently at maximum capacity. Please try again later.',
             ),
         ]

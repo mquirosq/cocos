@@ -62,6 +62,18 @@
   --task-link-bg-hover: color-mix(in oklab, var(--color-secondary) 38%, white);
 }
 
+.notification-item-status-warning {
+  background: color-mix(in oklab, var(--color-warning) 10%, var(--color-base-100));
+  border-left: 4px solid color-mix(in oklab, var(--color-warning) 84%, white);
+  --notification-item-hover-border: color-mix(in oklab, var(--color-warning) 54%, white);
+  --task-link-text: color-mix(in oklab, var(--color-warning) 78%, black);
+  --task-link-border: color-mix(in oklab, var(--color-warning) 42%, white);
+  --task-link-bg: color-mix(in oklab, var(--color-warning) 16%, white);
+  --task-link-text-hover: color-mix(in oklab, var(--color-warning) 84%, black);
+  --task-link-border-hover: color-mix(in oklab, var(--color-warning) 56%, white);
+  --task-link-bg-hover: color-mix(in oklab, var(--color-warning) 22%, white);
+}
+
 .notification-card-header {
   align-items: center;
 }
@@ -92,6 +104,10 @@
 
 .notification-item-status-info .notification-type-icon {
   color: var(--color-secondary);
+}
+
+.notification-item-status-warning .notification-type-icon {
+  color: var(--color-warning);
 }
 
 .notification-task-link {

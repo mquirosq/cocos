@@ -91,7 +91,17 @@ def notify_user_server_busy(user, task):
     message = 'The conversion server is currently at maximum capacity. Please try again later.'
     return _create_notification(
         user=user,
-        event_type=TaskNotification.EVENT_SERVER_BUSY,
+        event_type=TaskNotification.EVENT_WARNING,
+        message=message,
+        task=task,
+    )
+
+
+def notify_user_conversion_warning(user, task, message):
+    """Create an in-app warning while task remains completed."""
+    return _create_notification(
+        user=user,
+        event_type=TaskNotification.EVENT_WARNING,
         message=message,
         task=task,
     )

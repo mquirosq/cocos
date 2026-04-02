@@ -18,14 +18,14 @@ class UserNotificationSettings(models.Model):
 class TaskNotification(models.Model):
     EVENT_STARTED = 'started'
     EVENT_COMPLETED = 'completed'
+    EVENT_WARNING = 'warning'
     EVENT_FAILED = 'failed'
-    EVENT_SERVER_BUSY = 'server_busy'
 
     EVENT_CHOICES = [
         (EVENT_STARTED, 'Started'),
         (EVENT_COMPLETED, 'Completed'),
+        (EVENT_WARNING, 'Warning'),
         (EVENT_FAILED, 'Failed'),
-        (EVENT_SERVER_BUSY, 'Server Busy'),
     ]
 
     CHANNEL_IN_APP = 'in_app'

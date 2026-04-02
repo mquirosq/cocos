@@ -10,13 +10,15 @@
   {% if notifications %}
     <div class="space-y-3">
       {% for notification in notifications %}
-        <div class="notification-item card bg-base-100 shadow-sm {% if not notification.is_read %}notification-item-unread{% else %}notification-item-read{% endif %} {% if 'fail' in notification.event_type or 'error' in notification.event_type %}notification-item-status-failed{% elif 'start' in notification.event_type or 'pending' in notification.event_type or 'queue' in notification.event_type %}notification-item-status-started{% elif 'complete' in notification.event_type or 'success' in notification.event_type or 'done' in notification.event_type %}notification-item-status-completed{% else %}notification-item-status-info{% endif %}">
+        <div class="notification-item card bg-base-100 shadow-sm {% if not notification.is_read %}notification-item-unread{% else %}notification-item-read{% endif %} {% if 'fail' in notification.event_type or 'error' in notification.event_type %}notification-item-status-failed{% elif 'warn' in notification.event_type or notification.event_type == 'server_busy' %}notification-item-status-warning{% elif 'start' in notification.event_type or 'pending' in notification.event_type or 'queue' in notification.event_type %}notification-item-status-started{% elif 'complete' in notification.event_type or 'success' in notification.event_type or 'done' in notification.event_type %}notification-item-status-completed{% else %}notification-item-status-info{% endif %}">
           <div class="card-body flex flex-col sm:flex-row justify-between items-start gap-4">
             <div class="flex-1 min-w-0">
               <div class="notification-card-header flex items-center gap-2 mb-1">
                 <span class="notification-type-icon shrink-0" aria-hidden="true">
                   {% if 'fail' in notification.event_type or 'error' in notification.event_type %}
                     <i class="bi bi-x-circle-fill"></i>
+                  {% elif 'warn' in notification.event_type or notification.event_type == 'server_busy' %}
+                    <i class="bi bi-exclamation-triangle-fill"></i>
                   {% elif 'start' in notification.event_type %}
                     <i class="bi bi-play-circle-fill"></i>
                   {% elif 'complete' in notification.event_type %}
