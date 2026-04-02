@@ -2,6 +2,19 @@ from django.conf import settings
 from django.db import models
 
 
+class UserNotificationSettings(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notification_settings',
+    )
+    email_notifications_enabled = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'UserNotificationSettings(user={self.user_id}, email_notifications_enabled={self.email_notifications_enabled})'
+
+
 class TaskNotification(models.Model):
     EVENT_STARTED = 'started'
     EVENT_COMPLETED = 'completed'
@@ -31,8 +44,6 @@ class TaskNotification(models.Model):
     channels = models.JSONField(default=list, blank=True)
 
     class Meta:
-        db_table = 'converter_tasknotification'
-        managed = False
         ordering = ['-created_at']
 
     def __str__(self):

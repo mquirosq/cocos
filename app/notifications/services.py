@@ -3,7 +3,7 @@ import logging
 from django.conf import settings
 from django.core.mail import send_mail
 
-from notifications.models import TaskNotification
+from notifications.models import TaskNotification, UserNotificationSettings
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +12,10 @@ EMAIL_SUBJECT = getattr(settings, 'NOTIFICATION_EMAIL_SUBJECT', 'TFG Conversion 
 
 def _send_email_notification(user, message):
     if not user or not user.email:
+        return False
+
+    settings_obj = UserNotificationSettings.objects.filter(user=user).only('email_notifications_enabled').first()
+    if settings_obj is not None and not settings_obj.email_notifications_enabled:
         return False
 
     from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None)

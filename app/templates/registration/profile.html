@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Profile Settings{% endblock %}
+
+{% block override_style %}
+<link rel="stylesheet" href="{% static 'css/auth/auth.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="auth-wrapper">
+  <div class="auth-orb auth-orb-one"></div>
+  <div class="auth-orb auth-orb-two"></div>
+  <div class="auth-card">
+    <div class="auth-card-header">
+      <span class="auth-eyebrow">Profile</span>
+      <h1 class="auth-card-title">Notification settings</h1>
+      <p class="auth-card-subtitle">Update your email preferences.</p>
+    </div>
+    <div class="auth-card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="mb-3">
+          <label for="id_email" class="label-text font-semibold">Email</label>
+          {{ form.email }}
+          {% if form.email.errors %}
+            <div class="text-error text-sm mt-1">{{ form.email.errors|striptags }}</div>
+          {% endif %}
+        </div>
+
+        <div class="mb-3 rounded-xl border border-base-300 bg-base-100/70 px-4 py-3">
+          <label for="id_email_notifications_enabled" class="flex items-center justify-between gap-3 cursor-pointer">
+            <span class="font-semibold">Email notifications</span>
+            {{ form.email_notifications_enabled }}
+          </label>
+          <p class="text-sm opacity-70 mt-2 mb-0">When enabled, you will receive notifications by email.</p>
+        </div>
+
+        <div class="auth-actions">
+          <a href="{% url 'home' %}" class="text-sm">Back to home</a>
+          <button class="btn btn-primary" type="submit">Save changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}
