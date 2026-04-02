@@ -2,6 +2,7 @@ django
 celery
 redis
 django-celery-results
+psycopg[binary]
 requests
 torch==2.2.0
 numpy==1.24.3

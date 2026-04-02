@@ -1,7 +1,31 @@
 # Para desarrollo
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bio-web-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tfg}
+      POSTGRES_USER: ${POSTGRES_USER:-tfg}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tfg_password}
+    volumes:
+      - postgres_data_web:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-tfg} -d ${POSTGRES_DB:-tfg}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      bio-network:
+        aliases:
+          - bio-web-postgres
+
   web:
+    image: bio-web-app:latest
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -17,15 +41,15 @@ services:
     env_file:
       - ../.env
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - bio-network
 
-
   worker:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
+    image: bio-web-app:latest
     command: sh -c "export PYTHONPATH=/app && celery -A app worker -l info"
     volumes:
       - ../app:/app
@@ -34,7 +58,10 @@ services:
     env_file:
       - ../.env
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - bio-network
 
@@ -54,4 +81,5 @@ networks:
     name: bio-network
 
 volumes:
+  postgres_data_web:
   redis_data_web:

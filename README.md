@@ -16,6 +16,19 @@ This single command installs:
 - Frontend dependencies (`tailwindcss` + `daisyui`) from `app/package.json`
 - Compiled CSS output at `app/static/css/tailwind.css`
 
+## Database and Docker
+
+The project now uses PostgreSQL by default (SQLite is no longer the runtime database).
+
+Environment variables in `.env`:
+
+- `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_CONN_MAX_AGE`
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` (used by Docker postgres service)
+
+For direct host execution (outside Docker), override `DB_HOST` to `localhost` if needed.
+
+First Docker build can take a long time because ML dependencies (notably `torch`) are large. After the first successful build, subsequent runs should be much faster due to Docker layer cache.
+
 ## Add new prediction models
 
 To add a new prediction model include a folder under `ai_models/` with the model name and the required files. Minimal layout and rules:
