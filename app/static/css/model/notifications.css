@@ -1,21 +1,173 @@
+/* Notification cards */
 .notification-item {
-  border-radius: 0.6rem;
-  border: 1px solid #d9e0ee;
-  margin-bottom: 0.7rem;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  border-radius: 0.8rem;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 12%, white);
+  margin-bottom: 0.5rem;
+  transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
 }
 
 .notification-item:hover {
-  border-color: #bfcbe3;
-  box-shadow: 0 4px 14px rgba(22, 34, 66, 0.08);
+  border-color: var(--notification-item-hover-border, color-mix(in oklab, var(--color-base-content) 20%, white));
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px color-mix(in oklab, var(--color-base-content) 14%, transparent);
 }
 
 .notification-item-unread {
-  border-left: 5px solid #2b72f7;
-  background: linear-gradient(90deg, rgba(43, 114, 247, 0.08) 0%, rgba(43, 114, 247, 0.01) 24%, #ffffff 60%);
+  border-left: 5px solid var(--color-accent);
+  --notification-item-hover-border: color-mix(in oklab, var(--color-accent) 70%, white);
 }
 
 .notification-item-read {
-  border-left: 5px solid #d9e0ee;
-  background-color: #ffffff;
+  border-left: 5px solid var(--task-link-border, color-mix(in oklab, var(--color-base-content) 14%, white));
+  --notification-item-hover-border: var(--task-link-border, color-mix(in oklab, var(--color-base-content) 14%, white));
+}
+
+.notification-item-status-failed {
+  background: color-mix(in oklab, var(--color-error) 10%, var(--color-base-100));
+  --task-link-text: color-mix(in oklab, var(--color-error) 88%, black);
+  --task-link-border: color-mix(in oklab, var(--color-error) 66%, white);
+  --task-link-bg: color-mix(in oklab, var(--color-error) 32%, white);
+  --task-link-text-hover: color-mix(in oklab, var(--color-error) 92%, black);
+  --task-link-border-hover: color-mix(in oklab, var(--color-error) 78%, white);
+  --task-link-bg-hover: color-mix(in oklab, var(--color-error) 42%, white);
+}
+
+.notification-item-status-started {
+  background: color-mix(in oklab, var(--color-info) 9%, var(--color-base-100));
+  --task-link-text: color-mix(in oklab, var(--color-info) 88%, black);
+  --task-link-border: color-mix(in oklab, var(--color-info) 64%, white);
+  --task-link-bg: color-mix(in oklab, var(--color-info) 30%, white);
+  --task-link-text-hover: color-mix(in oklab, var(--color-info) 92%, black);
+  --task-link-border-hover: color-mix(in oklab, var(--color-info) 76%, white);
+  --task-link-bg-hover: color-mix(in oklab, var(--color-info) 40%, white);
+}
+
+.notification-item-status-completed {
+  background: color-mix(in oklab, var(--color-success) 10%, var(--color-base-100));
+  --task-link-text: color-mix(in oklab, var(--color-success) 86%, black);
+  --task-link-border: color-mix(in oklab, var(--color-success) 62%, white);
+  --task-link-bg: color-mix(in oklab, var(--color-success) 30%, white);
+  --task-link-text-hover: color-mix(in oklab, var(--color-success) 92%, black);
+  --task-link-border-hover: color-mix(in oklab, var(--color-success) 74%, white);
+  --task-link-bg-hover: color-mix(in oklab, var(--color-success) 40%, white);
+}
+
+.notification-item-status-info {
+  background: color-mix(in oklab, var(--color-secondary) 8%, var(--color-base-100));
+  --task-link-text: color-mix(in oklab, var(--color-secondary) 86%, black);
+  --task-link-border: color-mix(in oklab, var(--color-secondary) 62%, white);
+  --task-link-bg: color-mix(in oklab, var(--color-secondary) 28%, white);
+  --task-link-text-hover: color-mix(in oklab, var(--color-secondary) 92%, black);
+  --task-link-border-hover: color-mix(in oklab, var(--color-secondary) 74%, white);
+  --task-link-bg-hover: color-mix(in oklab, var(--color-secondary) 38%, white);
+}
+
+.notification-card-header {
+  align-items: center;
+}
+
+.notification-card-title {
+  max-width: 20rem;
+}
+
+.notification-type-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2rem;
+  font-size: 0.95rem;
+}
+
+.notification-item-status-failed .notification-type-icon {
+  color: var(--color-error);
+}
+
+.notification-item-status-started .notification-type-icon {
+  color: var(--color-info);
+}
+
+.notification-item-status-completed .notification-type-icon {
+  color: var(--color-success);
+}
+
+.notification-item-status-info .notification-type-icon {
+  color: var(--color-secondary);
+}
+
+.notification-task-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.86rem;
+  font-weight: 400;
+  color: var(--task-link-text, color-mix(in oklab, var(--color-info) 80%, black));
+  text-decoration: none;
+  border: 1px solid var(--task-link-border, color-mix(in oklab, var(--color-info) 45%, white));
+  background: var(--task-link-bg, color-mix(in oklab, var(--color-info) 18%, white));
+  border-radius: 0.5rem;
+  padding: 0.34rem 0.64rem;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--task-link-border, var(--color-info)) 40%, transparent);
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.notification-task-link:hover {
+  color: var(--task-link-text-hover, color-mix(in oklab, var(--color-info) 72%, black));
+  border-color: var(--task-link-border-hover, color-mix(in oklab, var(--color-info) 60%, white));
+  background: var(--task-link-bg-hover, color-mix(in oklab, var(--color-info) 26%, white));
+}
+
+@media (max-width: 640px) {
+  .notification-task-link {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Pagination */
+.pagination-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pagination-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.9rem;
+  height: 1.9rem;
+  padding: 0 0.25rem;
+  border: 0;
+  background: transparent;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 180ms ease;
+}
+
+.pagination-link::after {
+  content: '';
+  position: absolute;
+  left: 0.55rem;
+  right: 0.55rem;
+  bottom: 0.18rem;
+  height: 2px;
+  background-color: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 180ms ease;
+}
+
+.pagination-link:hover::after,
+.pagination-link.is-active::after {
+  transform: scaleX(1);
+}
+
+.pagination-link:hover,
+.pagination-link.is-active {
+  color: var(--color-base-content);
+}
+
+.pagination-link.is-active {
+  font-weight: 700;
 }

@@ -1,0 +1,82 @@
+<div class="bg-base-200 border border-base-300 border-b-0 rounded-t-box shadow-sm px-2 sm:px-4 pt-4">
+  <div class="tabs tabs-lift" role="tablist" aria-label="Filter notifications">
+    <a href="{% url 'notifications:list' %}?status=all" data-notification-tab class="tab {% if status_filter == 'all' %}tab-active{% endif %}">All</a>
+    <a href="{% url 'notifications:list' %}?status=unread" data-notification-tab class="tab {% if status_filter == 'unread' %}tab-active{% endif %}">Unread</a>
+    <a href="{% url 'notifications:list' %}?status=read" data-notification-tab class="tab {% if status_filter == 'read' %}tab-active{% endif %}">Read</a>
+  </div>
+</div>
+
+<div class="bg-base-100 border border-base-300 border-t-0 rounded-b-box shadow-sm px-4 sm:px-6 py-6">
+  {% if notifications %}
+    <div class="space-y-3">
+      {% for notification in notifications %}
+        <div class="notification-item card bg-base-100 shadow-sm {% if not notification.is_read %}notification-item-unread{% else %}notification-item-read{% endif %} {% if 'fail' in notification.event_type or 'error' in notification.event_type %}notification-item-status-failed{% elif 'start' in notification.event_type or 'pending' in notification.event_type or 'queue' in notification.event_type %}notification-item-status-started{% elif 'complete' in notification.event_type or 'success' in notification.event_type or 'done' in notification.event_type %}notification-item-status-completed{% else %}notification-item-status-info{% endif %}">
+          <div class="card-body flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div class="flex-1 min-w-0">
+              <div class="notification-card-header flex items-center gap-2 mb-1">
+                <span class="notification-type-icon shrink-0" aria-hidden="true">
+                  {% if 'fail' in notification.event_type or 'error' in notification.event_type %}
+                    <i class="bi bi-x-circle-fill"></i>
+                  {% elif 'start' in notification.event_type %}
+                    <i class="bi bi-play-circle-fill"></i>
+                  {% elif 'complete' in notification.event_type %}
+                    <i class="bi bi-check-circle-fill"></i>
+                  {% else %}
+                    <i class="bi bi-info-circle-fill"></i>
+                  {% endif %}
+                </span>
+                <h6 class="notification-card-title mb-0 capitalize font-semibold truncate">{{ notification.event_type}}</h6>
+                {% if not notification.is_read %}
+                  <span class="badge badge-accent font-bold">New</span>
+                {% endif %}
+              </div>
+              <p class="mb-1">{{ notification.message }}</p>
+              <small class="opacity-70">{{ notification.created_at }}</small>
+              {% if notification.task %}
+                <div class="mt-2">
+                  <a href="{% url 'conversion:task_status' notification.task.id %}" class="notification-task-link">
+                    <i class="bi bi-eye-fill" aria-hidden="true"></i>
+                    View related task
+                  </a>
+                </div>
+              {% endif %}
+            </div>
+
+            {% if not notification.is_read %}
+              <form method="post" action="{% url 'notifications:mark_read' notification.id %}" data-mark-read-form class="shrink-0">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="btn btn-accent btn-sm gap-2 shadow-sm text-accent-content text-sm">
+                  <i class="bi bi-check" aria-hidden="true"></i>
+                  <span>Mark as read</span>
+                </button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+      <div class="mt-5 flex justify-center">
+        <div class="pagination-nav" role="navigation" aria-label="Notifications pagination">
+          {% for num in page_obj.paginator.page_range %}
+            <a
+              href="{% url 'notifications:list' %}?status={{ status_filter }}&page={{ num }}"
+              data-notification-page
+              class="pagination-link {% if page_obj.number == num %}is-active{% endif %}">
+              {{ num }}
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body">
+        <h4 class="card-title">No notifications yet!</h4>
+        <p class="opacity-75">Start a conversion to see notifications here.</p>
+      </div>
+    </div>
+  {% endif %}
+</div>
