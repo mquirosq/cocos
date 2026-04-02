@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from pathlib import Path
+import os
 from conversion.models import FileUpload
 from .service import get_prediction
 from .registry import list_registered_models, get_model_adapter_class
@@ -26,16 +27,32 @@ def prediction_view(request):
         file_id = (request.GET.get('file_id') or '').strip() or None
 
     file_id_error = None
+    json_upload_options = []
+    json_uploads_qs = FileUpload.objects.filter(
+        user=request.user,
+        file__iendswith='.json',
+    ).order_by('-uploaded_at')
+    for upload in json_uploads_qs:
+        json_upload_options.append({
+            'id': str(upload.pk),
+            'file_name': os.path.basename(upload.file.name),
+            'uploaded_at': upload.uploaded_at,
+        })
+
     if file_id:
         try:
             parsed_file_id = int(file_id)
         except (ValueError, TypeError):
             file_upload = None
-            file_id_error = 'FileUpload id must be a numeric database id.'
+            file_id_error = 'Please select a valid uploaded JSON file.'
         else:
-            file_upload = FileUpload.objects.filter(pk=parsed_file_id, user=request.user).first()
+            file_upload = FileUpload.objects.filter(
+                pk=parsed_file_id,
+                user=request.user,
+                file__iendswith='.json',
+            ).first()
             if file_upload is None:
-                file_id_error = f"FileUpload id '{file_id}' was not found for your user."
+                file_id_error = 'The selected JSON upload was not found for your user.'
 
     prediction = None
     error = file_id_error
@@ -77,4 +94,5 @@ def prediction_view(request):
         'available_models': list_registered_models(),
         'available_antibiotics': available_antibiotics,
         'file_id': file_id,
+        'json_upload_options': json_upload_options,
     })
