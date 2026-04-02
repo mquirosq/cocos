@@ -1,31 +1,18 @@
-{% load static %}
-<footer class="sevi-footer" role="contentinfo" aria-label="Site footer">
-
-	<div class="container">
-		<div class="brand" aria-hidden="false">
-			<!-- <img src="{% static 'images/logo.png' %}" alt="TFG Logo" class="brand-logo"> -->
-			<div class="brand-text">
-				<strong>TFG</strong>
-				<p>By María Quirós Quiroga</p>
-			</div>
-		</div>
-	</div>
-
-	<div class="container footer-bottom">
-		<div class="legal">
-			<div>
-				<span>&copy; <span id="tfg-year"></span> TFG</span>
-			</div>
-
-			<div class="actions">
-				<nav class="footer-nav" aria-label="Footer navigation">
-					<a href="/" title="Inicio">Inicio</a>
-				</nav>
-			</div>
-		</div>
-	</div>
-
-	<script>
-		(function(){var y=new Date().getFullYear();var el=document.getElementById('tfg-year');if(el)el.textContent=y;})();
-	</script>
+<footer class="site-footer footer footer-horizontal bg-neutral text-neutral-content p-10" role="contentinfo" aria-label="Site footer">
+  <aside class="space-y-1 text-center sm:text-left ml-10 sm:ml-24">
+    <p class="text-lg font-semibold tracking-wide">TFG</p>
+    <p class="text-sm opacity-80">Framework for genome parsing, conversion and prediction by María Quirós Quiroga</p>
+    <p class="text-xs opacity-70 tracking-wide">Parse and convert genomic data in order to predict antibiotic resistance</p>
+    <p class="text-xs opacity-70">&copy; <span id="tfg-year"></span> TFG</p>
+  </aside>
+  <nav class="grid grid-flow-col gap-4 text-sm">
+    <a href="https://github.com/mquirosq/tfg" target="_blank" rel="noreferrer" title="GitHub repository" class="btn btn-ghost btn-md text-base text-neutral-content gap-2 px-4 hover:bg-neutral-content/10 hover:text-neutral-content">
+      <i class="bi bi-github text-2xl" aria-hidden="true"></i>
+      GitHub
+    </a>
+  </nav>
 </footer>
+
+<script>
+  (function(){var y=new Date().getFullYear();var el=document.getElementById('tfg-year');if(el)el.textContent=y;})();
+</script>
