@@ -10,8 +10,8 @@
         <ul tabindex="0" class="menu dropdown-content bg-base-100 rounded-box z-50 mt-3 w-64 p-2 shadow-lg border border-base-300 text-base">
           {% if user.is_authenticated %}
           <li><a data-nav-link href="{% url 'home' %}">Home</a></li>
-          <li><a data-nav-link href="{% url 'conversion:parse_feature_file' %}">Feature Parser</a></li>
-          <li><a data-nav-link href="{% url 'conversion:conversion_task_ui' %}">Conversion</a></li>
+          <li><a data-nav-link href="{% url 'conversion:assembly_ui' %}">Assembly</a></li>
+          <li><a data-nav-link href="{% url 'conversion:annotation_ui' %}">Annotation</a></li>
           <li><a data-nav-link href="{% url 'conversion:task_list' %}">Tasks</a></li>
           <li><a data-nav-link href="{% url 'prediction:prediction' %}">Prediction</a></li>
           {% endif %}
@@ -28,8 +28,8 @@
       <ul class="flex flex-row items-center gap-1">
         {% if user.is_authenticated %}
         <li><a class="btn btn-ghost btn-md rounded-md nav-menu-link {% if current_view == 'home' %}is-active{% endif %}" href="{% url 'home' %}">Home</a></li>
-        <li><a class="btn btn-ghost btn-md rounded-md nav-menu-link {% if current_view == 'conversion:parse_feature_file' %}is-active{% endif %}" href="{% url 'conversion:parse_feature_file' %}">Feature Parser</a></li>
-        <li><a class="btn btn-ghost btn-md rounded-md nav-menu-link {% if current_view == 'conversion:conversion_task_ui' %}is-active{% endif %}" href="{% url 'conversion:conversion_task_ui' %}">Conversion</a></li>
+        <li><a class="btn btn-ghost btn-md rounded-md nav-menu-link {% if current_view == 'conversion:assembly_ui' %}is-active{% endif %}" href="{% url 'conversion:assembly_ui' %}">Assembly</a></li>
+        <li><a class="btn btn-ghost btn-md rounded-md nav-menu-link {% if current_view == 'conversion:annotation_ui' or current_view == 'conversion:annotation_from_json' or current_view == 'conversion:annotation_from_fasta' %}is-active{% endif %}" href="{% url 'conversion:annotation_ui' %}">Annotation</a></li>
         <li><a class="btn btn-ghost btn-md rounded-md nav-menu-link {% if current_view == 'conversion:task_list' %}is-active{% endif %}" href="{% url 'conversion:task_list' %}">Tasks</a></li>
         <li><a class="btn btn-ghost btn-md rounded-md nav-menu-link {% if current_view == 'prediction:prediction' %}is-active{% endif %}" href="{% url 'prediction:prediction' %}">Prediction</a></li>
         {% endif %}

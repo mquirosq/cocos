@@ -1,10 +1,13 @@
 from celery import shared_task
 from django.core.files.base import ContentFile
+import json
 from .models import ConversionTask, FileUpload
-from .services import annotate_from_fasta, download_assembly_fasta_result, get_job_status, sequence_illumina, sequence_ont
-from notifications.services import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed, notify_user_conversion_started
+from .services import annotate_from_fasta, download_assembly_fasta_result, download_bakta_json_result, get_job_status, sequence_illumina, sequence_ont
+from notifications.services import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed, notify_user_conversion_started, notify_user_conversion_warning
+from notifications.models import TaskNotification
 from celery.exceptions import MaxRetriesExceededError
 from .utils import delete_file_safely, find_latest_persisted_upload, get_result_filename_stem, read_persisted_upload_bytes
+from .parsers import parse_file
 
 
 def _cleanup_temp_fastq_inputs(task):
@@ -40,6 +43,59 @@ def _persist_sequencing_fasta_output(task):
     file_upload = FileUpload(user_id=task.user_id)
     file_upload.file.save(filename, ContentFile(fasta_content), save=True)
 
+
+def _persist_annotation_json_output(task):
+    """Download Bakta JSON and parse it into DB entities for annotation tasks."""
+    if not task or not task.external_job_id or task.task_type != "annotation":
+        return
+
+    filename_stem = get_result_filename_stem("annotation", task.external_job_id)
+    if find_latest_persisted_upload(user_id=task.user_id, filename_stem=filename_stem):
+        return
+
+    json_result = download_bakta_json_result(task.external_job_id)
+    if isinstance(json_result, list):
+        parsed_payload = {"features": json_result}
+    elif isinstance(json_result, dict):
+        parsed_payload = json_result
+    else:
+        raise ValueError("Downloaded annotation payload has invalid format")
+
+    filename = f"{filename_stem}.json"
+    json_bytes = json.dumps(parsed_payload).encode("utf-8")
+    source_file = ContentFile(json_bytes, name=filename)
+
+    parse_file(
+        "bakta_json",
+        parsed_payload,
+        source_file,
+        user=task.user,
+        options={"complete_version": True},
+    )
+
+
+def _ensure_in_app_notification(task, event_type, message):
+    """Guarantee at least one in-app notification exists for task/event."""
+    # TODO: return and reload celery to check if notis are ok
+    if not task or not task.user_id:
+        return
+
+    already_exists = TaskNotification.objects.filter(
+        task=task,
+        user_id=task.user_id,
+        event_type=event_type,
+    ).exists()
+    if already_exists:
+        return
+
+    TaskNotification.objects.create(
+        user_id=task.user_id,
+        task=task,
+        event_type=event_type,
+        message=message,
+        channels=[TaskNotification.CHANNEL_IN_APP],
+    )
+
 # TODO: Por ahora aguanta máx 100 minutos, ver si es suficiente
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=10, max_retries=100)
 def poll_conversion_status(self, task_id):
@@ -58,6 +114,11 @@ def poll_conversion_status(self, task_id):
         task.status = "failed"
         task.save()
         notify_user_conversion_failed(task.user, task)
+        _ensure_in_app_notification(
+            task,
+            TaskNotification.EVENT_FAILED,
+            "The conversion failed because the external job was not found.",
+        )
         return
     
     if status != task.status:
@@ -82,12 +143,32 @@ def poll_conversion_status(self, task_id):
                     task.save()
                     notify_user_conversion_failed(task.user, task)
                 return
+        elif task.task_type == "annotation":
+            try:
+                _persist_annotation_json_output(task)
+            except Exception as e:
+                print("Unable to auto-parse annotation JSON:", str(e))
+                notify_user_conversion_warning(
+                    task.user,
+                    task,
+                    "Annotation finished, but automatic DB ingestion failed. Upload the Bakta JSON in Annotation > Bakta JSON to DB to retry.",
+                )
         _cleanup_temp_fastq_inputs(task)
         notify_user_conversion_complete(task.user, task)
+        _ensure_in_app_notification(
+            task,
+            TaskNotification.EVENT_COMPLETED,
+            "The conversion task completed. You can review outputs from Tasks.",
+        )
         return
 
     if status == "failed":
         notify_user_conversion_failed(task.user, task)
+        _ensure_in_app_notification(
+            task,
+            TaskNotification.EVENT_FAILED,
+            "The conversion task failed. Please review logs and retry.",
+        )
         return
 
     try:
@@ -98,6 +179,11 @@ def poll_conversion_status(self, task_id):
         task.status = "failed"
         task.save()
         notify_user_conversion_failed(task.user, task)
+        _ensure_in_app_notification(
+            task,
+            TaskNotification.EVENT_FAILED,
+            "The conversion task failed after maximum polling retries.",
+        )
         return
 
 # TODO: Por ahora aguanta máx 100 minutos, ver si es suficiente   
@@ -122,6 +208,11 @@ def poll_annotation_start(self, fasta_bytes, task_id, dest_path=None, user_id=No
         task.save()
         if should_notify_started:
             notify_user_conversion_started(task.user, task)
+            _ensure_in_app_notification(
+                task,
+                TaskNotification.EVENT_STARTED,
+                "The conversion task has started and is currently running.",
+            )
         poll_conversion_status.delay(task.id)
         return
 
@@ -130,6 +221,11 @@ def poll_annotation_start(self, fasta_bytes, task_id, dest_path=None, user_id=No
         self.retry(countdown=60)  # Retry after 60 seconds
     except MaxRetriesExceededError: # When retries are exhausted
         notify_user_server_busy(task.user if task else None, task=task)
+        _ensure_in_app_notification(
+            task,
+            TaskNotification.EVENT_WARNING,
+            "The conversion server is busy. Please retry later.",
+        )
         return
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
@@ -186,6 +282,11 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
             task.save()
             if should_notify_started:
                 notify_user_conversion_started(task.user, task)
+                _ensure_in_app_notification(
+                    task,
+                    TaskNotification.EVENT_STARTED,
+                    "The conversion task has started and is currently running.",
+                )
         else:
             task = ConversionTask.objects.create(
                 external_job_id=external_resp["job_id"],
@@ -195,6 +296,11 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
                 user_id=user_id,
             )
             notify_user_conversion_started(task.user, task)
+            _ensure_in_app_notification(
+                task,
+                TaskNotification.EVENT_STARTED,
+                "The conversion task has started and is currently running.",
+            )
         poll_conversion_status.delay(task.id)
         return
 
@@ -203,6 +309,11 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
         self.retry(countdown=60)  # Retry after 60 seconds
     except MaxRetriesExceededError: # When retries are exhausted
         notify_user_server_busy(effective_user, task=task)
+        _ensure_in_app_notification(
+            task,
+            TaskNotification.EVENT_WARNING,
+            "The conversion server is busy. Please retry later.",
+        )
         return
 
     

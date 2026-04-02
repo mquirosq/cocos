@@ -18,9 +18,15 @@ def _get_current_user_tasks(request):
     return ConversionTask.objects.filter(user=request.user)
 
 @login_required
-def conversion_task_ui(request):
-    """Render a simple UI for starting external tasks like annotation and sequencing."""
-    return render(request, 'converter/start_external_task.html')
+def assembly_ui(request):
+    """Render Assembly workflow page (FASTQ to FASTA)."""
+    return render(request, 'workflow/assembly.html')
+
+
+@login_required
+def annotation_ui(request):
+    """Render Annotation workflow page with FASTA and JSON tabs."""
+    return render(request, 'workflow/annotation.html', {'active_tab': 'fasta'})
 
 @require_POST
 @login_required
@@ -63,7 +69,7 @@ def annotation_task(request):
         message = f"Annotation task started for file {fasta.name}. You will be notified when it's complete."
         messages.info(request, message)
 
-        return redirect('conversion:conversion_task_ui')
+        return redirect('conversion:annotation_ui')
 
 @require_POST
 @login_required
@@ -123,7 +129,7 @@ def sequencing_task(request):
         message = f"Sequencing task started for file {fastq.name}. You will be notified when it's complete."
         messages.info(request, message)
 
-        return redirect('conversion:conversion_task_ui')
+        return redirect('conversion:assembly_ui')
     
 @require_POST
 @login_required
@@ -161,29 +167,35 @@ def annotation_from_sequencing_task(request, job_id):
         message = f"Annotation task started for sequencing job {job_id}. You will be notified when it's complete."
         messages.info(request, message)
 
-        return redirect('conversion:conversion_task_ui')
+        return redirect('conversion:annotation_ui')
 
 
 @login_required
 def parse_feature_file(request):
-    """View to handle feature file parsing (keeps legacy URL name)."""
+    """Handle Bakta JSON parsing from Annotation tab."""
     if request.method == 'POST':
         complete_version = request.POST.get('complete') == 'on'
         try:
             data = json.load(request.FILES.get('feature_file'))
         except Exception:
-            return render(None, 'featureParser/parse_feature_file.html', {'messages': ['Error decoding JSON file!']})
+            messages.error(request, 'Error decoding JSON file.')
+            return render(request, 'workflow/annotation.html', {'active_tab': 'json'})
         
-        file_upload = parse_file(
-            "bakta_json",
-            data,
-            request.FILES.get('feature_file'),
-            user=request.user,
-            options={"complete_version": complete_version}
-        )
+        try:
+            file_upload = parse_file(
+                "bakta_json",
+                data,
+                request.FILES.get('feature_file'),
+                user=request.user,
+                options={"complete_version": complete_version}
+            )
+        except Exception as e:
+            messages.error(request, f'Error parsing features: {e}')
+            return render(request, 'workflow/annotation.html', {'active_tab': 'json'})
+
         messages.success(request, 'File parsed successfully!')
-        return render(request, 'featureParser/parse_feature_file.html', {'file_upload': file_upload})
-    return render(request, 'featureParser/parse_feature_file.html')
+        return render(request, 'workflow/annotation.html', {'active_tab': 'json', 'file_upload': file_upload})
+    return redirect('conversion:annotation_ui')
 
 # Tasks
 @login_required

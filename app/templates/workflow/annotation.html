@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+
+{% block title %}Annotation - TFG{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+  <div class="mb-6">
+    <h1 class="text-3xl font-bold mb-2">Annotation</h1>
+    <p class="text-base-content/70">Transform FASTA into database features using Bakta, or ingest Bakta JSON directly.</p>
+  </div>
+
+  <div class="alert alert-info mb-4">
+    <i class="bi bi-info-circle"></i>
+    <span>For long jobs, start from FASTA and follow progress in Tasks.</span>
+    <a class="btn btn-sm btn-outline ml-auto" href="{% url 'conversion:task_list' %}">Open Tasks</a>
+  </div>
+
+  <div role="tablist" class="tabs tabs-box mb-4 w-fit">
+    <button role="tab" class="tab {% if active_tab != 'json' %}tab-active{% endif %}" data-target-tab="fasta-panel">FASTA to Bakta to DB</button>
+    <button role="tab" class="tab {% if active_tab == 'json' %}tab-active{% endif %}" data-target-tab="json-panel">Bakta JSON to DB</button>
+  </div>
+
+  <div class="space-y-4">
+    <div id="fasta-panel" class="tab-panel card bg-base-100 border border-base-300 shadow-sm {% if active_tab == 'json' %}hidden{% endif %}">
+      <div class="card-body">
+        <h2 class="card-title">FASTA to Bakta to DB</h2>
+        <p class="text-sm opacity-70">Upload FASTA and the pipeline will run Bakta and ingest the result into DB automatically.</p>
+
+        <form id="annotation-fasta-form" method="post" enctype="multipart/form-data" action="{% url 'conversion:annotation_from_fasta' %}" class="space-y-4">
+          {% csrf_token %}
+          <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4">
+            <legend class="fieldset-legend">FASTA input</legend>
+            <label class="label" for="fasta_file">
+              <span class="label-text">FASTA file</span>
+            </label>
+            <input id="fasta_file" type="file" name="fasta_file" accept=".fasta,.fa" required class="file-input file-input-bordered w-full">
+          </fieldset>
+
+          <div class="join">
+            <button type="submit" class="btn btn-primary join-item">Start Annotation</button>
+            <a href="{% url 'conversion:task_list' %}" class="btn btn-outline join-item">View Tasks</a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="json-panel" class="tab-panel card bg-base-100 border border-base-300 shadow-sm {% if active_tab != 'json' %}hidden{% endif %}">
+      <div class="card-body">
+        <h2 class="card-title">Bakta JSON to DB</h2>
+        <p class="text-sm opacity-70">Use this tab for manual retry or direct ingestion of an existing Bakta JSON file.</p>
+
+        <form id="annotation-json-form" method="post" enctype="multipart/form-data" action="{% url 'conversion:annotation_from_json' %}" class="space-y-4">
+          {% csrf_token %}
+
+          <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4">
+            <legend class="fieldset-legend">JSON input</legend>
+            <label class="label" for="feature_file">
+              <span class="label-text">Bakta JSON file</span>
+            </label>
+            <input id="feature_file" class="file-input file-input-bordered w-full" type="file" name="feature_file" required>
+
+            <label class="label cursor-pointer justify-start gap-3 mt-3">
+              <input type="checkbox" class="checkbox checkbox-primary" name="complete">
+              <span class="label-text">Store complete feature payload (start, stop, nt, aa)</span>
+            </label>
+          </fieldset>
+
+          <button type="submit" class="btn btn-primary">Ingest JSON</button>
+        </form>
+
+        {% if file_upload %}
+          <div class="divider">Last imported file</div>
+          <div class="card bg-base-200 border border-base-300">
+            <div class="card-body p-4">
+              <h3 class="font-semibold">{{ file_upload.file.name }}</h3>
+              <p class="text-sm opacity-80">{{ file_upload.genes.count }} genes linked (showing first 30).</p>
+              <ul class="list list-disc pl-5 text-sm">
+                {% for fg in file_upload.filegene_set.all|slice:":30" %}
+                  <li>{{ fg.gene.identifiers|default:"-" }} ({{ fg.expert|default:"unknown" }})</li>
+                {% empty %}
+                  <li>No features found for this upload.</li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const tabButtons = Array.from(document.querySelectorAll('[data-target-tab]'));
+    const tabPanels = {
+      'fasta-panel': document.getElementById('fasta-panel'),
+      'json-panel': document.getElementById('json-panel'),
+    };
+
+    function setActiveTab(target) {
+      tabButtons.forEach(function (button) {
+        button.classList.toggle('tab-active', button.dataset.targetTab === target);
+      });
+      Object.keys(tabPanels).forEach(function (panelName) {
+        const panel = tabPanels[panelName];
+        if (!panel) return;
+        panel.classList.toggle('hidden', panelName !== target);
+      });
+    }
+
+    tabButtons.forEach(function (button) {
+      button.addEventListener('click', function () {
+        setActiveTab(button.dataset.targetTab);
+      });
+    });
+
+    ['annotation-fasta-form', 'annotation-json-form'].forEach(function (formId) {
+      const form = document.getElementById(formId);
+      if (!form) return;
+      form.addEventListener('submit', function () {
+        if (!form.checkValidity()) return;
+        const submitButton = form.querySelector('button[type="submit"]');
+        if (submitButton) submitButton.disabled = true;
+      });
+    });
+  });
+</script>
+{% endblock %}

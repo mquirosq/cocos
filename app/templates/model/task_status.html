@@ -1,33 +1,37 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container mt-4">
-  <a href="{% url 'conversion:task_list' %}" class="btn btn-link mb-3">&larr; Back to Tasks</a>
-  <a href="{% url 'notifications:list' %}" class="btn btn-link mb-3">View Notifications</a>
-  <div class="card">
+<div class="container mx-auto px-4 py-8">
+  <div class="mb-4 flex flex-wrap gap-2">
+    <a href="{% url 'conversion:task_list' %}" class="btn btn-ghost btn-sm">&larr; Back to Tasks</a>
+    <a href="{% url 'notifications:list' %}" class="btn btn-ghost btn-sm">View Notifications</a>
+  </div>
+  <div class="card bg-base-100 border border-base-300 shadow-sm">
     <div class="card-body">
-      <h4 class="card-title">Task #{{ task.id }}</h4>
-      <p class="mb-2"><strong>Status:</strong> {{ task.status }}</p>
-      <p class="mb-2"><strong>External job id:</strong> {{ task.external_job_id }}</p>
+      <h1 class="card-title text-2xl">Task #{{ task.id }}</h1>
+      <p><strong>Status:</strong> {{ task.status }}</p>
+      <p><strong>External job id:</strong> {{ task.external_job_id }}</p>
       {% if task.created_at %}
-      <p class="mb-1 text-muted small">Created: {{ task.created_at }}</p>
+      <p class="text-sm opacity-70">Created: {{ task.created_at }}</p>
       {% endif %}
       {% if task.updated_at %}
-      <p class="mb-3 text-muted small">Updated: {{ task.updated_at }}</p>
+      <p class="text-sm opacity-70">Updated: {{ task.updated_at }}</p>
       {% endif %}
 
+      <div class="mt-3 flex flex-wrap gap-2">
       {% if task.status == 'completed' %}
       <a href="{% url 'conversion:download_json' task.id %}" class="btn btn-success">Download JSON</a>
       {% else %}
-      <button class="btn btn-secondary" disabled>Download JSON</button>
+      <button class="btn btn-neutral" disabled>Download JSON</button>
       {% endif %}
 
       {% if "annotation" not in task.task_type and task.status == "completed" %}
-      <form method="post" action="{% url 'conversion:annotation_from_sequencing_task' task.external_job_id %}" class="d-inline ml-2">
+      <form method="post" action="{% url 'conversion:annotation_from_job' task.external_job_id %}">
         {% csrf_token %}
         <button type="submit" class="btn btn-primary">Annotate</button>
       </form>
       {% endif %}
+      </div>
 
     </div>
   </div>

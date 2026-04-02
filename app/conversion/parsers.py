@@ -1,6 +1,5 @@
 from conversion.models import FileGene, Gene, FileUpload
 from django.db import transaction
-from django.shortcuts import render
 
 # --- Registry for parsers ---
 PARSERS = {}
@@ -105,6 +104,6 @@ class BaktaJsonParser(BaseParser):
                     pass
                 file_upload.delete()
                 transaction.set_rollback(True)
-                return render(None, 'featureParser/parse_feature_file.html', {'messages': [f'Error parsing features: {str(e)}']})
+                raise RuntimeError(f'Error parsing features: {str(e)}')
 
             return file_upload

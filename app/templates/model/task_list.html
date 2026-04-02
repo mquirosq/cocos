@@ -1,31 +1,31 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container mt-4">
-  <h1>Conversion Tasks</h1>
-  <div class="row g-3">
+<div class="container mx-auto px-4 py-8">
+  <h1 class="text-3xl font-bold mb-6">Conversion Tasks</h1>
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
     {% for task in tasks %}
-    <div class="col-12 col-md-6 col-lg-4">
-      <div class="card h-100">
-        <div class="card-body d-flex flex-column">
-          <h5 class="card-title">Task #{{ task.id }}</h5>
-          <p class="card-text mb-1"><strong>Status:</strong> {{ task.status }}</p>
-          <p class="card-text mb-2"><strong>External job id:</strong> {{ task.external_job_id }}</p>
+    <div>
+      <div class="card bg-base-100 border border-base-300 shadow-sm h-full">
+        <div class="card-body">
+          <h2 class="card-title">Task #{{ task.id }}</h2>
+          <p><strong>Status:</strong> {{ task.status }}</p>
+          <p><strong>External job id:</strong> {{ task.external_job_id }}</p>
           {% if task.type or task.task_type %}
-          <p class="card-text mb-2"><strong>Type:</strong> {{ task.type|default:task.task_type }}</p>
+          <p><strong>Type:</strong> {{ task.type|default:task.task_type }}</p>
           {% endif %}
-          <p class="card-text mb-2"><strong>User:</strong> {{ task.user.username }}</p>
+          <p><strong>User:</strong> {{ task.user.username }}</p>
           {% if task.created_at %}
-          <p class="card-text text-muted small">Created: {{ task.created_at }}</p>
+          <p class="text-sm opacity-70">Created: {{ task.created_at }}</p>
           {% endif %}
-          <div class="mt-auto">
+          <div class="card-actions justify-end mt-2">
             <a href="{% url 'conversion:task_status' task.id %}" class="btn btn-primary btn-sm">Details</a>
           </div>
         </div>
       </div>
     </div>
     {% empty %}
-    <div class="col-12">
+    <div>
       <p>No conversion tasks found.</p>
     </div>
     {% endfor %}

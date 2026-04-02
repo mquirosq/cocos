@@ -3,22 +3,32 @@
 {% block title %}Prediction - TFG{% endblock %}
 
 {% block content %}
-<div class="container my-4">
-  <h1>Model Prediction</h1>
+<div class="container mx-auto px-4 py-8">
+  <h1 class="text-3xl font-bold mb-2">Prediction</h1>
+  <p class="text-base-content/70 mb-6">Select model, antibiotic, and an uploaded dataset to compute prediction probability.</p>
 
   {% if error %}
-  <div class="alert alert-danger">{{ error }}</div>
+  <div class="alert alert-error mb-4">
+    <span>{{ error }}</span>
+  </div>
   {% endif %}
 
   {% if prediction is not None %}
-  <div class="alert alert-info">Prediction probability: <strong>{{ prediction }}</strong></div>
+  <div class="stats shadow w-full mb-4 bg-base-100 border border-base-300">
+    <div class="stat">
+      <div class="stat-title">Prediction probability</div>
+      <div class="stat-value text-primary font-output">{{ prediction }}</div>
+    </div>
+  </div>
   {% endif %}
 
-  <form method="post" class="row g-3">
-    {% csrf_token %}
-    <div class="col-md-4">
-      <label class="form-label">Model name</label>
-      <select name="model_name" class="form-select" onchange="this.form.submit()">
+  <form method="post" class="card bg-base-100 border border-base-300 shadow-sm">
+    <div class="card-body gap-5">
+      {% csrf_token %}
+
+      <div>
+      <label class="label" for="model_name"><span class="label-text">Model name</span></label>
+      <select id="model_name" name="model_name" class="select select-bordered w-full" onchange="this.form.submit()">
         <option value="">-- choose --</option>
         {% for m in available_models %}
         <option value="{{ m }}" {% if model_name == m %}selected{% endif %}>{{ m }}</option>
@@ -26,33 +36,44 @@
         <option disabled>No models registered</option>
         {% endfor %}
       </select>
-    </div>
+      </div>
 
-    <div class="col-md-4">
-      <label class="form-label">Antibiotic (weights filename)</label>
+      <div>
+      <label class="label" for="antibiotic"><span class="label-text">Antibiotic</span></label>
       {% if model_name %}
         {% if available_antibiotics %}
-        <select name="antibiotic" class="form-select">
+        <select id="antibiotic" name="antibiotic" class="select select-bordered w-full">
           <option value="">-- choose --</option>
           {% for a in available_antibiotics %}
           <option value="{{ a }}" {% if antibiotic == a %}selected{% endif %}>{{ a }}</option>
           {% endfor %}
         </select>
         {% else %}
-        <input type="text" name="antibiotic" value="{{ antibiotic }}" class="form-control" placeholder="e.g. ampicillin">
+        <input id="antibiotic" type="text" name="antibiotic" value="{{ antibiotic }}" class="input input-bordered w-full" placeholder="e.g. ampicillin">
         {% endif %}
       {% else %}
-        <input type="text" class="form-control" placeholder="Select a model first" disabled>
+        <input type="text" class="input input-bordered w-full" placeholder="Select a model first" disabled>
       {% endif %}
-    </div>
+      </div>
 
-    <div class="col-md-4">
-      <label class="form-label">FileUpload id (optional)</label>
-      <input type="text" name="file_id" value="{{ file_id }}" class="form-control" placeholder="Database FileUpload id">
-    </div>
+      <div>
+      <label class="label" for="file_id"><span class="label-text">Uploaded JSON file (optional)</span></label>
+      <select id="file_id" name="file_id" class="select select-bordered w-full">
+        <option value="">Use default active file</option>
+        {% for upload in json_upload_options %}
+        <option value="{{ upload.id }}" {% if file_id == upload.id %}selected{% endif %}>
+          {{ upload.file_name }} - {{ upload.uploaded_at|date:"Y-m-d H:i" }}
+        </option>
+        {% empty %}
+        <option disabled>No JSON uploads available</option>
+        {% endfor %}
+      </select>
+      <p class="text-xs opacity-70 mt-2">Only your JSON uploads are shown. Leave empty to use the default active file.</p>
+      </div>
 
-    <div class="col-12">
+      <div>
       <button type="submit" class="btn btn-primary">Get prediction</button>
+      </div>
     </div>
   </form>
 </div>
