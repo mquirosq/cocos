@@ -20,13 +20,13 @@ def _get_current_user_tasks(request):
 @login_required
 def assembly_ui(request):
     """Render Assembly workflow page (FASTQ to FASTA)."""
-    return render(request, 'workflow/assembly.html')
+    return render(request, 'conversion/assembly.html')
 
 
 @login_required
 def annotation_ui(request):
     """Render Annotation workflow page with FASTA and JSON tabs."""
-    return render(request, 'workflow/annotation.html', {'active_tab': 'fasta'})
+    return render(request, 'conversion/annotation.html', {'active_tab': 'fasta'})
 
 @require_POST
 @login_required
@@ -179,7 +179,7 @@ def parse_feature_file(request):
             data = json.load(request.FILES.get('feature_file'))
         except Exception:
             messages.error(request, 'Error decoding JSON file.')
-            return render(request, 'workflow/annotation.html', {'active_tab': 'json'})
+            return render(request, 'conversion/annotation.html', {'active_tab': 'json'})
         
         try:
             file_upload = parse_file(
@@ -191,10 +191,10 @@ def parse_feature_file(request):
             )
         except Exception as e:
             messages.error(request, f'Error parsing features: {e}')
-            return render(request, 'workflow/annotation.html', {'active_tab': 'json'})
+            return render(request, 'conversion/annotation.html', {'active_tab': 'json'})
 
         messages.success(request, 'File parsed successfully!')
-        return render(request, 'workflow/annotation.html', {'active_tab': 'json', 'file_upload': file_upload})
+        return render(request, 'conversion/annotation.html', {'active_tab': 'json', 'file_upload': file_upload})
     return redirect('conversion:annotation_ui')
 
 # Tasks
@@ -202,13 +202,13 @@ def parse_feature_file(request):
 def task_list_view(request):
     """Render a list of annotation tasks as cards including external_job_id and status."""
     tasks = _get_current_user_tasks(request).order_by('-id')
-    return render(request, 'model/task_list.html', {'tasks': tasks})
+    return render(request, 'conversion/task_list.html', {'tasks': tasks})
 
 
 @login_required
 def task_status_view(request, task_id):
     task = get_object_or_404(_get_current_user_tasks(request), id=task_id)
-    return render(request, 'model/task_status.html', {'task': task})
+    return render(request, 'conversion/task_status.html', {'task': task})
 
 
 @login_required

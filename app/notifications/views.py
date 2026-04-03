@@ -30,7 +30,7 @@ def notifications_view(request):
         'page_obj': page_obj,
         'has_unread_notifications': base_notifications.filter(is_read=False).exists(),
     }
-    template_name = 'model/_notifications_panel.html' if request.GET.get('partial') == '1' else 'model/notifications.html'
+    template_name = 'notifications/_notifications_panel.html' if request.GET.get('partial') == '1' else 'notifications/notifications.html'
     return render(request, template_name, context)
 
 

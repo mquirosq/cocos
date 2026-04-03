@@ -4,7 +4,7 @@
 {% block title %}Notifications{% endblock %}
 
 {% block override_style %}
-<link rel="stylesheet" href="{% static 'css/model/notifications.css' %}">
+<link rel="stylesheet" href="{% static 'css/notifications/notifications.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -26,8 +26,8 @@
   </div>
 
   <div id="notifications-panel" data-list-url="{% url 'notifications:list' %}">
-    {% include 'model/_notifications_panel.html' %}
+    {% include 'notifications/_notifications_panel.html' %}
   </div>
 </div>
-<script src="{% static 'js/model/notifications.js' %}"></script>
+<script src="{% static 'js/notifications/notifications.js' %}"></script>
 {% endblock %}

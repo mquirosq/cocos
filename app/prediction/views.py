@@ -86,7 +86,7 @@ def prediction_view(request):
                 except Exception as e:
                     error = str(e)
 
-    return render(request, 'inputParser/prediction.html', {
+    return render(request, 'prediction/prediction.html', {
         'prediction': prediction,
         'error': error,
         'model_name': model_name,
