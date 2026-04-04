@@ -1,80 +1,95 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Assembly - TFG{% endblock %}
+
+{% block override_style %}
+<link rel="stylesheet" href="{% static 'css/conversion/conversion.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
   <div class="mb-6">
     <h1 class="text-3xl font-bold mb-2">Assembly</h1>
-    <p class="text-base-content/70">Transform FASTQ reads into assembled FASTA output. Use Illumina or ONT tab to launch the workflow.</p>
+    <p class="text-base-content/70">Transform FASTQ reads into assembled FASTA output. Use Illumina or ONT depending on your machine.</p>
   </div>
 
-  <div class="alert alert-info mb-4">
-    <i class="bi bi-hourglass-split"></i>
+  <div class="alert alert-soft alert-info border-2 border-base-content mb-4 items-center gap-3">
+    <i class="bi bi-hourglass-split text-base"></i>
     <span>Assembly jobs can take a while. Track progress from Tasks.</span>
     <a class="btn btn-sm btn-outline ml-auto" href="{% url 'conversion:task_list' %}">Open Tasks</a>
   </div>
 
-  <div role="tablist" class="tabs tabs-box mb-4 w-fit">
-    <button role="tab" class="tab tab-active" data-target-tab="illumina-panel">Illumina</button>
-    <button role="tab" class="tab" data-target-tab="ont-panel">ONT</button>
+  <div class="bg-base-200 border border-base-300 border-b-0 rounded-t-box shadow-sm px-2 sm:px-4 pt-4 mb-0">
+    <div role="tablist" class="tabs tabs-lift w-fit" aria-label="Assembly technology tabs">
+      <button role="tab" class="tab tab-active" data-target-tab="illumina-panel">Illumina</button>
+      <button role="tab" class="tab" data-target-tab="ont-panel">ONT</button>
+    </div>
   </div>
 
-  <div class="space-y-4">
-    <div id="illumina-panel" class="tab-panel card bg-base-100 border border-base-300 shadow-sm">
-      <div class="card-body">
+  <div class="bg-base-100 border border-base-300 border-t-0 rounded-b-box shadow-sm px-4 sm:px-6 py-6">
+    <div id="illumina-panel" class="tab-panel">
+      <div class="space-y-4">
         <h2 class="card-title">Illumina FASTQ to FASTA</h2>
         <p class="text-sm opacity-70">Upload paired-end reads (R1 and R2).</p>
         <form id="assembly-form-illumina" method="post" enctype="multipart/form-data" action="{% url 'conversion:assembly_run' %}" class="space-y-4">
           {% csrf_token %}
           <input type="hidden" name="sequencing_type" value="illumina">
 
-          <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4">
-            <legend class="fieldset-legend">Input reads</legend>
+          <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4 assembly-interactive">
+            <legend class="fieldset-legend text-base font-semibold">Input reads</legend>
 
-            <label class="label" for="illumina_fastq_1">FASTQ read 1</label>
-            <input id="illumina_fastq_1" type="file" name="fastq_file" accept=".fastq,.fq,.fastq.gz,.fq.gz" required class="file-input file-input-bordered w-full">
+            <label class="label text-base font-medium" for="illumina_fastq_1">FASTQ read 1</label>
+            <div class="assembly-input-shell bg-base-100">
+              <input id="illumina_fastq_1" type="file" name="fastq_file" accept=".fastq,.fq,.fastq.gz,.fq.gz" required class="file-input w-full">
+            </div>
 
-            <label class="label mt-3" for="illumina_fastq_2">FASTQ read 2</label>
-            <input id="illumina_fastq_2" type="file" name="fastq_file_2" accept=".fastq,.fq,.fastq.gz,.fq.gz" required class="file-input file-input-bordered w-full">
+            <label class="label mt-3 text-base font-medium" for="illumina_fastq_2">FASTQ read 2</label>
+            <div class="assembly-input-shell bg-base-100">
+              <input id="illumina_fastq_2" type="file" name="fastq_file_2" accept=".fastq,.fq,.fastq.gz,.fq.gz" required class="file-input w-full">
+            </div>
           </fieldset>
 
-          <label class="label cursor-pointer justify-start gap-3">
+          <label class="label w-full cursor-pointer justify-start gap-3 px-1 py-1 assembly-annotate-row">
             <input class="checkbox checkbox-primary" type="checkbox" name="annotate">
             <span class="label-text">Run annotation automatically after assembly</span>
           </label>
 
-          <div class="join">
-            <button type="submit" class="btn btn-primary join-item">Start Illumina Assembly</button>
-            <a href="{% url 'conversion:task_list' %}" class="btn btn-outline join-item">View Tasks</a>
+          <div class="w-full">
+            <div class="join">
+              <button type="submit" class="btn btn-primary join-item">Start Illumina Assembly</button>
+            </div>
           </div>
         </form>
       </div>
     </div>
 
-    <div id="ont-panel" class="tab-panel hidden card bg-base-100 border border-base-300 shadow-sm">
-      <div class="card-body">
+    <div id="ont-panel" class="tab-panel hidden">
+      <div class="space-y-4">
         <h2 class="card-title">ONT FASTQ to FASTA</h2>
         <p class="text-sm opacity-70">Upload a single ONT read file.</p>
         <form id="assembly-form-ont" method="post" enctype="multipart/form-data" action="{% url 'conversion:assembly_run' %}" class="space-y-4">
           {% csrf_token %}
           <input type="hidden" name="sequencing_type" value="ont">
 
-          <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4">
-            <legend class="fieldset-legend">Input reads</legend>
+          <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4 assembly-interactive">
+            <legend class="fieldset-legend text-base font-semibold">Input reads</legend>
 
-            <label class="label" for="ont_fastq">FASTQ reads</label>
-            <input id="ont_fastq" type="file" name="fastq_file" accept=".fastq,.fq,.fastq.gz,.fq.gz" required class="file-input file-input-bordered w-full">
+            <label class="label text-base font-medium" for="ont_fastq">FASTQ read</label>
+            <div class="assembly-input-shell bg-base-100">
+              <input id="ont_fastq" type="file" name="fastq_file" accept=".fastq,.fq,.fastq.gz,.fq.gz" required class="file-input w-full">
+            </div>
           </fieldset>
 
-          <label class="label cursor-pointer justify-start gap-3">
+          <label class="label w-full cursor-pointer justify-start gap-3 px-1 py-1 assembly-annotate-row">
             <input class="checkbox checkbox-primary" type="checkbox" name="annotate">
             <span class="label-text">Run annotation automatically after assembly</span>
           </label>
 
-          <div class="join">
-            <button type="submit" class="btn btn-primary join-item">Start ONT Assembly</button>
-            <a href="{% url 'conversion:task_list' %}" class="btn btn-outline join-item">View Tasks</a>
+          <div class="w-full">
+            <div class="join">
+              <button type="submit" class="btn btn-primary join-item">Start ONT Assembly</button>
+            </div>
           </div>
         </form>
       </div>

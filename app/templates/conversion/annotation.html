@@ -1,6 +1,11 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Annotation - TFG{% endblock %}
+
+{% block override_style %}
+<link rel="stylesheet" href="{% static 'css/conversion/conversion.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
@@ -9,63 +14,68 @@
     <p class="text-base-content/70">Transform FASTA into database features using Bakta, or ingest Bakta JSON directly.</p>
   </div>
 
-  <div class="alert alert-info mb-4">
-    <i class="bi bi-info-circle"></i>
-    <span>For long jobs, start from FASTA and follow progress in Tasks.</span>
+  <div class="alert alert-soft alert-info border-2 border-base-content mb-4 items-center gap-3">
+    <i class="bi bi-hourglass-split text-base"></i>
+    <span>Annotation jobs from FASTA files can take a while. Track progress from Tasks.</span>
     <a class="btn btn-sm btn-outline ml-auto" href="{% url 'conversion:task_list' %}">Open Tasks</a>
   </div>
 
-  <div role="tablist" class="tabs tabs-box mb-4 w-fit">
-    <button role="tab" class="tab {% if active_tab != 'json' %}tab-active{% endif %}" data-target-tab="fasta-panel">FASTA to Bakta to DB</button>
-    <button role="tab" class="tab {% if active_tab == 'json' %}tab-active{% endif %}" data-target-tab="json-panel">Bakta JSON to DB</button>
+  <div class="bg-base-200 border border-base-300 border-b-0 rounded-t-box shadow-sm px-2 sm:px-4 pt-4 mb-0">
+    <div role="tablist" class="tabs tabs-lift w-fit">
+      <button role="tab" class="tab {% if active_tab != 'json' %}tab-active{% endif %}" data-target-tab="fasta-panel">FASTA to Bakta to DB</button>
+      <button role="tab" class="tab {% if active_tab == 'json' %}tab-active{% endif %}" data-target-tab="json-panel">Bakta JSON to DB</button>
+    </div>
   </div>
 
-  <div class="space-y-4">
-    <div id="fasta-panel" class="tab-panel card bg-base-100 border border-base-300 shadow-sm {% if active_tab == 'json' %}hidden{% endif %}">
-      <div class="card-body">
-        <h2 class="card-title">FASTA to Bakta to DB</h2>
-        <p class="text-sm opacity-70">Upload FASTA and the pipeline will run Bakta and ingest the result into DB automatically.</p>
+  <div class="bg-base-100 border border-base-300 border-t-0 rounded-b-box shadow-sm px-4 sm:px-6 py-6">
+    <div id="fasta-panel" class="tab-panel {% if active_tab == 'json' %}hidden{% endif %}">
+      <div class="space-y-4">
+        <h2 class="card-title">FASTA to Bakta JSON to system</h2>
+        <p class="text-sm opacity-70">Upload a FASTA and the pipeline will run Bakta and ingest the result into the system automatically so they are available for prediction.</p>
 
         <form id="annotation-fasta-form" method="post" enctype="multipart/form-data" action="{% url 'conversion:annotation_from_fasta' %}" class="space-y-4">
           {% csrf_token %}
-          <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4">
-            <legend class="fieldset-legend">FASTA input</legend>
-            <label class="label" for="fasta_file">
-              <span class="label-text">FASTA file</span>
-            </label>
-            <input id="fasta_file" type="file" name="fasta_file" accept=".fasta,.fa" required class="file-input file-input-bordered w-full">
+          <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4 assembly-interactive">
+            <legend class="fieldset-legend text-base font-semibold">FASTA input</legend>
+            <label class="label text-base font-medium" for="fasta_file">FASTA file</label>
+            <div class="assembly-input-shell bg-base-100">
+              <input id="fasta_file" type="file" name="fasta_file" accept=".fasta,.fa" required class="file-input w-full">
+            </div>
           </fieldset>
 
-          <div class="join">
-            <button type="submit" class="btn btn-primary join-item">Start Annotation</button>
-            <a href="{% url 'conversion:task_list' %}" class="btn btn-outline join-item">View Tasks</a>
+          <div class="w-full">
+            <div class="join">
+              <button type="submit" class="btn btn-primary join-item">Start Annotation</button>
+            </div>
           </div>
         </form>
       </div>
     </div>
 
-    <div id="json-panel" class="tab-panel card bg-base-100 border border-base-300 shadow-sm {% if active_tab != 'json' %}hidden{% endif %}">
-      <div class="card-body">
-        <h2 class="card-title">Bakta JSON to DB</h2>
-        <p class="text-sm opacity-70">Use this tab for manual retry or direct ingestion of an existing Bakta JSON file.</p>
+    <div id="json-panel" class="tab-panel {% if active_tab != 'json' %}hidden{% endif %}">
+      <div class="space-y-4">
+        <h2 class="card-title">Bakta JSON to system</h2>
+        <p class="text-sm opacity-70">Upload a Bakta JSON file to ingest its contents into the system so they are available for prediction.</p>
 
         <form id="annotation-json-form" method="post" enctype="multipart/form-data" action="{% url 'conversion:annotation_from_json' %}" class="space-y-4">
           {% csrf_token %}
 
-          <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4">
-            <legend class="fieldset-legend">JSON input</legend>
-            <label class="label" for="feature_file">
-              <span class="label-text">Bakta JSON file</span>
-            </label>
-            <input id="feature_file" class="file-input file-input-bordered w-full" type="file" name="feature_file" required>
+          <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4 assembly-interactive">
+            <legend class="fieldset-legend text-base font-semibold">JSON input</legend>
+            <label class="label text-base font-medium" for="feature_file">Bakta JSON file</label>
+            <div class="assembly-input-shell bg-base-100">
+              <input id="feature_file" type="file" name="feature_file" accept=".json" required class="file-input w-full">
+            </div>
 
-            <label class="label cursor-pointer justify-start gap-3 mt-3">
+            <label class="label w-full cursor-pointer justify-start gap-3 px-1 py-1 assembly-annotate-row mt-3">
               <input type="checkbox" class="checkbox checkbox-primary" name="complete">
               <span class="label-text">Store complete feature payload (start, stop, nt, aa)</span>
             </label>
           </fieldset>
 
-          <button type="submit" class="btn btn-primary">Ingest JSON</button>
+          <div class="w-full">
+            <button type="submit" class="btn btn-primary">Ingest JSON</button>
+          </div>
         </form>
 
         {% if file_upload %}
@@ -123,6 +133,8 @@
         if (submitButton) submitButton.disabled = true;
       });
     });
+
+    setActiveTab('{% if active_tab == "json" %}json-panel{% else %}fasta-panel{% endif %}');
   });
 </script>
 {% endblock %}

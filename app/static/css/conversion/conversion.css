@@ -1,0 +1,63 @@
+.alert.alert-soft.alert-info {
+  border-color: var(--color-info) !important;
+}
+
+.alert.alert-soft.alert-info .btn {
+  transition: all 160ms ease;
+}
+
+.alert.alert-soft.alert-info .btn:hover {
+  background-color: var(--color-info);
+  border-color: var(--color-info);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in oklab, var(--color-info) 28%, transparent);
+}
+
+.assembly-interactive {
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.assembly-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px color-mix(in oklab, var(--color-base-content) 10%, transparent);
+}
+
+.assembly-input-shell {
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 16%, white);
+  background: var(--color-base-100);
+  box-shadow: none;
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+}
+
+.assembly-input-shell:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px color-mix(in oklab, var(--color-primary) 12%, transparent);
+}
+
+.assembly-input-shell:focus-within {
+  border-color: color-mix(in oklab, var(--color-primary) 64%, white);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary) 22%, transparent);
+  background: color-mix(in oklab, var(--color-primary) 4%, var(--color-base-100));
+}
+
+.assembly-annotate-row .checkbox {
+  transform: none;
+  background-image: none;
+  --tw-shadow: 0 1px 2px 0 color-mix(in oklab, var(--color-base-content) 16%, transparent);
+  --tw-shadow-colored: 0 1px 2px 0 color-mix(in oklab, var(--color-base-content) 16%, transparent);
+  box-shadow: var(--tw-shadow) !important;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.assembly-annotate-row:hover .checkbox {
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 4px 10px color-mix(in oklab, var(--color-primary) 18%, transparent);
+}
+
+.assembly-annotate-row:focus-within .checkbox {
+  transform: scale(1.03);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary) 24%, transparent);
+}
