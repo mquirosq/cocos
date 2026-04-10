@@ -11,6 +11,9 @@
       <h1 class="card-title text-2xl">Task #{{ task.id }}</h1>
       <p><strong>Status:</strong> {{ task.status }}</p>
       <p><strong>External job id:</strong> {{ task.external_job_id }}</p>
+      {% if task.previous_task %}
+      <p><strong>Derived from task:</strong> #{{ task.previous_task.id }}{% if task.previous_task.external_job_id %} (job {{ task.previous_task.external_job_id }}){% endif %}</p>
+      {% endif %}
       {% if task.created_at %}
       <p class="text-sm opacity-70">Created: {{ task.created_at }}</p>
       {% endif %}
@@ -25,11 +28,13 @@
       <button class="btn btn-neutral" disabled>Download JSON</button>
       {% endif %}
 
-      {% if "annotation" not in task.task_type and task.status == "completed" %}
+      {% if "annotation" not in task.task_type and task.status == "completed" and not has_annotation_descendant %}
       <form method="post" action="{% url 'conversion:annotation_from_job' task.external_job_id %}">
         {% csrf_token %}
         <button type="submit" class="btn btn-primary">Annotate</button>
       </form>
+      {% elif "annotation" not in task.task_type and task.status == "completed" and has_annotation_descendant %}
+      <button class="btn btn-neutral" disabled>Already annotated</button>
       {% endif %}
       </div>
 

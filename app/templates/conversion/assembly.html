@@ -20,14 +20,14 @@
     <a class="btn btn-sm btn-outline ml-auto" href="{% url 'conversion:task_list' %}">Open Tasks</a>
   </div>
 
-  <div class="bg-base-200 border border-base-300 border-b-0 rounded-t-box shadow-sm px-2 sm:px-4 pt-4 mb-0">
-    <div role="tablist" class="tabs tabs-lift w-fit" aria-label="Assembly technology tabs">
+  <div class="bg-base-200 border border-base-300 border-b-0 rounded-t-box shadow-sm px-2 sm:px-4 pt-4 mb-0 conversion-card-top">
+    <div role="tablist" class="tabs tabs-lift w-fit conversion-tabs" aria-label="Assembly technology tabs">
       <button role="tab" class="tab tab-active" data-target-tab="illumina-panel">Illumina</button>
       <button role="tab" class="tab" data-target-tab="ont-panel">ONT</button>
     </div>
   </div>
 
-  <div class="bg-base-100 border border-base-300 border-t-0 rounded-b-box shadow-sm px-4 sm:px-6 py-6">
+  <div class="bg-base-100 border border-base-300 rounded-b-box shadow-sm px-4 sm:px-6 py-6 conversion-card-body">
     <div id="illumina-panel" class="tab-panel">
       <div class="space-y-4">
         <h2 class="card-title">Illumina FASTQ to FASTA</h2>

@@ -63,6 +63,19 @@ def find_latest_persisted_upload(user_id, filename_stem):
     ).order_by("-uploaded_at").first()
 
 
+def resolve_persisted_result_filename(user_id, result_prefix, job_id):
+    """Resolve persisted filename for a job result, returning None when unavailable."""
+    if not job_id:
+        return None
+
+    filename_stem = get_result_filename_stem(result_prefix, job_id)
+    persisted_upload = find_latest_persisted_upload(user_id=user_id, filename_stem=filename_stem)
+    if persisted_upload and persisted_upload.file:
+        return os.path.basename(persisted_upload.file.name)
+
+    return None
+
+
 def read_persisted_upload_bytes(user_id, filename_stem):
     """Read bytes from latest persisted upload matching a filename stem."""
     persisted_upload = find_latest_persisted_upload(user_id=user_id, filename_stem=filename_stem)

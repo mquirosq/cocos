@@ -8,7 +8,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
+<div id="annotation-page" class="container mx-auto px-4 py-8" data-active-tab="{% if active_tab == 'json' %}json-panel{% else %}fasta-panel{% endif %}">
   <div class="mb-6">
     <h1 class="text-3xl font-bold mb-2">Annotation</h1>
     <p class="text-base-content/70">Transform FASTA into database features using Bakta, or ingest Bakta JSON directly.</p>
@@ -20,27 +20,40 @@
     <a class="btn btn-sm btn-outline ml-auto" href="{% url 'conversion:task_list' %}">Open Tasks</a>
   </div>
 
-  <div class="bg-base-200 border border-base-300 border-b-0 rounded-t-box shadow-sm px-2 sm:px-4 pt-4 mb-0">
-    <div role="tablist" class="tabs tabs-lift w-fit">
+  <div class="bg-base-200 border border-base-300 border-b-0 rounded-t-box shadow-sm px-2 sm:px-4 pt-4 mb-0 conversion-card-top">
+    <div role="tablist" class="tabs tabs-lift w-fit conversion-tabs">
       <button role="tab" class="tab {% if active_tab != 'json' %}tab-active{% endif %}" data-target-tab="fasta-panel">FASTA to Bakta to DB</button>
       <button role="tab" class="tab {% if active_tab == 'json' %}tab-active{% endif %}" data-target-tab="json-panel">Bakta JSON to DB</button>
     </div>
   </div>
 
-  <div class="bg-base-100 border border-base-300 border-t-0 rounded-b-box shadow-sm px-4 sm:px-6 py-6">
+  <div class="bg-base-100 border border-base-300 rounded-b-box shadow-sm px-4 sm:px-6 py-6 conversion-card-body">
     <div id="fasta-panel" class="tab-panel {% if active_tab == 'json' %}hidden{% endif %}">
       <div class="space-y-4">
         <h2 class="card-title">FASTA to Bakta JSON to system</h2>
-        <p class="text-sm opacity-70">Upload a FASTA and the pipeline will run Bakta and ingest the result into the system automatically so they are available for prediction.</p>
+        <p class="text-sm opacity-70">Choose a FASTA from your completed Assembly jobs or upload a local FASTA file.</p>
 
         <form id="annotation-fasta-form" method="post" enctype="multipart/form-data" action="{% url 'conversion:annotation_from_fasta' %}" class="space-y-4">
           {% csrf_token %}
           <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4 assembly-interactive">
             <legend class="fieldset-legend text-base font-semibold">FASTA input</legend>
+            <label class="label text-base font-medium" for="source_job_id">From previous Assembly output</label>
+            <select id="source_job_id" name="source_job_id" class="select w-full bg-base-100 source-job-select">
+              <option value="">Select a previous FASTA output (optional)</option>
+              {% for task in available_fasta_jobs %}
+                <option value="{{ task.external_job_id }}">{{ task.source_filename }} · {{ task.get_task_type_display }} · {{ task.updated_at|date:"Y-m-d H:i" }}</option>
+              {% empty %}
+                <option value="" disabled>No available Assembly outputs to annotate</option>
+              {% endfor %}
+            </select>
+
+            <div class="divider my-2">or</div>
+
             <label class="label text-base font-medium" for="fasta_file">FASTA file</label>
             <div class="assembly-input-shell bg-base-100">
-              <input id="fasta_file" type="file" name="fasta_file" accept=".fasta,.fa" required class="file-input w-full">
+              <input id="fasta_file" type="file" name="fasta_file" accept=".fasta,.fa" class="file-input w-full">
             </div>
+            <button type="button" id="clear-fasta-file" class="btn btn-xs mt-2 hidden fasta-clear-btn">Clear selected file</button>
           </fieldset>
 
           <div class="w-full">
@@ -99,42 +112,5 @@
   </div>
 </div>
 
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const tabButtons = Array.from(document.querySelectorAll('[data-target-tab]'));
-    const tabPanels = {
-      'fasta-panel': document.getElementById('fasta-panel'),
-      'json-panel': document.getElementById('json-panel'),
-    };
-
-    function setActiveTab(target) {
-      tabButtons.forEach(function (button) {
-        button.classList.toggle('tab-active', button.dataset.targetTab === target);
-      });
-      Object.keys(tabPanels).forEach(function (panelName) {
-        const panel = tabPanels[panelName];
-        if (!panel) return;
-        panel.classList.toggle('hidden', panelName !== target);
-      });
-    }
-
-    tabButtons.forEach(function (button) {
-      button.addEventListener('click', function () {
-        setActiveTab(button.dataset.targetTab);
-      });
-    });
-
-    ['annotation-fasta-form', 'annotation-json-form'].forEach(function (formId) {
-      const form = document.getElementById(formId);
-      if (!form) return;
-      form.addEventListener('submit', function () {
-        if (!form.checkValidity()) return;
-        const submitButton = form.querySelector('button[type="submit"]');
-        if (submitButton) submitButton.disabled = true;
-      });
-    });
-
-    setActiveTab('{% if active_tab == "json" %}json-panel{% else %}fasta-panel{% endif %}');
-  });
-</script>
+<script src="{% static 'js/conversion/annotation.js' %}"></script>
 {% endblock %}

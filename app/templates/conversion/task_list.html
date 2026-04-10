@@ -14,6 +14,12 @@
           {% if task.type or task.task_type %}
           <p><strong>Type:</strong> {{ task.type|default:task.task_type }}</p>
           {% endif %}
+          {% if task.previous_task %}
+          <p><strong>Derived from task:</strong> #{{ task.previous_task.id }}{% if task.previous_task.external_job_id %} (job {{ task.previous_task.external_job_id }}){% endif %}</p>
+          {% endif %}
+          {% if task.task_type|slice:":11" == "sequencing_" and task.id in annotated_source_ids %}
+          <p class="text-sm text-info"><strong>Annotation:</strong> already linked</p>
+          {% endif %}
           <p><strong>User:</strong> {{ task.user.username }}</p>
           {% if task.created_at %}
           <p class="text-sm opacity-70">Created: {{ task.created_at }}</p>

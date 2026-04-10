@@ -113,12 +113,28 @@ class ConversionTask(models.Model):
     input_path = models.CharField(max_length=255)
     task_type = models.CharField(max_length=50, choices=TYPE_CHOICES)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='conversion_tasks')
+    previous_task = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='derived_tasks',
+    )
 
     # Model-level validation
     def clean(self):
         # Check that external_job_id is not null when status is not 'pending'
         if not self.external_job_id and self.status != 'pending':
             raise ValidationError({'external_job_id': 'external_job_id can be null only when status is "pending".'})
+
+        if self.previous_task and self.task_type != 'annotation':
+            raise ValidationError({'previous_task': 'Only annotation tasks can have a previous_task.'})
+
+        if self.previous_task and self.previous_task.task_type not in {'sequencing_illumina', 'sequencing_ont'}:
+            raise ValidationError({'previous_task': 'previous_task must be sequencing_illumina or sequencing_ont.'})
+
+        if self.previous_task and self.user_id and self.previous_task.user_id != self.user_id:
+            raise ValidationError({'previous_task': 'previous_task must belong to the same user.'})
 
     # Ensure model validation runs on save
     def save(self, *args, **kwargs):

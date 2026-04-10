@@ -1,5 +1,5 @@
 .alert.alert-soft.alert-info {
-  border-color: var(--color-info) !important;
+  border-color: var(--color-info);
 }
 
 .alert.alert-soft.alert-info .btn {
@@ -14,13 +14,41 @@
   box-shadow: 0 4px 12px color-mix(in oklab, var(--color-info) 28%, transparent);
 }
 
-.assembly-interactive {
-  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+.conversion-tabs {
+  isolation: isolate;
+  margin-bottom: -1px;
+  position: relative;
+  z-index: 2;
 }
 
-.assembly-interactive:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px color-mix(in oklab, var(--color-base-content) 10%, transparent);
+.conversion-tabs .tab {
+  border-color: color-mix(in oklab, var(--color-base-content) 10%, white);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.conversion-card-body {
+  border-top-color: color-mix(in oklab, var(--color-base-content) 10%, white);
+  position: relative;
+  z-index: 1;
+}
+
+.conversion-tabs .tab.tab-active,
+.conversion-tabs .tab[aria-selected="true"] {
+  border-bottom-color: var(--color-base-100);
+}
+
+.conversion-card-top {
+  box-shadow: none !important;
+}
+
+.conversion-tabs .tab::before,
+.conversion-tabs .tab::after {
+  display: none;
+}
+
+.assembly-interactive {
+  transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 
 .assembly-input-shell {
@@ -29,11 +57,11 @@
   border: 1px solid color-mix(in oklab, var(--color-base-content) 16%, white);
   background: var(--color-base-100);
   box-shadow: none;
-  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
 }
 
 .assembly-input-shell:hover {
-  transform: translateY(-1px);
+  border-color: color-mix(in oklab, var(--color-primary) 48%, white);
   box-shadow: 0 6px 14px color-mix(in oklab, var(--color-primary) 12%, transparent);
 }
 
@@ -43,21 +71,97 @@
   background: color-mix(in oklab, var(--color-primary) 4%, var(--color-base-100));
 }
 
+.assembly-input-shell .file-input {
+  width: 100%;
+  border: 0;
+  border-radius: 0.85rem;
+  box-shadow: none;
+  background: transparent;
+}
+
 .assembly-annotate-row .checkbox {
-  transform: none;
   background-image: none;
-  --tw-shadow: 0 1px 2px 0 color-mix(in oklab, var(--color-base-content) 16%, transparent);
-  --tw-shadow-colored: 0 1px 2px 0 color-mix(in oklab, var(--color-base-content) 16%, transparent);
+  --tw-shadow: 0 1px 2px 0 color-mix(in oklab, var(--color-primary) 14%, transparent);
+  --tw-shadow-colored: 0 1px 2px 0 color-mix(in oklab, var(--color-primary) 14%, transparent);
   box-shadow: var(--tw-shadow) !important;
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  transition: transform 160ms ease, border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
 }
 
 .assembly-annotate-row:hover .checkbox {
   transform: translateY(-1px) scale(1.03);
-  box-shadow: 0 4px 10px color-mix(in oklab, var(--color-primary) 18%, transparent);
+  box-shadow: 0 6px 14px color-mix(in oklab, var(--color-primary) 12%, transparent) !important;
 }
 
 .assembly-annotate-row:focus-within .checkbox {
   transform: scale(1.03);
-  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary) 24%, transparent);
+  border-color: color-mix(in oklab, var(--color-primary) 64%, white);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary) 22%, transparent) !important;
+}
+
+.fasta-clear-btn {
+  width: fit-content;
+  min-width: 0;
+  max-width: max-content;
+  margin-left: auto;
+  margin-right: auto;
+  border-radius: 0.6rem;
+  border: 1px solid color-mix(in oklab, var(--color-error) 80%, black 24%);
+  background: color-mix(in oklab, var(--color-error) 78%, black 6%);
+  color: white;
+  min-height: 2.2rem;
+  height: 2.2rem;
+  font-size: 0.84rem;
+  line-height: 1;
+  padding-inline: 0.9rem;
+  letter-spacing: 0.01em;
+  transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.fasta-clear-btn:not(.hidden) {
+  display: flex;
+}
+
+.fasta-clear-btn:hover {
+  transform: translateY(-1px);
+  background: color-mix(in oklab, var(--color-error) 88%, black 12%);
+  box-shadow: 0 3px 8px color-mix(in oklab, var(--color-error) 20%, transparent);
+}
+
+.source-job-select {
+  background-color: var(--color-base-100);
+  border-color: color-mix(in oklab, var(--color-base-content) 16%, white);
+  border-radius: 1rem;
+  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+}
+
+.source-job-select:hover {
+  border-color: color-mix(in oklab, var(--color-primary) 48%, white);
+  box-shadow: 0 6px 14px color-mix(in oklab, var(--color-primary) 12%, transparent);
+}
+
+.source-job-select:focus,
+.source-job-select:focus-visible {
+  border-color: color-mix(in oklab, var(--color-primary) 64%, white);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary) 22%, transparent);
+  outline: none !important;
+}
+
+.assembly-input-shell .file-input:focus,
+.assembly-input-shell .file-input:focus-visible,
+.assembly-input-shell .file-input,
+.source-job-select:focus,
+.source-job-select:focus-visible,
+.source-job-select,
+.fasta-clear-btn:focus,
+.fasta-clear-btn:focus-visible,
+.fasta-clear-btn,
+.assembly-annotate-row .checkbox:focus,
+.assembly-annotate-row .checkbox:focus-visible,
+.assembly-annotate-row .checkbox {
+  outline: none !important;
+}
+
+.assembly-input-shell .file-input:focus,
+.assembly-input-shell .file-input:focus-visible {
+  box-shadow: none !important;
 }
