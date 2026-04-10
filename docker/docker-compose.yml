@@ -10,6 +10,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tfg_password}
     volumes:
       - postgres_data_web:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     healthcheck:
       test:
         [
