@@ -27,7 +27,6 @@ services:
           - bio-web-postgres
 
   web:
-    image: bio-web-app:latest
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -51,7 +50,9 @@ services:
       - bio-network
 
   worker:
-    image: bio-web-app:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     command: sh -c "export PYTHONPATH=/app && celery -A app worker -l info"
     volumes:
       - ../app:/app

@@ -1,8 +1,9 @@
 from celery import shared_task
 from django.core.files.base import ContentFile
 import json
+import os
 from .models import ConversionTask, FileUpload
-from .services import annotate_from_fasta, download_assembly_fasta_result, download_bakta_json_result, get_job_status, sequence_illumina, sequence_ont
+from .bio_api_client import annotate_from_fasta, download_assembly_fasta_result, download_bakta_json_result, get_job_status, sequence_illumina, sequence_ont
 from notifications.services import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed, notify_user_conversion_started, notify_user_conversion_warning
 from notifications.models import TaskNotification
 from celery.exceptions import MaxRetriesExceededError
@@ -11,7 +12,7 @@ from .parsers import parse_file
 
 
 def _cleanup_temp_fastq_inputs(task):
-    """Remove temporary FASTQ files used as sequencing inputs."""
+    """Remove temporary FASTQ files used as assembly inputs."""
     if not task or not task.input_path:
         return
     if not task.task_type.startswith("sequencing_"):
@@ -25,8 +26,8 @@ def _cleanup_temp_fastq_inputs(task):
             delete_file_safely(path)
 
 
-def _persist_sequencing_fasta_output(task):
-    """Download and persist assembled FASTA for sequencing tasks."""
+def _persist_assembly_fasta_output(task):
+    """Download and persist assembled FASTA for assembly tasks."""
     if not task or not task.external_job_id:
         return
     if not task.task_type.startswith("sequencing_"):
@@ -76,7 +77,6 @@ def _persist_annotation_json_output(task):
 
 def _ensure_in_app_notification(task, event_type, message):
     """Guarantee at least one in-app notification exists for task/event."""
-    # TODO: return and reload celery to check if notis are ok
     if not task or not task.user_id:
         return
 
@@ -132,7 +132,7 @@ def poll_conversion_status(self, task_id):
         print("Conversion completed for task:", task.external_job_id)
         if task.task_type.startswith("sequencing_"):
             try:
-                _persist_sequencing_fasta_output(task)
+                _persist_assembly_fasta_output(task)
             except Exception as e:
                 print("Unable to persist assembled FASTA, will retry:", str(e))
                 try:
@@ -143,6 +143,17 @@ def poll_conversion_status(self, task_id):
                     task.save()
                     notify_user_conversion_failed(task.user, task)
                 return
+            # TODO: Check it works
+            if task.task_type.endswith("annotated"):
+                try:
+                    _persist_annotation_json_output(task)
+                except Exception as e:
+                    print("Unable to auto-parse annotation JSON for auto-annotated assembly:", str(e))
+                    notify_user_conversion_warning(
+                        task.user,
+                        task,
+                        "Annotation finished, but automatic upload to the system for predictions failed. Upload the Bakta JSON in Annotation > Bakta JSON to System to retry.",
+                    )
         elif task.task_type == "annotation":
             try:
                 _persist_annotation_json_output(task)
@@ -151,7 +162,7 @@ def poll_conversion_status(self, task_id):
                 notify_user_conversion_warning(
                     task.user,
                     task,
-                    "Annotation finished, but automatic DB ingestion failed. Upload the Bakta JSON in Annotation > Bakta JSON to DB to retry.",
+                    "Annotation finished, but automatic upload to the system for predictions failed. Upload the Bakta JSON in Annotation > Bakta JSON to System to retry.",
                 )
         _cleanup_temp_fastq_inputs(task)
         notify_user_conversion_complete(task.user, task)
@@ -229,16 +240,16 @@ def poll_annotation_start(self, fasta_bytes, task_id, dest_path=None, user_id=No
         return
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
-def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=None, annotate=False, task_id=None, user_id=None):
-    print("Trying to start sequencing task for uploaded FASTQ (reading from disk)")
+def poll_assembly_start(self, assembly_type="", dest_path=None, dest_path_2=None, annotate=False, task_id=None, user_id=None):
+    print("Trying to start assembly task for uploaded FASTQ (reading from disk)")
 
     task = ConversionTask.objects.filter(id=task_id).first() if task_id else None
     effective_user = task.user if task else None
     combined_input_path = dest_path + ("," + dest_path_2 if dest_path_2 else "")
-    sequencing_task_type = "sequencing" + ("_" + sequencing_type) + ("_annotated" if annotate else "")
+    assembly_task_type = "sequencing" + ("_" + assembly_type) + ("_annotated" if annotate else "")
 
-    if sequencing_type not in ["illumina", "ont"]:
-        notify_user_conversion_failed(effective_user, task=task, message="Invalid sequencing type")
+    if assembly_type not in ["illumina", "ont"]:
+        notify_user_conversion_failed(effective_user, task=task, message="Invalid assembly type")
         return
 
     # Read files
@@ -251,9 +262,9 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
         return
 
     # Illumina
-    if sequencing_type == "illumina":
+    if assembly_type == "illumina":
         if not dest_path_2:
-            print("Illumina sequencing requires a second FASTQ file but dest_path_2 is missing")
+            print("Illumina assembly requires a second FASTQ file but dest_path_2 is missing")
             notify_user_conversion_failed(effective_user, task=task, message="Missing second FASTQ for Illumina")
             return
         try:
@@ -267,12 +278,12 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
         external_resp = sequence_illumina(fastq_bytes, fastq_2_bytes, annotate=annotate)
     
     #ONT
-    elif sequencing_type == "ont":
+    elif assembly_type == "ont":
         external_resp = sequence_ont(fastq_bytes, annotate=annotate)
 
     # Check response and update task
     if external_resp.get("status") in {"running", "pending"}:
-        print("Sequencing started with job ID:", external_resp["job_id"])
+        print("Assembly started with job ID:", external_resp["job_id"])
         if task:
             if user_id is None:
                 user_id = task.user_id
@@ -288,12 +299,14 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
                     "The conversion task has started and is currently running.",
                 )
         else:
+            first_input = (combined_input_path or '').split(',')[0].strip()
             task = ConversionTask.objects.create(
                 external_job_id=external_resp["job_id"],
                 status="running",
                 input_path=combined_input_path,
-                task_type=sequencing_task_type,
+                task_type=assembly_task_type,
                 user_id=user_id,
+                process_name=os.path.basename(first_input) if first_input else f"Process {external_resp['job_id']}",
             )
             notify_user_conversion_started(task.user, task)
             _ensure_in_app_notification(
@@ -318,7 +331,7 @@ def poll_sequencing_start(self, sequencing_type="", dest_path=None, dest_path_2=
 
     
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
-def poll_annotation_from_sequencing_start(self, job_id, user_id, new_task_id=None):
+def poll_annotation_from_assembly_start(self, job_id, user_id, new_task_id=None):
     print("Trying to start annotation task for uploaded FASTA")
 
     pending_task = ConversionTask.objects.filter(id=new_task_id).first() if new_task_id else None
@@ -340,13 +353,13 @@ def poll_annotation_from_sequencing_start(self, job_id, user_id, new_task_id=Non
 
     previous_task = previous_job_qs.first()
     if not previous_task:
-        print("Previous sequencing job not found for annotation task with job ID:", job_id)
+        print("Previous assembly job not found for annotation task with job ID:", job_id)
         _fail_pending_annotation(
-            "Invalid previous sequencing job. Please make sure the sequencing task has completed successfully before starting annotation."
+            "Invalid previous assembly job. Please make sure the assembly task has completed successfully before starting annotation."
         )
         return
 
-    retrieval_error_message = "Could not retrieve assembled FASTA from persistent uploads for the previous sequencing task."
+    retrieval_error_message = "Could not retrieve assembled FASTA from persistent uploads for the previous assembly task."
     try:
         fasta_bytes = read_persisted_upload_bytes(
             user_id=previous_task.user_id,

@@ -99,10 +99,11 @@ class ConversionTask(models.Model):
 
     TYPE_CHOICES = [
         ('annotation', 'Annotation'),
-        ('sequencing_ont', 'ONT Sequencing'),
-        ('sequencing_illumina', 'Illumina Sequencing'),
-        ('sequencing_ont_annotated', 'ONT Sequencing with Annotation'),
-        ('sequencing_illumina_annotated', 'Illumina Sequencing with Annotation'),
+        ('from_json', 'From JSON'),
+        ('sequencing_ont', 'ONT Assembly'),
+        ('sequencing_illumina', 'Illumina Assembly'),
+        ('sequencing_ont_annotated', 'ONT Assembly with Annotation'),
+        ('sequencing_illumina_annotated', 'Illumina Assembly with Annotation'),
     ]
     
     # Allow blank so we can create a pending task before an external job id exists.
@@ -110,6 +111,7 @@ class ConversionTask(models.Model):
     status = models.CharField(max_length=50, choices=STATUS_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    process_name = models.CharField(max_length=255, blank=True, default='')
     input_path = models.CharField(max_length=255)
     task_type = models.CharField(max_length=50, choices=TYPE_CHOICES)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='conversion_tasks')
@@ -124,14 +126,14 @@ class ConversionTask(models.Model):
     # Model-level validation
     def clean(self):
         # Check that external_job_id is not null when status is not 'pending'
-        if not self.external_job_id and self.status != 'pending':
+        if not self.external_job_id and self.status != 'pending' and self.task_type != 'from_json':
             raise ValidationError({'external_job_id': 'external_job_id can be null only when status is "pending".'})
 
         if self.previous_task and self.task_type != 'annotation':
             raise ValidationError({'previous_task': 'Only annotation tasks can have a previous_task.'})
 
         if self.previous_task and self.previous_task.task_type not in {'sequencing_illumina', 'sequencing_ont'}:
-            raise ValidationError({'previous_task': 'previous_task must be sequencing_illumina or sequencing_ont.'})
+            raise ValidationError({'previous_task': 'previous_task must be assembly_illumina or assembly_ont.'})
 
         if self.previous_task and self.user_id and self.previous_task.user_id != self.user_id:
             raise ValidationError({'previous_task': 'previous_task must belong to the same user.'})

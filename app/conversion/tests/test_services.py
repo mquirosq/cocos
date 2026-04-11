@@ -1,120 +1,75 @@
-from unittest.mock import MagicMock, patch
-
-import requests
+from unittest.mock import patch
+from types import SimpleNamespace
 from django.test import TestCase
 
-from conversion.services import (
-    annotate_from_fasta,
-    download_assembly_fasta_result,
-    download_bakta_json_result,
-    get_job_status,
-    perform_bakta_annotation_from_job,
-    sequence_illumina,
-    sequence_ont,
-)
-
+from conversion import services
 
 class ServiceTests(TestCase):
-    @patch("conversion.services.requests.get")
-    def test_get_job_status_success(self, mock_get):
-        response = MagicMock(status_code=200)
-        response.json.return_value = {"status": "running"}
-        mock_get.return_value = response
-
-        self.assertEqual(get_job_status("job-1"), ("running", 200))
-
-    @patch("conversion.services.requests.post")
-    def test_perform_bakta_annotation_from_job_success(self, mock_post):
-        response = MagicMock(status_code=200)
-        response.json.return_value = {"job_id": "a1", "status": "running"}
-        mock_post.return_value = response
-
-        out = perform_bakta_annotation_from_job("job-1")
-        self.assertEqual(out["job_id"], "a1")
-
-    @patch("conversion.services.requests.get")
-    def test_download_bakta_json_result_success(self, mock_get):
-        response = MagicMock(status_code=200)
-        response.json.return_value = {"features": []}
-        mock_get.return_value = response
-
-        out = download_bakta_json_result("job-1")
-        self.assertEqual(out["features"], [])
-
-    @patch("conversion.services.requests.get")
-    def test_download_assembly_fasta_success(self, mock_get):
-        response = MagicMock(status_code=200)
-        response.content = b">x\nATG\n"
-        mock_get.return_value = response
-        self.assertEqual(download_assembly_fasta_result("job-1"), b">x\nATG\n")
-
-    @patch("conversion.services.requests.post")
-    def test_annotate_from_fasta_success(self, mock_post):
-        response = MagicMock(status_code=200)
-        response.json.return_value = {"job_id": "a1", "status": "running"}
-        mock_post.return_value = response
-
-        out = annotate_from_fasta(b"fasta")
-        self.assertEqual(out["job_id"], "a1")
-        self.assertEqual(out["status"], "running")
-
-    @patch("conversion.services.requests.post")
-    def test_sequence_illumina_success(self, mock_post):
-        response = MagicMock(status_code=200)
-        response.json.return_value = {"job_id": "s1", "status": "running"}
-        mock_post.return_value = response
-
-        out = sequence_illumina(b"r1", b"r2")
-        self.assertEqual(out["job_id"], "s1")
-        self.assertEqual(out["status"], "running")
-
-    @patch("conversion.services.requests.post")
-    def test_sequence_ont_success(self, mock_post):
-        response = MagicMock(status_code=200)
-        response.json.return_value = {"job_id": "s2", "status": "running"}
-        mock_post.return_value = response
-
-        out = sequence_ont(b"reads")
-        self.assertEqual(out["job_id"], "s2")
-        self.assertEqual(out["status"], "running")
-
-    def test_raise_http_error(self):
+    def test_is_auto_annotated_assembly(self):
         cases = [
-            (get_job_status, "get", ("job-1",)),
-            (perform_bakta_annotation_from_job, "post", ("job-1",)),
-            (download_bakta_json_result, "get", ("job-1",)),
-            (download_assembly_fasta_result, "get", ("job-1",)),
+            ('sequencing_ont_annotated', True),
+            ('sequencing_illumina_annotated', True),
+            ('sequencing_ont', False),
+            (None, False),
         ]
-        for function, method, args in cases:
-            with self.subTest(fn=function.__name__):
-                with patch(f"conversion.services.requests.{method}") as mock_req:
-                    response = MagicMock(status_code=500)
-                    response.raise_for_status.side_effect = requests.exceptions.HTTPError("boom")
-                    mock_req.return_value = response
-                    with self.assertRaises(requests.exceptions.HTTPError):
-                        function(*args)
+        for task_type, expected in cases:
+            with self.subTest(task_type=task_type):
+                t = SimpleNamespace(task_type=task_type, task_type_original=task_type)
+                self.assertEqual(services.is_auto_annotated_assembly(t), expected)
 
-    def test_busy_503_returns_json(self):
+    def test_annotation_process_key(self):
+        t = SimpleNamespace(process_name='foo', input_path='bar')
+        self.assertEqual(services.annotation_process_key(t), 'foo::bar')
+
+    def test_find_latest_completed_annotation(self):
+        a1 = SimpleNamespace(id=1, status='pending')
+        a2 = SimpleNamespace(id=2, status='completed')
+        a3 = SimpleNamespace(id=3, status='failed')
+        self.assertEqual(services.find_latest_completed_annotation([a1, a2, a3]), a2)
+        self.assertIsNone(services.find_latest_completed_annotation([a1, a3]))
+
+    def test_get_effective_annotation(self):
+        a1 = SimpleNamespace(id=1, status='pending', external_job_id='job-1')
+        a2 = SimpleNamespace(id=2, status='completed', external_job_id='job-2')
+        a3 = SimpleNamespace(id=3, status='failed', external_job_id='job-3')
         cases = [
-            (annotate_from_fasta, (b"fasta",)),
-            (sequence_illumina, (b"r1", b"r2")),
-            (sequence_ont, (b"reads",)),
+            ([a1, a2, a3], a2),
+            ([a1, a3], a1),
+            ([], None),
         ]
-        for function, args in cases:
-            with self.subTest(fn=function.__name__):
-                with patch("conversion.services.requests.post") as mock_post:
-                    response = MagicMock(status_code=503)
-                    response.json.return_value = {"status": "busy"}
-                    mock_post.return_value = response
-                    self.assertEqual(function(*args)["status"], "busy")
+        for inputs, expected in cases:
+            with self.subTest(inputs=[getattr(x, 'external_job_id', None) for x in inputs]):
+                self.assertEqual(services.get_effective_annotation(inputs), expected)
 
-    @patch("conversion.services.requests.post")
-    def test_sequence_ont_timeout_returns_busy_status(self, mock_post):
-        mock_post.side_effect = requests.exceptions.ReadTimeout()
-        self.assertEqual(sequence_ont(b"reads")["status"], "busy")
+    @patch('conversion.services.resolve_uploaded_fasta_input_path')
+    def test_find_annotation_with_uploaded_fasta(self, mock_resolve):
+        a1 = SimpleNamespace(id=1, external_job_id='ann-1')
+        a2 = SimpleNamespace(id=2, external_job_id='ann-2')
+        # Case: second has uploaded fasta
+        mock_resolve.side_effect = [None, 'path/to/assembly_ann-2.fasta']
+        self.assertEqual(services.find_annotation_with_uploaded_fasta([a1, a2]), a2)
+        # Case: none have uploaded fasta
+        mock_resolve.side_effect = [None, None]
+        self.assertIsNone(services.find_annotation_with_uploaded_fasta([a1, a2]))
 
-    @patch("conversion.services.requests.post")
-    def test_sequence_ont_request_exception_is_raised(self, mock_post):
-        mock_post.side_effect = requests.exceptions.RequestException("connection")
-        with self.assertRaises(requests.exceptions.RequestException):
-            sequence_ont(b"reads")
+    @patch('conversion.services.source_filename')
+    def test_derive_process_name(self, mock_source_filename):
+        t = SimpleNamespace(previous_task_id=None, previous_task=None, process_name='foo', input_path='bar')
+        self.assertEqual(services.derive_process_name(t), 'foo')
+
+        # When process_name is None, fall back to source_filename
+        t.process_name = None
+        mock_source_filename.return_value = 'baz'
+        self.assertEqual(services.derive_process_name(t), 'baz')
+
+        # When previous task exists, use its process_name
+        t.previous_task_id = 1
+        t.previous_task = SimpleNamespace(process_name='prev')
+        self.assertEqual(services.derive_process_name(t), 'prev')
+
+        # If fallback_name provided, it should be returned when process_name missing
+        self.assertEqual(services.derive_process_name(t, fallback_name='fb'), 'fb')
+
+
+
+

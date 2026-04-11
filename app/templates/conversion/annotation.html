@@ -41,7 +41,7 @@
             <select id="source_job_id" name="source_job_id" class="select w-full bg-base-100 source-job-select">
               <option value="">Select a previous FASTA output (optional)</option>
               {% for task in available_fasta_jobs %}
-                <option value="{{ task.external_job_id }}">{{ task.source_filename }} · {{ task.get_task_type_display }} · {{ task.updated_at|date:"Y-m-d H:i" }}</option>
+                <option value="{{ task.external_job_id }}">{{ task.source_label }}</option>
               {% empty %}
                 <option value="" disabled>No available Assembly outputs to annotate</option>
               {% endfor %}

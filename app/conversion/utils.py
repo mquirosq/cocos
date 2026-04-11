@@ -12,6 +12,28 @@ def get_upload_dir(user_id, file_kind, persistent=False):
     return os.path.join(settings.BASE_DIR, base_subdir, f"user_{user_id}", file_kind)
 
 
+def get_primary_input_path(path_value):
+    """Return first comma-separated input path segment, stripped."""
+    return (path_value or "").split(",")[0].strip()
+
+
+def resolve_absolute_path(path_value):
+    """Resolve a path to absolute form, using BASE_DIR for relative paths."""
+    if not path_value:
+        return None
+    if os.path.isabs(path_value):
+        return os.path.abspath(path_value)
+    return os.path.abspath(os.path.join(settings.BASE_DIR, path_value))
+
+
+def source_filename(path_value):
+    """Extract basename from first comma-separated path segment."""
+    first_path = get_primary_input_path(path_value)
+    if not first_path:
+        return None
+    return os.path.basename(first_path)
+
+
 def upload_file(file, upload_dir=None, user_id=None, file_kind=None, persistent=False):
     if not file:
         raise ValueError("No file provided for upload.")

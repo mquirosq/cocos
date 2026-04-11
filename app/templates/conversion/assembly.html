@@ -34,7 +34,7 @@
         <p class="text-sm opacity-70">Upload paired-end reads (R1 and R2).</p>
         <form id="assembly-form-illumina" method="post" enctype="multipart/form-data" action="{% url 'conversion:assembly_run' %}" class="space-y-4">
           {% csrf_token %}
-          <input type="hidden" name="sequencing_type" value="illumina">
+          <input type="hidden" name="assembly_type" value="illumina">
 
           <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4 assembly-interactive">
             <legend class="fieldset-legend text-base font-semibold">Input reads</legend>
@@ -70,7 +70,7 @@
         <p class="text-sm opacity-70">Upload a single ONT read file.</p>
         <form id="assembly-form-ont" method="post" enctype="multipart/form-data" action="{% url 'conversion:assembly_run' %}" class="space-y-4">
           {% csrf_token %}
-          <input type="hidden" name="sequencing_type" value="ont">
+          <input type="hidden" name="assembly_type" value="ont">
 
           <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4 assembly-interactive">
             <legend class="fieldset-legend text-base font-semibold">Input reads</legend>

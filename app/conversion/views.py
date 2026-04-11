@@ -1,81 +1,58 @@
 import json
+import os
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.http import HttpResponse, HttpResponseServerError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from .models import ConversionTask
 from .parsers import parse_file
-from .services import download_bakta_json_result
-from .tasks import (
-    poll_annotation_from_sequencing_start,
-    poll_annotation_start,
-    poll_sequencing_start,
+from .services import (
+    build_process_rows,
+    build_task_context,
+    get_available_fasta_jobs,
+    get_json_upload_for_task,
+    has_annotation_for_previous,
+    is_auto_annotated_assembly,
+    rename_process_group,
+    get_fasta_upload_for_task,
 )
-from .utils import resolve_persisted_result_filename, upload_file
+from .presentation import format_source_job_label, status_badge_class
+from .tasks import (
+    poll_annotation_from_assembly_start,
+    poll_annotation_start,
+    poll_assembly_start,
+)
+from .utils import (
+    source_filename,
+    upload_file,
+)
 
 def _get_current_user_tasks(request):
     """Return tasks filtered by authenticated user."""
     return ConversionTask.objects.filter(user=request.user)
 
 
-def _get_available_fasta_jobs(user):
-    """Return completed base sequencing jobs that are not already annotated."""
-    completed_sequencing_tasks = ConversionTask.objects.filter(
-        user=user,
-        status='completed',
-        task_type__in=('sequencing_illumina', 'sequencing_ont'),
-        external_job_id__isnull=False,
-    ).exclude(external_job_id='').order_by('-updated_at', '-id')
-
-    already_annotated_ids = ConversionTask.objects.filter(
-        user=user,
-        task_type='annotation',
-        status__in=('pending', 'running', 'completed'),
-        previous_task__isnull=False,
-    ).values_list('previous_task_id', flat=True)
-
-    available_tasks = list(completed_sequencing_tasks.exclude(id__in=already_annotated_ids))
-
-    for task in available_tasks:
-        resolved_name = resolve_persisted_result_filename(
-            user_id=user.id,
-            result_prefix='assembly',
-            job_id=task.external_job_id,
-        )
-        task.source_filename = resolved_name or 'Assembly output'
-
-    return available_tasks
-
-
 def _annotation_context(request, active_tab='fasta', **extra):
     context = {
         'active_tab': active_tab,
-        'available_fasta_jobs': _get_available_fasta_jobs(request.user),
+        'available_fasta_jobs': get_available_fasta_jobs(request.user),
     }
     context.update(extra)
     return context
 
 
-def _has_annotation_for_previous(user, previous_task):
-    return ConversionTask.objects.filter(
-        user=user,
-        task_type='annotation',
-        status__in=('pending', 'running', 'completed'),
-        previous_task=previous_task,
-    ).exists()
-
-
 def _start_annotation_from_source_job(request, source_job_id):
-    available_jobs = _get_available_fasta_jobs(request.user)
+    available_jobs = get_available_fasta_jobs(request.user)
     previous_task = next((task for task in available_jobs if task.external_job_id == source_job_id), None)
     if not previous_task:
         messages.error(request, 'Selected FASTA is not available for annotation.')
         return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
 
-    if _has_annotation_for_previous(request.user, previous_task):
+    if has_annotation_for_previous(request.user, previous_task):
         messages.error(request, 'This FASTA output already has an annotation task.')
         return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
 
@@ -86,9 +63,10 @@ def _start_annotation_from_source_job(request, source_job_id):
         task_type='annotation',
         user=request.user,
         previous_task=previous_task,
+        process_name=previous_task.process_name or format_source_job_label(previous_task),
     )
 
-    poll_annotation_from_sequencing_start.delay(
+    poll_annotation_from_assembly_start.delay(
         job_id=source_job_id,
         user_id=request.user.id,
         new_task_id=task.id,
@@ -96,7 +74,7 @@ def _start_annotation_from_source_job(request, source_job_id):
 
     message = f"Annotation task started from previous assembly job {source_job_id}. You will be notified when it's complete."
     messages.info(request, message)
-    return redirect('conversion:annotation_ui')
+    return redirect('conversion:task_status', task_id=task.id)
 
 
 def _start_annotation_from_uploaded_fasta(request, fasta):
@@ -119,6 +97,7 @@ def _start_annotation_from_uploaded_fasta(request, fasta):
         task_type='annotation',
         user=request.user,
         previous_task=None,
+        process_name=source_filename(dest_path),
     )
 
     poll_annotation_start.delay(
@@ -129,7 +108,7 @@ def _start_annotation_from_uploaded_fasta(request, fasta):
 
     message = f"Annotation task started for file {fasta.name}. You will be notified when it's complete."
     messages.info(request, message)
-    return redirect('conversion:annotation_ui')
+    return redirect('conversion:task_status', task_id=task.id)
 
 @login_required
 def assembly_ui(request):
@@ -159,13 +138,13 @@ def annotation_task(request):
 
 @require_POST
 @login_required
-def sequencing_task(request):
+def assembly_task(request):
     """
-    Allow users to upload a FASTQ file via a simple web form to start an external sequencing task.
-    On submission, create a SequencingTask and trigger polling of its status.
+    Allow users to upload a FASTQ file via a simple web form to start an external assembly task.
+    On submission, create a ConversionTask and trigger polling of its status.
     """
-    print("Received sequencing task request")
-    sequencing_type = request.POST.get('sequencing_type')
+    print("Received assembly task request")
+    assembly_type = request.POST.get('assembly_type') or request.POST.get('sequencing_type')
     annotate = request.POST.get('annotate') == 'on'  # Checkbox value
 
     fastq = request.FILES.get('fastq_file')
@@ -174,8 +153,8 @@ def sequencing_task(request):
         return redirect('conversion:assembly_ui')
 
     fastq_2 = request.FILES.get('fastq_file_2')  # For Illumina
-    if sequencing_type != 'illumina' and fastq_2:
-        messages.error(request, 'Second FASTQ file is only valid for Illumina sequencing.')
+    if assembly_type != 'illumina' and fastq_2:
+        messages.error(request, 'Second FASTQ file is only valid for Illumina assembly.')
         return redirect('conversion:assembly_ui')
 
     dest_path = upload_file(
@@ -197,36 +176,37 @@ def sequencing_task(request):
         external_job_id=None,
         status='pending',
         input_path=dest_path + ("," + dest_path_2 if dest_path_2 else ""),
-        task_type=f"sequencing_{sequencing_type}{'_annotated' if annotate else ''}",
+        task_type=f"sequencing_{assembly_type}{'_annotated' if annotate else ''}",
         user=request.user,
+        process_name=fastq.name,
     )
 
-    print(f"Starting sequencing task with type {sequencing_type} for file {fastq.name}")
-    poll_sequencing_start.delay(
-        sequencing_type=sequencing_type,
+    print(f"Starting assembly task with type {assembly_type} for file {fastq.name}")
+    poll_assembly_start.delay(
+        assembly_type=assembly_type,
         dest_path=dest_path,
         dest_path_2=dest_path_2,
         annotate=annotate,
         task_id=task.id,
     )
 
-    message = f"Sequencing task started for file {fastq.name}. You will be notified when it's complete."
+    message = f"Assembly task started for file {fastq.name}. You will be notified when it's complete."
     messages.info(request, message)
 
     return redirect('conversion:assembly_ui')
     
 @require_POST
 @login_required
-def annotation_from_sequencing_task(request, job_id):
+def annotation_from_assembly_task(request, job_id):
     """
-    Start an annotation task based on the result of a previous sequencing task.
-    Expects a job_id from the sequencing task to be provided in the POST data.
+    Start an annotation task based on the result of a previous assembly task.
+    Expects a job_id from the assembly task to be provided in the POST data.
     """
     if not job_id:
-        messages.error(request, 'No sequencing job id was provided for annotation.')
+        messages.error(request, 'No assembly job id was provided for annotation.')
         return redirect('conversion:annotation_ui')
 
-    print(f"Starting annotation task from sequencing job with ID: {job_id}")
+    print(f"Starting annotation task from assembly job with ID: {job_id}")
 
     previous_task = _get_current_user_tasks(request).filter(
         external_job_id=job_id,
@@ -234,11 +214,11 @@ def annotation_from_sequencing_task(request, job_id):
         task_type__in=('sequencing_illumina', 'sequencing_ont'),
     ).first()
     if not previous_task:
-        messages.error(request, 'Sequencing job not found or not available for annotation.')
+        messages.error(request, 'Assembly job not found or not available for annotation.')
         return redirect('conversion:annotation_ui')
 
-    if _has_annotation_for_previous(request.user, previous_task):
-        messages.warning(request, 'This sequencing result already has an annotation task.')
+    if has_annotation_for_previous(request.user, previous_task):
+        messages.warning(request, 'This assembly result already has an annotation task.')
         return redirect('conversion:annotation_ui')
 
     task = ConversionTask.objects.create(
@@ -248,27 +228,44 @@ def annotation_from_sequencing_task(request, job_id):
         task_type='annotation',
         user=request.user,
         previous_task=previous_task,
+        process_name=previous_task.process_name,
     )
 
-    poll_annotation_from_sequencing_start.delay(
+    poll_annotation_from_assembly_start.delay(
         user_id=request.user.id,
         job_id=job_id,
         new_task_id=task.id,
     )
 
-    message = f"Annotation task started for sequencing job {job_id}. You will be notified when it's complete."
+    message = f"Annotation task started for assembly job {job_id}. You will be notified when it's complete."
     messages.info(request, message)
-    return redirect('conversion:annotation_ui')
-
+    return redirect('conversion:task_status', task_id=task.id)
 
 @login_required
 def parse_feature_file(request):
     """Handle Bakta JSON parsing from Annotation tab."""
     if request.method == 'POST':
+        feature_file = request.FILES.get('feature_file')
+        if not feature_file:
+            messages.error(request, 'Select a JSON file.')
+            return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='json'))
+
+        task = ConversionTask.objects.create(
+            external_job_id=None,
+            status='pending',
+            input_path=feature_file.name,
+            task_type='from_json',
+            user=request.user,
+            process_name=source_filename(feature_file.name),
+        )
+
         complete_version = request.POST.get('complete') == 'on'
         try:
-            data = json.load(request.FILES.get('feature_file'))
+            data = json.load(feature_file)
+            feature_file.seek(0)
         except Exception:
+            task.status = 'failed'
+            task.save(update_fields=['status', 'updated_at'])
             messages.error(request, 'Error decoding JSON file.')
             return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='json'))
         
@@ -276,13 +273,19 @@ def parse_feature_file(request):
             file_upload = parse_file(
                 "bakta_json",
                 data,
-                request.FILES.get('feature_file'),
+                feature_file,
                 user=request.user,
                 options={"complete_version": complete_version}
             )
         except Exception as e:
+            task.status = 'failed'
+            task.save(update_fields=['status', 'updated_at'])
             messages.error(request, f'Error parsing features: {e}')
             return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='json'))
+
+        task.status = 'completed'
+        task.input_path = file_upload.file.name
+        task.save(update_fields=['status', 'input_path', 'updated_at'])
 
         messages.success(request, 'File parsed successfully!')
         return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='json', file_upload=file_upload))
@@ -291,32 +294,72 @@ def parse_feature_file(request):
 # Tasks
 @login_required
 def task_list_view(request):
-    """Render a list of annotation tasks as cards including external_job_id and status."""
-    tasks = _get_current_user_tasks(request).order_by('-id')
-    annotated_source_ids = list(
-        tasks.filter(
-            task_type='annotation',
-            status__in=['pending', 'running', 'completed'],
-            previous_task__isnull=False,
-        ).values_list('previous_task_id', flat=True)
-    )
+    """Render process task rows for assembly, annotation, and JSON."""
+    rows = build_process_rows(request.user)
+    paginator = Paginator(rows, 3)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+    
     return render(request, 'conversion/task_list.html', {
-        'tasks': tasks,
-        'annotated_source_ids': annotated_source_ids,
+        'page_obj': page_obj,
     })
 
 
 @login_required
 def task_status_view(request, task_id):
     task = get_object_or_404(_get_current_user_tasks(request), id=task_id)
-    has_annotation_descendant = _get_current_user_tasks(request).filter(
-        task_type='annotation',
-        status__in=['pending', 'running', 'completed'],
-        previous_task=task,
-    ).exists()
+    context = build_task_context(request.user, task)
+    assembly_task = context['sequencing_task']
+    auto_annotated = is_auto_annotated_assembly(assembly_task)
+    latest_annotation = context['latest_annotation_attempt']
+    latest_json = context['latest_json_attempt']
+    latest_completed = context['latest_completed_annotation_attempt']
+    latest_step = latest_annotation or latest_json
+    latest_step_label = (
+        'Annotation' if latest_annotation else ('From JSON' if latest_json else None)
+    )
+
+    has_completed_assembly = bool(assembly_task and assembly_task.status == 'completed')
+    can_annotate = has_completed_assembly and not context['has_annotation_attempts'] and not auto_annotated
+    can_retry = has_completed_assembly and latest_annotation and latest_annotation.status == 'failed' and not auto_annotated
+
+    # FASTA download
+    fasta_download_task_id = (
+        assembly_task.id if has_completed_assembly else
+        (context['latest_annotation_with_uploaded_fasta'].id if context['latest_annotation_with_uploaded_fasta'] else None)
+    )
+
+    # JSON download
+    json_download_task_id = (
+        latest_completed.id if latest_completed else
+        (latest_json.id if latest_json and latest_json.status == 'completed' and get_json_upload_for_task(latest_json) else None)
+        if not latest_completed else None
+    )
+    if not json_download_task_id and auto_annotated and has_completed_assembly:
+        json_download_task_id = assembly_task.id
+
+    process_kind = (
+        'sequencing' if assembly_task else
+        ('json' if context['has_json_attempts'] else 'annotation')
+    )
+
     return render(request, 'conversion/task_status.html', {
         'task': task,
-        'has_annotation_descendant': has_annotation_descendant,
+        'process_name': context['process_name'],
+        'pipeline_type': context['pipeline_type'],
+        'assembly_task': assembly_task,
+        'latest_step': latest_step,
+        'latest_step_label': latest_step_label,
+        'assembly_input_filename': source_filename(assembly_task.input_path) if assembly_task else None,
+        'fasta_download_task_id': fasta_download_task_id,
+        'json_download_task_id': json_download_task_id,
+        'can_annotate': can_annotate,
+        'can_retry_annotation': can_retry,
+        'status_badge': status_badge_class(task.status),
+        'assembly_status_badge': status_badge_class(assembly_task.status) if assembly_task else None,
+        'latest_step_status_badge': status_badge_class(latest_step.status) if latest_step else None,
+        'auto_annotated_assembly': auto_annotated,
+        'process_kind': process_kind,
     })
 
 
@@ -328,18 +371,68 @@ def download_json_view(request, task_id):
     task = get_object_or_404(_get_current_user_tasks(request), id=task_id)
     if task.status != 'completed':
         return redirect('conversion:task_status', task_id=task.id)
-    try:
-        json_data = download_bakta_json_result(task.external_job_id)
-    except Exception:
-        return HttpResponseServerError('Failed to download annotation results')
 
-    if isinstance(json_data, (dict, list)):
-        content = json.dumps(json_data)
-    else:
-        content = str(json_data)
+    upload = get_json_upload_for_task(task)
+    if not upload:
+        messages.error(request, 'JSON file is not available for download.')
+        return redirect('conversion:task_status', task_id=task.id)
+
+    try:
+        if hasattr(upload, 'file'):
+            upload.file.open('rb')
+            content = upload.file.read()
+            upload.file.close()
+            filename = os.path.basename(upload.file.name)
+        elif isinstance(upload, str) and os.path.exists(upload):
+            with open(upload, 'rb') as f:
+                content = f.read()
+            filename = os.path.basename(upload)
+        else:
+            raise ValueError('Invalid upload reference')
+    except Exception:
+        messages.error(request, 'Could not read the JSON file. Please try again later.')
+        return redirect('conversion:task_status', task_id=task.id)
 
     response = HttpResponse(content, content_type='application/json')
-    filename = f'annotation_{task.external_job_id}.json'
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+
+
+@login_required
+def download_fasta_view(request, task_id):
+    task = get_object_or_404(_get_current_user_tasks(request), id=task_id)
+    if task.status != 'completed':
+        return redirect('conversion:task_status', task_id=task.id)
+
+    fasta_path = get_fasta_upload_for_task(task)
+    if fasta_path:
+        try:
+            with open(fasta_path, 'rb') as fasta_file:
+                fasta_data = fasta_file.read()
+            filename = os.path.basename(fasta_path)
+            response = HttpResponse(fasta_data, content_type='application/octet-stream')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        except Exception:
+            messages.error(request, 'Could not read the FASTA file. Please try again later.')
+            return redirect('conversion:task_status', task_id=task.id)
+    else:
+        messages.error(request, 'FASTA file is not available for download.')
+        return redirect('conversion:task_status', task_id=task.id)
+
+
+@require_POST
+@login_required
+def rename_process_view(request, task_id):
+    task = get_object_or_404(_get_current_user_tasks(request), id=task_id)
+    new_name = (request.POST.get('process_name') or '').strip()
+    if not new_name:
+        messages.error(request, 'Process name cannot be empty.')
+        return redirect('conversion:task_status', task_id=task.id)
+
+    rename_process_group(request.user, task, new_name)
+    messages.success(request, 'Process name updated.')
+    return redirect('conversion:task_status', task_id=task.id)
+
 
