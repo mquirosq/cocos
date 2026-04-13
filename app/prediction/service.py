@@ -9,3 +9,31 @@ def get_prediction(model_name: str, antibiotic: str, file_upload) -> float:
 
     adapter.load()
     return adapter.predict(file_upload)
+
+def get_prediction_matrix(model_names: list[str], antibiotics: list[str], file_upload) -> dict:
+    """
+    Compute a prediction matrix for the given models, antibiotics, and file upload.
+    Returns a dict of the form:
+    {
+        'antibiotic1': {
+            'model1': prediction_value,
+            'model2': prediction_value,
+            ...
+        },
+        'antibiotic2': {
+            ...
+        },
+        ...
+    }
+    """
+    data = {}
+    for antibiotic in antibiotics:
+        row = {}
+        for model_name in model_names:
+            try:
+                row[model_name] = get_prediction(model_name, antibiotic, file_upload)
+            except Exception:
+                row[model_name] = None
+        data[antibiotic] = row
+
+    return data
