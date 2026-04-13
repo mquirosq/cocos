@@ -68,7 +68,7 @@
     <div id="json-panel" class="tab-panel {% if active_tab != 'json' %}hidden{% endif %}">
       <div class="space-y-4">
         <h2 class="card-title">Bakta JSON to system</h2>
-        <p class="text-sm opacity-70">Upload a Bakta JSON file to ingest its contents into the system so they are available for prediction.</p>
+        <p class="text-sm opacity-70">Upload a Bakta JSON file to process its contents into the system so they are available for prediction.</p>
 
         <form id="annotation-json-form" method="post" enctype="multipart/form-data" action="{% url 'conversion:annotation_from_json' %}" class="space-y-4">
           {% csrf_token %}
@@ -87,7 +87,7 @@
           </fieldset>
 
           <div class="w-full">
-            <button type="submit" class="btn btn-primary">Ingest JSON</button>
+            <button type="submit" class="btn btn-primary">Process JSON</button>
           </div>
         </form>
 
