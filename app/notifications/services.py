@@ -57,7 +57,7 @@ def _create_notification(user, event_type, message, task=None):
     )
 
 def notify_user_conversion_complete(user, task):
-    task_ref = getattr(task, 'name', 'unknown')
+    task_ref = getattr(task, 'process_name', 'unknown')
     message = f"The conversion for the process {task_ref} is complete. You can now access your results."
     return _create_notification(
         user=user,
@@ -67,7 +67,7 @@ def notify_user_conversion_complete(user, task):
     )
 
 def notify_user_conversion_started(user, task):
-    task_ref = getattr(task, 'name', 'unknown')
+    task_ref = getattr(task, 'process_name', 'unknown')
     message = f"The conversion for the process {task_ref} has started and is now processing."
     return _create_notification(
         user=user,
@@ -78,7 +78,7 @@ def notify_user_conversion_started(user, task):
 
 def notify_user_conversion_failed(user, task, message=None):
     if not message:
-        task_ref = getattr(task, 'name', 'unknown')
+        task_ref = getattr(task, 'process_name', 'unknown')
         message = f"The conversion for the process {task_ref} has failed. Please try again."
     return _create_notification(
         user=user,
