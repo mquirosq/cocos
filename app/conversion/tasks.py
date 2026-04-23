@@ -45,7 +45,7 @@ def _persist_assembly_fasta_output(task):
     file_upload.file.save(filename, ContentFile(fasta_content), save=True)
 
 
-def _persist_annotation_json_output(task):
+def _persist_annotation_json_output(task, complete_version=False):
     """Download Bakta JSON and parse it into DB entities for annotation tasks."""
     if not task or not task.external_job_id or task.task_type != "annotation":
         return
@@ -71,7 +71,7 @@ def _persist_annotation_json_output(task):
         parsed_payload,
         source_file,
         user=task.user,
-        options={"complete_version": True},
+        options={"complete_version": complete_version},
     )
 
 
@@ -97,8 +97,8 @@ def _ensure_in_app_notification(task, event_type, message):
     )
 
 # TODO: Por ahora aguanta máx 100 minutos, ver si es suficiente
-@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=10, max_retries=100)
-def poll_conversion_status(self, task_id):
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=10, max_retries=1000)
+def poll_conversion_status(self, task_id, complete_version=False):
     try:
         task = ConversionTask.objects.get(id=task_id)
     except ConversionTask.DoesNotExist:
@@ -146,7 +146,7 @@ def poll_conversion_status(self, task_id):
             # TODO: Check it works
             if task.task_type.endswith("annotated"):
                 try:
-                    _persist_annotation_json_output(task)
+                    _persist_annotation_json_output(task, complete_version=complete_version)
                 except Exception as e:
                     print("Unable to auto-parse annotation JSON for auto-annotated assembly:", str(e))
                     notify_user_conversion_warning(
@@ -156,7 +156,7 @@ def poll_conversion_status(self, task_id):
                     )
         elif task.task_type == "annotation":
             try:
-                _persist_annotation_json_output(task)
+                _persist_annotation_json_output(task, complete_version=complete_version)
             except Exception as e:
                 print("Unable to auto-parse annotation JSON:", str(e))
                 notify_user_conversion_warning(
@@ -199,7 +199,7 @@ def poll_conversion_status(self, task_id):
 
 # TODO: Por ahora aguanta máx 100 minutos, ver si es suficiente   
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
-def poll_annotation_start(self, fasta_bytes, task_id, dest_path=None, user_id=None):
+def poll_annotation_start(self, fasta_bytes, task_id, dest_path=None, user_id=None, complete_version=False):
     print("Trying to start annotation task for uploaded FASTA")
     try:
         task = ConversionTask.objects.get(id=task_id)
@@ -224,7 +224,7 @@ def poll_annotation_start(self, fasta_bytes, task_id, dest_path=None, user_id=No
                 TaskNotification.EVENT_STARTED,
                 "The conversion task has started and is currently running.",
             )
-        poll_conversion_status.delay(task.id)
+        poll_conversion_status.delay(task.id, complete_version=complete_version)
         return
 
     print("Server busy response received, will retry later.")
@@ -240,7 +240,7 @@ def poll_annotation_start(self, fasta_bytes, task_id, dest_path=None, user_id=No
         return
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
-def poll_assembly_start(self, assembly_type="", dest_path=None, dest_path_2=None, annotate=False, task_id=None, user_id=None):
+def poll_assembly_start(self, assembly_type="", dest_path=None, dest_path_2=None, annotate=False, task_id=None, user_id=None, complete_version=False):
     print("Trying to start assembly task for uploaded FASTQ (reading from disk)")
 
     task = ConversionTask.objects.filter(id=task_id).first() if task_id else None
@@ -314,7 +314,7 @@ def poll_assembly_start(self, assembly_type="", dest_path=None, dest_path_2=None
                 TaskNotification.EVENT_STARTED,
                 "The conversion task has started and is currently running.",
             )
-        poll_conversion_status.delay(task.id)
+        poll_conversion_status.delay(task.id, complete_version=complete_version)
         return
 
     print("Server busy response received, will retry later.")
@@ -331,7 +331,7 @@ def poll_assembly_start(self, assembly_type="", dest_path=None, dest_path_2=None
 
     
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
-def poll_annotation_from_assembly_start(self, job_id, user_id, new_task_id=None):
+def poll_annotation_from_assembly_start(self, job_id, user_id, new_task_id=None, complete_version=False):
     print("Trying to start annotation task for uploaded FASTA")
 
     pending_task = ConversionTask.objects.filter(id=new_task_id).first() if new_task_id else None
@@ -379,4 +379,5 @@ def poll_annotation_from_assembly_start(self, job_id, user_id, new_task_id=None)
         fasta_bytes=fasta_bytes,
         task_id=new_task_id,
         user_id=user_id,
+        complete_version=complete_version,
     )
