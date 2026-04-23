@@ -36,7 +36,14 @@
   --color-warning-content: oklch(24% 0.06 72);
   --color-error: oklch(67% 0.17 25);
   --color-error-content: oklch(26% 0.08 22);
-  
+
+  --color-success-soft: color-mix(in oklab, var(--color-success) 18%, white);
+  --color-success-soft-content: color-mix(in oklab, var(--color-success) 88%, black);
+  --color-warning-soft: color-mix(in oklab, var(--color-warning) 18%, white);
+  --color-warning-soft-content: color-mix(in oklab, var(--color-warning) 88%, black);
+  --color-error-soft: color-mix(in oklab, var(--color-error) 18%, white);
+  --color-error-soft-content: color-mix(in oklab, var(--color-error) 88%, black);
+
   --radius-selector: 0.75rem;
   --radius-field: 1rem;
   --radius-box: 1rem;

@@ -1,80 +1,75 @@
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Prediction - TFG{% endblock %}
+{% block override_style %}
+<link rel="stylesheet" href="{% static 'css/prediction/prediction.css' %}">
+<link rel="stylesheet" href="{% static 'css/prediction/daisy-multiselect.css' %}" />
+{% endblock %}
+
+{% block title %}Prediction{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
-  <h1 class="text-3xl font-bold mb-2">Prediction</h1>
-  <p class="text-base-content/70 mb-6">Select model, antibiotic, and an uploaded dataset to compute prediction probability.</p>
-
-  {% if error %}
-  <div class="alert alert-error mb-4">
-    <span>{{ error }}</span>
+  <div class="mb-6">
+    <h1 class="text-3xl font-bold mb-2">Prediction</h1>
+    <p class="text-base-content/70">Select models, antibiotics, and an uploaded dataset to compute a prediction matrix.</p>
   </div>
-  {% endif %}
 
-  {% if prediction is not None %}
-  <div class="stats shadow w-full mb-4 bg-base-100 border border-base-300">
-    <div class="stat">
-      <div class="stat-title">Prediction probability</div>
-      <div class="stat-value text-primary font-output">{{ prediction }}</div>
+  <div class="bg-base-100 border border-base-300 rounded-box shadow-sm px-4 sm:px-6 py-6">
+    <div class="space-y-6">
+      <div class="grid gap-6 lg:grid-cols-1">
+
+        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4">
+          <legend class="fieldset-legend text-base font-semibold flex items-center gap-2">
+            Antibiotics
+          </legend>
+          <div class="flex justify-between items-center mb-2">
+            <multi-select placeholder="Select antibiotics…" id="antibiotics-select" class="multiselect w-full">
+              {% for antibiotic in available_antibiotics %}
+                <ms-option value="{{ antibiotic }}">{{ antibiotic }}</ms-option>
+              {% endfor %}
+            </multi-select>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4">
+          <legend class="fieldset-legend text-base font-semibold flex items-center gap-2">
+            Models
+          </legend>
+          <div class="flex justify-between items-center mb-2">
+            <multi-select placeholder="Select models…" id="models-select" class="multiselect w-full">
+              {% for model in available_models %}
+                <ms-option value="{{ model }}">{{ model }}</ms-option>
+              {% endfor %}
+            </multi-select>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4">
+          <legend class="fieldset-legend text-base font-semibold">Dataset</legend>
+          <select id="file_id_batch" class="select select-bordered w-full source-job-select">
+              <option value="">Select a processed file</option>
+              {% for upload in input_file_options %}
+              <option value="{{ upload.id }}">{{ upload.file_name }} — {{ upload.uploaded_at|date:"Y-m-d H:i" }}</option>
+              {% endfor %}
+            </select>
+        </fieldset>
+
+
+      <div>
+        <button id="compute-matrix" class="btn btn-primary">Compute matrix</button>
+        <button id="export-csv" class="btn btn-outline">Export CSV</button>
+      </div>
+
+      </div>
+
+      <div id="prediction-matrix"></div>
+
     </div>
   </div>
-  {% endif %}
-
-  <form method="post" class="card bg-base-100 border border-base-300 shadow-sm">
-    <div class="card-body gap-5">
-      {% csrf_token %}
-
-      <div>
-      <label class="label" for="model_name"><span class="label-text">Model name</span></label>
-      <select id="model_name" name="model_name" class="select select-bordered w-full" onchange="this.form.submit()">
-        <option value="">-- choose --</option>
-        {% for m in available_models %}
-        <option value="{{ m }}" {% if model_name == m %}selected{% endif %}>{{ m }}</option>
-        {% empty %}
-        <option disabled>No models registered</option>
-        {% endfor %}
-      </select>
-      </div>
-
-      <div>
-      <label class="label" for="antibiotic"><span class="label-text">Antibiotic</span></label>
-      {% if model_name %}
-        {% if available_antibiotics %}
-        <select id="antibiotic" name="antibiotic" class="select select-bordered w-full">
-          <option value="">-- choose --</option>
-          {% for a in available_antibiotics %}
-          <option value="{{ a }}" {% if antibiotic == a %}selected{% endif %}>{{ a }}</option>
-          {% endfor %}
-        </select>
-        {% else %}
-        <input id="antibiotic" type="text" name="antibiotic" value="{{ antibiotic }}" class="input input-bordered w-full" placeholder="e.g. ampicillin">
-        {% endif %}
-      {% else %}
-        <input type="text" class="input input-bordered w-full" placeholder="Select a model first" disabled>
-      {% endif %}
-      </div>
-
-      <div>
-      <label class="label" for="file_id"><span class="label-text">Uploaded JSON file (optional)</span></label>
-      <select id="file_id" name="file_id" class="select select-bordered w-full">
-        <option value="">Use default active file</option>
-        {% for upload in json_upload_options %}
-        <option value="{{ upload.id }}" {% if file_id == upload.id %}selected{% endif %}>
-          {{ upload.file_name }} - {{ upload.uploaded_at|date:"Y-m-d H:i" }}
-        </option>
-        {% empty %}
-        <option disabled>No JSON uploads available</option>
-        {% endfor %}
-      </select>
-      <p class="text-xs opacity-70 mt-2">Only your JSON uploads are shown. Leave empty to use the default active file.</p>
-      </div>
-
-      <div>
-      <button type="submit" class="btn btn-primary">Get prediction</button>
-      </div>
-    </div>
-  </form>
 </div>
+
+<script src="{% static 'js/prediction/prediction.js' %}"></script>
+<script defer src="{% static 'js/prediction/daisy-multiselect.js' %}"></script>
+
 {% endblock %}

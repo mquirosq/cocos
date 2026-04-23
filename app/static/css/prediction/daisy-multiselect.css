@@ -1,0 +1,209 @@
+/* multiselect.css — compatible with daisyUI v5 */
+
+multi-select {
+  display: block;
+  font-family: inherit;
+}
+
+/* ── Trigger ─────────────────────────────────────────────────── */
+
+.ms-wrapper {
+  position: relative;
+}
+
+.ms-trigger {
+  min-height: 42px;
+  border: 1px solid color-mix(in oklch, var(--color-base-content, #111) 15%, transparent);
+  border-radius: var(--radius-field, 0.5rem);
+  padding: 6px 36px 6px 8px;
+  cursor: pointer;
+  background-color: var(--color-base-100, #fff);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  position: relative;
+  user-select: none;
+  transition: border-color 0.15s;
+}
+.ms-trigger:hover {
+  border-color: color-mix(in oklch, var(--color-base-content, #111) 35%, transparent);
+}
+.ms-trigger.open {
+  border-color: color-mix(in oklch, var(--color-base-content, #111) 35%, transparent);
+}
+
+.ms-placeholder {
+  font-size: 14px;
+  color: color-mix(in oklch, var(--color-base-content, #111) 35%, transparent);
+  padding: 2px;
+}
+
+.ms-chevron {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: color-mix(in oklch, var(--color-base-content, #111) 40%, transparent);
+  font-size: 11px;
+  pointer-events: none;
+  transition: transform 0.15s;
+}
+.ms-trigger.open .ms-chevron {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+/* ── Tags ────────────────────────────────────────────────────── */
+
+.ms-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ms-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background-color: var(--color-accent, #e0e0e0);
+  color: var(--color-accent-content, #111);
+  border-radius: var(--radius-badge, 1.9rem);
+  font-size: 11px;
+  padding: 2px 8px;
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.ms-tag-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ms-tag-x {
+  cursor: pointer;
+  opacity: 0.5;
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1;
+  padding-left: 2px;
+}
+.ms-tag-x:hover { opacity: 1; }
+
+.ms-tag-count {
+  background-color: var(--color-accent, #e0e0e0);
+  color: var(--color-accent-content, #111);
+  border-radius: var(--radius-badge, 1.9rem);
+  font-size: 12px;
+  padding: 2px 10px;
+}
+
+/* ── Dropdown ────────────────────────────────────────────────── */
+/* Appended to <body> — top/left/width set by JS via getBoundingClientRect */
+
+.ms-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  z-index: 9999;
+  background-color: var(--color-base-100, #fff);
+  border: 1px solid color-mix(in oklch, var(--color-base-content, #111) 15%, transparent);
+  border-radius: var(--radius-box, 0.5rem);
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+.ms-dropdown.open { display: block; }
+
+.ms-search-row {
+  padding: 8px 8px 6px;
+  border-bottom: 1px solid color-mix(in oklch, var(--color-base-content, #111) 10%, transparent);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.ms-search {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid color-mix(in oklch, var(--color-base-content, #111) 15%, transparent);
+  border-radius: var(--radius-field, 0.5rem);
+  padding: 6px 10px;
+  font-size: 13px;
+  background-color: var(--color-base-200, #f5f5f5);
+  color: var(--color-base-content, #111);
+  outline: none;
+  font-family: inherit;
+}
+.ms-search:focus {
+  border-color: var(--color-primary, #6366f1);
+}
+
+.ms-sel-all {
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: var(--radius-field, 0.5rem);
+  border: 1px solid color-mix(in oklch, var(--color-base-content, #111) 15%, transparent);
+  background-color: transparent;
+  color: color-mix(in oklch, var(--color-base-content, #111) 60%, transparent);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.1s, color 0.1s;
+}
+.ms-sel-all:hover {
+  background-color: var(--color-base-200);
+  color: var(--color-base-content);
+}
+
+.ms-list {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.ms-option {
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-base-content, #111);
+  transition: background-color 0.1s;
+}
+.ms-option:hover {
+  background-color: var(--color-base-200, #f5f5f5);
+}
+.ms-option.selected {
+  background-color: color-mix(in oklch, var(--color-primary) 10%, transparent);
+}
+
+.ms-tick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--color-primary);
+  visibility: hidden;
+}
+.ms-option.selected .ms-tick { visibility: visible; }
+
+.ms-opt-label {
+  flex: 1;
+  min-width: 0;
+  padding-left: 2px;
+}
+
+.ms-no-results {
+  display: none;
+  padding: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: color-mix(in oklch, var(--color-base-content, #111) 40%, transparent);
+}
+.ms-no-results.visible { display: block; }

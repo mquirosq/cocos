@@ -1,98 +1,128 @@
-from django.shortcuts import render
-from pathlib import Path
+import json
 import os
-from conversion.models import FileUpload
-from .service import get_prediction
-from .registry import list_registered_models, get_model_adapter_class
+import csv
+
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.shortcuts import render
+from django.views.decorators.http import require_POST
 
-@login_required()
-def prediction_view(request):
-    model_name = None
-    antibiotic = None
-    file_upload = None
-    file_id = None
+from conversion.models import FileUpload
+from .registry import list_registered_models, get_model_supported_antibiotics, list_all_antibiotics
+from .service import get_prediction_matrix
+from django.contrib import messages as message
+from django.http import HttpResponse
 
-    if request.method == 'POST':
-        model_name = request.POST.get('model_name')
-        if model_name:
-            model_name = model_name.strip().lower()
-        antibiotic = request.POST.get('antibiotic') or None
-        file_id = (request.POST.get('file_id') or '').strip() or None
-    else:
-        model_name = request.GET.get('model_name')
-        if model_name:
-            model_name = model_name.strip().lower()
-        antibiotic = request.GET.get('antibiotic') or None
-        file_id = (request.GET.get('file_id') or '').strip() or None
-
-    file_id_error = None
-    json_upload_options = []
-    json_uploads_qs = FileUpload.objects.filter(
-        user=request.user,
+def _get_user_json_uploads(user):
+    return FileUpload.objects.filter(
+        user=user,
         file__iendswith='.json',
     ).order_by('-uploaded_at')
-    for upload in json_uploads_qs:
-        json_upload_options.append({
+
+@login_required
+def prediction_view(request):
+    json_uploads = _get_user_json_uploads(request.user)
+
+    input_file_options = [
+        {
             'id': str(upload.pk),
             'file_name': os.path.basename(upload.file.name),
             'uploaded_at': upload.uploaded_at,
-        })
+        }
+        for upload in json_uploads
+    ]
 
-    if file_id:
-        try:
-            parsed_file_id = int(file_id)
-        except (ValueError, TypeError):
-            file_upload = None
-            file_id_error = 'Please select a valid uploaded JSON file.'
-        else:
-            file_upload = FileUpload.objects.filter(
-                pk=parsed_file_id,
-                user=request.user,
-                file__iendswith='.json',
-            ).first()
-            if file_upload is None:
-                file_id_error = 'The selected JSON upload was not found for your user.'
-
-    prediction = None
-    error = file_id_error
-    available_antibiotics = []
-    if model_name:
-        model_cls = get_model_adapter_class(model_name)
-        if not model_cls:
-            error = f"Model '{model_name}' not found."
-        else:
-            available_antibiotics = []
-            try:
-                base_dir = Path(__file__).resolve().parents[1]
-                ai_root = base_dir / 'ai_models'
-                model_dir = ai_root / model_name
-                if not (model_dir.exists() and model_dir.is_dir()):
-                    norm = model_name.replace('-', '_')
-                    for d in ai_root.iterdir() if ai_root.exists() else []:
-                        if not d.is_dir():
-                            continue
-                        if d.name.lower().replace('-', '_') == norm.lower():
-                            model_dir = d
-                pesos_dir = model_dir / 'pesos'
-                if pesos_dir.exists() and pesos_dir.is_dir():
-                    available_antibiotics = sorted({p.stem for p in pesos_dir.glob('*.pt')})
-            except Exception:
-                available_antibiotics = []
-
-            if antibiotic:
-                try:
-                    prediction = get_prediction(model_name=model_name, antibiotic=antibiotic, file_upload=file_upload)
-                except Exception as e:
-                    error = str(e)
+    available_models = list_registered_models()
+    available_antibiotics = list_all_antibiotics()
 
     return render(request, 'prediction/prediction.html', {
-        'prediction': prediction,
-        'error': error,
-        'model_name': model_name,
-        'antibiotic': antibiotic,
-        'available_models': list_registered_models(),
+        'input_file_options': input_file_options,
+        'available_models': available_models,
         'available_antibiotics': available_antibiotics,
-        'file_id': file_id,
-        'json_upload_options': json_upload_options,
     })
+
+
+@login_required
+@require_POST
+def prediction_matrix_view(request):
+    model_names = request.POST.getlist('models')
+    antibiotics = request.POST.getlist('antibiotics')
+    file_id = request.POST.get('file_id', '').strip() or None
+
+    if not model_names:
+        return JsonResponse({'error': 'Select at least one model.'}, status=400)
+    if not antibiotics:
+        return JsonResponse({'error': 'Select at least one antibiotic.'}, status=400)
+
+    file_upload = None
+    if file_id:
+        try:
+            file_upload = FileUpload.objects.get(
+                pk=int(file_id),
+                user=request.user,
+                file__iendswith='.json',
+            )
+        except (ValueError, FileUpload.DoesNotExist):
+            return JsonResponse({'error': 'Selected file not found.'}, status=400)
+
+    # Validate all requested antibiotics are supported by all requested models
+    valid_antibiotics = [
+        antibiotic for antibiotic in antibiotics
+        if any(antibiotic in get_model_supported_antibiotics(m) for m in model_names)
+    ]
+    if not valid_antibiotics:
+        return JsonResponse({'error': 'No valid antibiotic/model combinations found.'}, status=400)
+
+    try:
+        matrix = get_prediction_matrix(
+            model_names=model_names,
+            antibiotics=valid_antibiotics,
+            file_upload=file_upload,
+        )
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse(matrix)
+
+@login_required
+@require_POST
+def prediction_csv_from_matrix_view(request):
+    try:
+        body = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON.'}, status=400)
+
+    matrix = body
+    if not isinstance(matrix, dict):
+        return JsonResponse({'error': 'Invalid matrix payload.'}, status=400)
+
+    models = matrix.get('models')
+    antibiotics = matrix.get('antibiotics')
+    data = matrix.get('data')
+
+    if not (isinstance(models, list) and isinstance(antibiotics, list) and isinstance(data, list)):
+        return JsonResponse({'error': 'Invalid matrix structure.'}, status=400)
+
+    if len(antibiotics) != len(data):
+        return JsonResponse({'error': 'Matrix data size mismatch.'}, status=400)
+
+    for row in data:
+        if not isinstance(row, list) or len(row) != len(models):
+            return JsonResponse({'error': 'Matrix rows must match models length.'}, status=400)
+
+    # Build CSV response
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="predictions.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['Antibiotic'] + models + ['Average'])
+
+    for i, antibiotic in enumerate(antibiotics):
+        vals = data[i]
+        try:
+            avg = round(sum(float(v) for v in vals) / len(vals), 4)
+        except Exception:
+            avg = ''
+        writer.writerow([antibiotic] + [round(float(v), 4) for v in vals] + [avg])
+
+    return response
