@@ -1,0 +1,129 @@
+.home-shell {
+	max-width: 1200px;
+}
+
+.home-hero {
+	background:
+		radial-gradient(circle at 85% 15%, color-mix(in oklab, var(--color-primary) 18%, transparent) 0%, transparent 38%),
+		radial-gradient(circle at 12% 82%, color-mix(in oklab, var(--color-accent) 14%, transparent) 0%, transparent 32%),
+		var(--color-base-100);
+	margin-bottom: 1.5rem;
+}
+
+.home-actions .btn {
+	min-width: 11.5rem;
+}
+
+
+
+.home-cap-icon {
+	width: 2.5rem;
+	height: 2.5rem;
+	border-radius: 0.75rem;
+	display: grid;
+	place-items: center;
+	color: var(--color-primary);
+	background: color-mix(in oklab, var(--color-primary) 14%, transparent);
+}
+
+.home-shell .home-cap-icon i,
+.home-shell .home-cap-icon svg,
+.home-shell .timeline .bi,
+.home-shell .timeline svg {
+	color: var(--color-primary) !important;
+	fill: var(--color-primary) !important;
+	stroke: var(--color-primary) !important;
+}
+
+.home-cap-icon i {
+	font-size: 1.25rem !important;
+}
+
+
+
+.home-pipeline-content h3 {
+	margin: 0;
+	font-size: 0.95rem;
+	font-weight: 700;
+}
+
+.home-pipeline-content p {
+	margin: 0.2rem 0 0;
+	font-size: 0.85rem;
+	line-height: 1.35;
+	color: color-mix(in oklab, var(--color-base-content) 72%, var(--color-base-100));
+}
+
+.home-pipeline-content strong {
+	font-weight: 700;
+	color: color-mix(in oklab, var(--color-base-content) 90%, black);
+}
+
+@media (max-width: 640px) {
+	.home-actions .btn {
+		width: 100%;
+	}
+}
+
+/* Timeline and icon sizing adjustments */
+.timeline svg,
+.timeline .timeline-middle svg {
+	width: 1.5rem !important;
+	height: 1.5rem !important;
+}
+
+.timeline .timeline-dot {
+	display: inline-grid;
+	place-items: center;
+	width: 2.5rem;
+	height: 2.5rem;
+	border-radius: 9999px;
+}
+
+.timeline .bi,
+.timeline i {
+	font-size: 1.25rem !important;
+}
+
+/* Slightly more bottom padding so timeline cards don't feel cramped */
+.timeline .timeline-box {
+	padding-bottom: 1.25rem;
+}
+
+/* Hover / focus effect for timeline cards */
+@media (hover: hover) and (pointer: fine) {
+	.timeline .timeline-box {
+		transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease, border-color 180ms ease;
+		border-radius: 0.6rem;
+	}
+
+	.timeline .timeline-box:hover,
+	.timeline .timeline-box:focus-within {
+		transform: translateY(-6px);
+		box-shadow: 0 10px 30px color-mix(in oklab, var(--color-primary) 18%, transparent);
+		background: color-mix(in oklab, var(--color-base-100) 94%, white);
+		border-color: color-mix(in oklab, var(--color-primary) 12%, var(--color-base-300));
+	}
+
+	.timeline .timeline-box:hover .home-pipeline-content h3,
+	.timeline .timeline-box:focus-within .home-pipeline-content h3 {
+		color: color-mix(in oklab, var(--color-base-content) 92%, black);
+	}
+
+	.timeline .timeline-box:hover .home-cap-icon,
+	.timeline .timeline-box:focus-within .home-cap-icon {
+		transform: translateY(-2px);
+	}
+}
+
+/* Reduced-motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+	.timeline .timeline-box,
+	.timeline .timeline-box:hover,
+	.timeline .timeline-box:focus-within,
+	.timeline .timeline-box .home-cap-icon {
+		transition: none !important;
+		transform: none !important;
+		box-shadow: none !important;
+	}
+}

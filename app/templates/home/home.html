@@ -1,8 +1,130 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block override_style %}
+<link rel="stylesheet" href="{% static 'css/home/home.css' %}">
+{% endblock %}
+
 {% block content %}
-<main class="container py-4">
-    <h1 class="h4 mb-4 fw-bold">Hi :)</h1>
+<main class="home-shell container mx-auto px-4 py-8 md:py-10">
+	<section class="home-hero card border border-base-300 bg-base-100 shadow-sm">
+		<div class="card-body gap-5">
+			<div class="grid gap-6 md:grid-cols-2 items-center">
+				<div class="space-y-3 max-w-3xl">
+					<span class="badge badge-primary badge-outline">Full Conversion and Prediction Workflow</span>
+					<h1 class="text-3xl md:text-4xl font-extrabold leading-tight">From a sequenced FASTQ file to ready-to-use prediction results in one guided flow</h1>
+					<p class="text-base-content/75 text-base md:text-lg">
+						Assemble, annotate, and predict resistance to antibiotics in just one place. Your results will be ready in just a few steps.
+					</p>
+				</div>
+
+				<div class="home-hero-illustration hidden md:block" aria-hidden="true">
+					<svg viewBox="0 0 600 400" fill="none" xmlns="http://www.w3.org/2000/svg" role="img">
+						<defs>
+							<linearGradient id="g1" x1="0" x2="1">
+								<stop offset="0" stop-color="#06b6d4" stop-opacity="0.95"/>
+								<stop offset="1" stop-color="#7c3aed" stop-opacity="0.9"/>
+							</linearGradient>
+						</defs>
+						<rect x="0" y="0" width="600" height="400" rx="16" fill="url(#g1)" opacity="0.09"/>
+					</svg>
+				</div>
+			</div>
+
+			{% if user.is_authenticated %}
+			<div class="home-actions flex flex-wrap gap-3">
+				<a class="btn btn-primary" href="{% url 'conversion:assembly_ui' %}">
+					<i class="bi bi-diagram-3"></i>
+					Assemble
+				</a>
+				<a class="btn btn-primary" href="{% url 'conversion:annotation_ui' %}">
+					<i class="bi bi-tags-fill"></i>
+					Annotate
+				</a>
+				<a class="btn btn-primary" href="{% url 'prediction:prediction' %}">
+					<i class="bi bi-activity"></i>
+					Predict
+				</a>
+				<a class="btn btn-outline" href="{% url 'conversion:task_list' %}">
+					<i class="bi bi-list-task"></i>
+					View conversion processes
+				</a>
+			</div>
+			{% else %}
+			<div class="home-actions flex flex-wrap gap-3">
+				<a class="btn btn-primary" href="{% url 'accounts:register' %}">
+					<i class="bi bi-person-plus"></i>
+					Create account
+				</a>
+				<a class="btn btn-outline" href="{% url 'accounts:login' %}">
+					<i class="bi bi-box-arrow-in-right"></i>
+					Login
+				</a>
+			</div>
+			{% endif %}
+		</div>
+	</section>
+
+	<section>
+		<article class="card border border-base-300 bg-base-100 shadow-sm">
+			<div class="card-body">
+				<h2 class="card-title text-xl">Pipeline</h2>
+				<p class="text-base-content/70 mb-2">From raw sequencing reads to resistance interpretation.</p>
+
+				<ul class="timeline timeline-vertical">
+					<li>
+						<div class="timeline-middle">
+							<i class="bi bi-1-circle-fill f"></i>
+						</div>
+						<div class="timeline-end timeline-box">
+							<div class="home-cap-icon"><i class="bi bi-diagram-3"></i></div>
+							<div class="home-pipeline-content">
+								<h3>Assembly</h3>
+								<p>Use the raw sequencing reads to assemble the genome and get clean sequences using Illumina or ONT platforms.</p>
+								<p><strong>Input:</strong> FASTQ</p>
+								<p><strong>Output:</strong> FASTA assembled genome</p>
+							</div>
+						</div>
+						<hr class="bg-primary" />
+					</li>
+					<li>
+						<hr class="bg-primary" />
+						<div class="timeline-start timeline-box">
+							<div class="home-cap-icon"><i class="bi bi-tags-fill"></i></div>
+							<div class="home-pipeline-content">
+							<h3>Annotation</h3>
+							<p>Use the assembled genome to get an annotation of the genome using Bakta.</p>
+							<p><strong>Input:</strong> FASTA assembled genome</p>
+							<p><strong>Output:</strong> Annotated genome</p>
+							</div>
+						</div>
+						<div class="timeline-middle">
+							<i class="bi bi-2-circle-fill"></i>
+						</div>
+						<hr class="bg-primary" />
+					</li>
+					<li>
+						<hr class="bg-primary" />
+						<div class="timeline-middle">
+							<i class="bi bi-3-circle-fill"></i>
+						</div>
+						<div class="timeline-end timeline-box">
+							<div class="home-cap-icon"><i class="bi bi-funnel"></i></div>
+						</div>
+						<div class="timeline-end timeline-box">
+							<div class="home-cap-icon"><i class="bi bi-activity"></i></div>
+							<div class="home-pipeline-content">
+								<h3>Prediction</h3>
+								<p>Use the annotated genome to get a prediction of antibiotic resistance.</p>
+								<p><strong>Input:</strong> Annotated genome</p>
+								<p><strong>Output:</strong> Model predictions and interpretation</p>
+							</div>
+						</div>
+					</li>
+				</ul>
+			</div>
+		</article>
+	</section>
+
 </main>
 {% endblock %}
