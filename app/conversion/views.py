@@ -48,12 +48,21 @@ def _annotation_context(request, active_tab='fasta', **extra):
 def _start_annotation_from_source_job(request, source_job_id):
     available_jobs = get_available_fasta_jobs(request.user)
     previous_task = next((task for task in available_jobs if task.external_job_id == source_job_id), None)
+    
     if not previous_task:
         messages.error(request, 'Selected FASTA is not available for annotation.')
         return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
 
     if has_annotation_for_previous(request.user, previous_task):
         messages.error(request, 'This FASTA output already has an annotation task.')
+        return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
+
+    if previous_task.user != request.user:
+        messages.error(request, 'You do not have permission to annotate this FASTA output.')
+        return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
+    
+    if previous_task.status != 'completed':
+        messages.error(request, 'Selected FASTA output is not ready for annotation.')
         return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
 
     task = ConversionTask.objects.create(
@@ -220,6 +229,14 @@ def annotation_from_assembly_task(request, job_id):
     if has_annotation_for_previous(request.user, previous_task):
         messages.warning(request, 'This assembly result already has an annotation task.')
         return redirect('conversion:annotation_ui')
+    
+    if previous_task.user != request.user:
+        messages.error(request, 'You do not have permission to annotate this assembly result.')
+        return redirect('conversion:annotation_ui')
+    
+    if previous_task.status != 'completed':
+        messages.error(request, 'Selected assembly job is not ready for annotation.')
+        return redirect('conversion:annotation_ui')
 
     task = ConversionTask.objects.create(
         external_job_id=None,
@@ -308,6 +325,11 @@ def task_list_view(request):
 @login_required
 def task_status_view(request, task_id):
     task = get_object_or_404(_get_current_user_tasks(request), id=task_id)
+
+    if task.user != request.user:
+        messages.error(request, 'You do not have permission to view this task.')
+        return redirect('conversion:task_list')
+
     context = build_task_context(request.user, task)
     assembly_task = context['sequencing_task']
     auto_annotated = is_auto_annotated_assembly(assembly_task)
