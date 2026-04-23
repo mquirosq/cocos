@@ -40,9 +40,7 @@
       {% if user.is_authenticated %}
       <a class="btn btn-ghost btn-md btn-circle relative" href="{% url 'notifications:list' %}" aria-label="Notifications">
         <i class="bi bi-bell-fill text-xl" aria-hidden="true"></i>
-        {% if unread_notifications_count > 0 %}
-        <span class="badge badge-sm badge-accent absolute -top-1 -right-1">{{ unread_notifications_count }}</span>
-        {% endif %}
+        <span id="unread-notifications-count" class="badge badge-sm badge-accent absolute -top-1 -right-1 {% if unread_notifications_count == 0 %}hidden{% endif %}">{{ unread_notifications_count }}</span>
       </a>
 
       <div class="dropdown dropdown-end">

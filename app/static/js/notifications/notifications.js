@@ -113,6 +113,15 @@
     }
 
     const { status, page } = getCurrentState();
+    const notificationCountElem = document.getElementById('unread-notifications-count');
+    if (notificationCountElem) {
+      const currentCount = parseInt(notificationCountElem.textContent, 10) || 0;
+      const newCount = Math.max(currentCount - 1, 0);
+      notificationCountElem.textContent = newCount;
+      if (newCount === 0) {
+        notificationCountElem.classList.add('hidden');
+      }
+    }
     await fetchPanel(status, page, false);
   });
 
@@ -127,6 +136,13 @@
       }
 
       const { status, page } = getCurrentState();
+
+      const notificationCountElem = document.getElementById('unread-notifications-count');
+      if (notificationCountElem) {
+        notificationCountElem.textContent = '0';
+        notificationCountElem.classList.add('hidden');
+      }
+      
       await fetchPanel(status, page, false);
     });
   }
