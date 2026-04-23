@@ -57,8 +57,8 @@ def _create_notification(user, event_type, message, task=None):
     )
 
 def notify_user_conversion_complete(user, task):
-    task_ref = getattr(task, 'external_job_id', 'unknown')
-    message = f"The conversion for task {task_ref} is complete. You can now access your results."
+    task_ref = getattr(task, 'name', 'unknown')
+    message = f"The conversion for the process {task_ref} is complete. You can now access your results."
     return _create_notification(
         user=user,
         event_type=TaskNotification.EVENT_COMPLETED,
@@ -67,8 +67,8 @@ def notify_user_conversion_complete(user, task):
     )
 
 def notify_user_conversion_started(user, task):
-    task_ref = getattr(task, 'external_job_id', 'unknown')
-    message = f"The conversion for task {task_ref} has started and is now processing."
+    task_ref = getattr(task, 'name', 'unknown')
+    message = f"The conversion for the process {task_ref} has started and is now processing."
     return _create_notification(
         user=user,
         event_type=TaskNotification.EVENT_STARTED,
@@ -78,8 +78,8 @@ def notify_user_conversion_started(user, task):
 
 def notify_user_conversion_failed(user, task, message=None):
     if not message:
-        task_ref = getattr(task, 'external_job_id', 'unknown')
-        message = f"The conversion for task {task_ref} has failed. Please try again."
+        task_ref = getattr(task, 'name', 'unknown')
+        message = f"The conversion for the process {task_ref} has failed. Please try again."
     return _create_notification(
         user=user,
         event_type=TaskNotification.EVENT_FAILED,
