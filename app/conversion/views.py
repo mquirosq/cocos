@@ -79,6 +79,7 @@ def _start_annotation_from_source_job(request, source_job_id):
         job_id=source_job_id,
         user_id=request.user.id,
         new_task_id=task.id,
+        complete_version=request.POST.get('complete') == 'on',
     )
 
     message = f"Annotation task started from previous assembly job {source_job_id}. You will be notified when it's complete."
@@ -112,7 +113,8 @@ def _start_annotation_from_uploaded_fasta(request, fasta):
     poll_annotation_start.delay(
         fasta_bytes=fasta_bytes,
         dest_path=dest_path,
-        task_id=task.id,
+        task_id=task.id,   
+        complete_version=request.POST.get('complete') == 'on',
     )
 
     message = f"Annotation task started for file {fasta.name}. You will be notified when it's complete."
@@ -197,6 +199,7 @@ def assembly_task(request):
         dest_path_2=dest_path_2,
         annotate=annotate,
         task_id=task.id,
+        complete_version=request.POST.get('complete') == 'on',
     )
 
     message = f"Assembly task started for file {fastq.name}. You will be notified when it's complete."
@@ -252,6 +255,7 @@ def annotation_from_assembly_task(request, job_id):
         user_id=request.user.id,
         job_id=job_id,
         new_task_id=task.id,
+        complete_version=request.POST.get('complete') == 'on',
     )
 
     message = f"Annotation task started for assembly job {job_id}. You will be notified when it's complete."
@@ -321,7 +325,6 @@ def task_list_view(request):
         'page_obj': page_obj,
     })
 
-
 @login_required
 def task_status_view(request, task_id):
     task = get_object_or_404(_get_current_user_tasks(request), id=task_id)
@@ -384,7 +387,6 @@ def task_status_view(request, task_id):
         'process_kind': process_kind,
     })
 
-
 @login_required
 def download_json_view(request, task_id):
     """
@@ -419,8 +421,6 @@ def download_json_view(request, task_id):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
 
-
-
 @login_required
 def download_fasta_view(request, task_id):
     task = get_object_or_404(_get_current_user_tasks(request), id=task_id)
@@ -442,7 +442,6 @@ def download_fasta_view(request, task_id):
     else:
         messages.error(request, 'FASTA file is not available for download.')
         return redirect('conversion:task_status', task_id=task.id)
-
 
 @require_POST
 @login_required

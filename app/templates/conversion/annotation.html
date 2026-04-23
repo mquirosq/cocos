@@ -30,7 +30,7 @@
   <div class="bg-base-100 border border-base-300 rounded-b-box shadow-sm px-4 sm:px-6 py-6 conversion-card-body">
     <div id="fasta-panel" class="tab-panel {% if active_tab == 'json' %}hidden{% endif %}">
       <div class="space-y-4">
-        <h2 class="card-title">FASTA to Bakta JSON to system</h2>
+        <h2 class="card-title">FASTA to Bakta JSON to DB</h2>
         <p class="text-sm opacity-70">Choose a FASTA from your completed Assembly jobs or upload a local FASTA file.</p>
 
         <form id="annotation-fasta-form" method="post" enctype="multipart/form-data" action="{% url 'conversion:annotation_from_fasta' %}" class="space-y-4">
@@ -56,6 +56,11 @@
             <button type="button" id="clear-fasta-file" class="btn btn-xs mt-2 hidden fasta-clear-btn">Clear selected file</button>
           </fieldset>
 
+            <label class="label w-full cursor-pointer justify-start gap-3 px-1 py-1 assembly-annotate-row mt-3">
+              <input type="checkbox" class="checkbox checkbox-primary" name="complete">
+              <span class="label-text">Store complete feature payload (start, stop, nt, aa)</span>
+            </label>
+
           <div class="w-full">
             <div class="join">
               <button type="submit" class="btn btn-primary join-item">Start Annotation</button>
@@ -67,7 +72,7 @@
 
     <div id="json-panel" class="tab-panel {% if active_tab != 'json' %}hidden{% endif %}">
       <div class="space-y-4">
-        <h2 class="card-title">Bakta JSON to system</h2>
+        <h2 class="card-title">Bakta JSON to DB</h2>
         <p class="text-sm opacity-70">Upload a Bakta JSON file to process its contents into the system so they are available for prediction.</p>
 
         <form id="annotation-json-form" method="post" enctype="multipart/form-data" action="{% url 'conversion:annotation_from_json' %}" class="space-y-4">
@@ -80,11 +85,12 @@
               <input id="feature_file" type="file" name="feature_file" accept=".json" required class="file-input w-full">
             </div>
 
+          </fieldset>
+
             <label class="label w-full cursor-pointer justify-start gap-3 px-1 py-1 assembly-annotate-row mt-3">
               <input type="checkbox" class="checkbox checkbox-primary" name="complete">
               <span class="label-text">Store complete feature payload (start, stop, nt, aa)</span>
             </label>
-          </fieldset>
 
           <div class="w-full">
             <button type="submit" class="btn btn-primary">Process JSON</button>
