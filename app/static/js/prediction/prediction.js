@@ -223,13 +223,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const cd = res.headers.get('Content-Disposition') || '';
       let filename = 'predictions.csv';
-      const fnStarMatch = /filename\*=([^']*)'[^']*'([^;\s]+)/i.exec(cd);
-      try { 
-        filename = decodeURIComponent(fnStarMatch[2]); 
-      }
-      catch (e) { 
-        filename = fnStarMatch[2]; 
-      }
 
       a.download = filename;
       document.body.appendChild(a);
