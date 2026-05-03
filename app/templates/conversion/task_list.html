@@ -14,21 +14,21 @@
 
   <div class="process-list">
     {% for row in page_obj %}
-      <article class="process-row process-row-{{ row.kind }} {% if row.kind == 'sequencing' and row.has_json %}process-stage-max{% elif row.kind == 'json' and row.status == 'completed' %}process-stage-max{% elif row.kind == 'annotation' and row.status == 'completed' %}process-stage-max{% elif row.kind == 'json' %}process-stage-dark{% elif row.kind == 'annotation' or row.annotation_started %}process-stage-mid{% else %}process-stage-light{% endif %} card bg-base-100 border border-base-300 shadow-sm">
+      <article class="process-row process-row-{{ row.kind }} {% if row.kind == 'assembly' and row.has_json %}process-stage-max{% elif row.kind == 'json' and row.status == 'completed' %}process-stage-max{% elif row.kind == 'annotation' and row.status == 'completed' %}process-stage-max{% elif row.kind == 'json' %}process-stage-dark{% elif row.kind == 'annotation' or row.annotation_started %}process-stage-mid{% else %}process-stage-light{% endif %} card bg-base-100 border border-base-300 shadow-sm">
         <div class="card-body">
           <div class="process-row-grid">
             <section>
               <h2 class="card-title text-xl leading-tight process-title-text">{{ row.process_name }}</h2>
               <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                <span class="badge badge-soft process-pipeline-badge {% if row.kind == 'sequencing' and row.annotation_started %}process-pipeline-badge-advanced{% endif %}">{% if row.kind == 'sequencing' %}{{ row.top_pipeline }}{% else %}{{ row.pipeline_type }}{% endif %}</span>
-                {% if row.kind == 'sequencing' and row.annotation_started and not row.is_auto_annotated %}
+                <span class="badge badge-soft process-pipeline-badge {% if row.kind == 'assembly' and row.annotation_started %}process-pipeline-badge-advanced{% endif %}">{% if row.kind == 'assembly' %}{{ row.top_pipeline }}{% else %}{{ row.pipeline_type }}{% endif %}</span>
+                {% if row.kind == 'assembly' and row.annotation_started and not row.is_auto_annotated %}
                   <span class="badge badge-soft process-pipeline-badge">{{ row.assembly_type_label }}</span>
                 {% endif %}
-                <span class="badge process-status-badge {% if row.kind == 'sequencing' %}{{ row.top_status_badge }}{% else %}{{ row.status_badge }}{% endif %}">{% if row.kind == 'sequencing' %}{{ row.top_status|capfirst }}{% else %}{{ row.status|capfirst }}{% endif %}</span>
+                <span class="badge process-status-badge {% if row.kind == 'assembly' %}{{ row.top_status_badge }}{% else %}{{ row.status_badge }}{% endif %}">{% if row.kind == 'assembly' %}{{ row.top_status|capfirst }}{% else %}{{ row.status|capfirst }}{% endif %}</span>
               </div>
 
               <ul class="steps steps-horizontal process-steps mt-4 w-full">
-                {% if row.kind == 'sequencing' %}
+                {% if row.kind == 'assembly' %}
                   {% if row.is_auto_annotated %}
                     <li class="step {% if row.status == 'failed' %}step-error{% else %}step-primary{% endif %}">Started</li>
                     <li class="step {% if row.status == 'completed' or row.status == 'running' or row.status == 'pending' %}step-primary{% elif row.status == 'failed' %}step-error{% endif %}">Assembling</li>
@@ -79,12 +79,12 @@
               </div>
 
               <div class="mt-3 flex flex-wrap justify-end gap-2">
-                {% if row.kind == 'sequencing' and row.can_annotate and not row.is_auto_annotated %}
+                {% if row.kind == 'assembly' and row.can_annotate and not row.is_auto_annotated %}
                   <form method="post" action="{% url 'conversion:annotation_from_job' row.task.external_job_id %}">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-sm btn-primary">Annotate</button>
                   </form>
-                {% elif row.kind == 'sequencing' and row.can_retry_annotation and not row.is_auto_annotated %}
+                {% elif row.kind == 'assembly' and row.can_retry_annotation and not row.is_auto_annotated %}
                   <form method="post" action="{% url 'conversion:annotation_from_job' row.task.external_job_id %}">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-sm btn-warning">Retry Annotation</button>

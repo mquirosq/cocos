@@ -12,10 +12,10 @@ from .utils import (
 )
 
 ASSEMBLY_TYPES = {
-    'sequencing_illumina',
-    'sequencing_ont',
-    'sequencing_illumina_annotated',
-    'sequencing_ont_annotated',
+    'assembly_illumina',
+    'assembly_ont',
+    'assembly_illumina_annotated',
+    'assembly_ont_annotated',
 }
 
 FASTA_EXTENSIONS = {'.fa', '.fasta', '.fna', '.ffn', '.faa', '.frn'}
@@ -54,7 +54,7 @@ def annotation_process_key(task):
 
 
 def is_auto_annotated_assembly(task):
-    return bool(task and task.task_type in {'sequencing_ont_annotated', 'sequencing_illumina_annotated'})
+    return bool(task and task.task_type in {'assembly_ont_annotated', 'assembly_illumina_annotated'})
 
 
 def find_latest_completed_annotation(annotations):
@@ -137,8 +137,8 @@ def get_fasta_upload_for_task(task):
 def build_process_rows(user):
     tasks = list(ConversionTask.objects.filter(user=user).select_related('previous_task').order_by('-updated_at', '-id'))
 
-    sequencing_tasks = [task for task in tasks if task.task_type in ASSEMBLY_TYPES]
-    sequencing_by_id = {task.id: task for task in sequencing_tasks}
+    assembly_tasks = [task for task in tasks if task.task_type in ASSEMBLY_TYPES]
+    assembly_by_id = {task.id: task for task in assembly_tasks}
 
     annotations_by_parent = {}
     standalone_annotations = {}
@@ -146,7 +146,7 @@ def build_process_rows(user):
 
     for task in tasks:
         task.process_name = derive_process_name(task)
-        if task.task_type == 'annotation' and task.previous_task_id in sequencing_by_id:
+        if task.task_type == 'annotation' and task.previous_task_id in assembly_by_id:
             annotations_by_parent.setdefault(task.previous_task_id, []).append(task)
         elif task.task_type == 'annotation' and task.previous_task_id is None:
             standalone_annotations.setdefault(annotation_process_key(task), []).append(task)
@@ -155,53 +155,53 @@ def build_process_rows(user):
 
     rows = []
 
-    for sequencing_task in sequencing_tasks:
-        annotations = sorted(annotations_by_parent.get(sequencing_task.id, []), key=lambda item: (item.updated_at, item.id), reverse=True)
+    for assembly_task in assembly_tasks:
+        annotations = sorted(annotations_by_parent.get(assembly_task.id, []), key=lambda item: (item.updated_at, item.id), reverse=True)
         latest_annotation = annotations[0] if annotations else None
         latest_completed_annotation = find_latest_completed_annotation(annotations)
         effective_annotation = get_effective_annotation(annotations)
-        auto_annotated = is_auto_annotated_assembly(sequencing_task)
+        auto_annotated = is_auto_annotated_assembly(assembly_task)
         first_annotation = min(annotations, key=lambda item: (item.created_at, item.id)) if annotations else None
-        most_recent = latest_annotation.updated_at if latest_annotation and latest_annotation.updated_at > sequencing_task.updated_at else sequencing_task.updated_at
+        most_recent = latest_annotation.updated_at if latest_annotation and latest_annotation.updated_at > assembly_task.updated_at else assembly_task.updated_at
         annotation_started = bool(first_annotation) or auto_annotated
 
         if auto_annotated:
-            top_pipeline = pipeline_label(sequencing_task.task_type)
-            top_status = sequencing_task.status
+            top_pipeline = pipeline_label(assembly_task.task_type)
+            top_status = assembly_task.status
         elif annotation_started and effective_annotation:
             top_pipeline = 'Annotation'
             top_status = effective_annotation.status
         else:
-            top_pipeline = pipeline_label(sequencing_task.task_type)
-            top_status = sequencing_task.status
+            top_pipeline = pipeline_label(assembly_task.task_type)
+            top_status = assembly_task.status
 
-        has_auto_json = bool(auto_annotated and sequencing_task.status == 'completed' and sequencing_task.external_job_id)
+        has_auto_json = bool(auto_annotated and assembly_task.status == 'completed' and assembly_task.external_job_id)
 
         rows.append({
-            'kind': 'sequencing',
-            'process_name': sequencing_task.process_name,
-            'pipeline_type': pipeline_label(sequencing_task.task_type),
-            'assembly_type_label': pipeline_label(sequencing_task.task_type),
-            'status': sequencing_task.status,
-            'status_badge': status_badge_class(sequencing_task.status),
+            'kind': 'assembly',
+            'process_name': assembly_task.process_name,
+            'pipeline_type': pipeline_label(assembly_task.task_type),
+            'assembly_type_label': pipeline_label(assembly_task.task_type),
+            'status': assembly_task.status,
+            'status_badge': status_badge_class(assembly_task.status),
             'top_pipeline': top_pipeline,
             'top_status': top_status,
             'top_status_badge': status_badge_class(top_status),
-            'sequencing_status': sequencing_task.status,
-            'sequencing_status_badge': status_badge_class(sequencing_task.status),
-            'input_filename': source_filename(sequencing_task.input_path),
+            'assembly_status': assembly_task.status,
+            'assembly_status_badge': status_badge_class(assembly_task.status),
+            'input_filename': source_filename(assembly_task.input_path),
             'updated_at': most_recent,
-            'task': sequencing_task,
-            'detail_task_id': sequencing_task.id,
+            'task': assembly_task,
+            'detail_task_id': assembly_task.id,
             'annotation_display': effective_annotation,
             'annotation_started': annotation_started,
             'annotation_started_at': first_annotation.created_at if first_annotation else None,
             'annotation_progress_status': effective_annotation.status if effective_annotation else 'not_started',
             'has_more_attempts': len(annotations) > 1,
             'extra_attempts_count': max(len(annotations) - 1, 0),
-            'can_annotate': sequencing_task.status == 'completed' and not annotations and not auto_annotated,
-            'can_retry_annotation': sequencing_task.status == 'completed' and not latest_completed_annotation and bool(latest_annotation and latest_annotation.status == 'failed') and not auto_annotated,
-            'has_fasta': sequencing_task.status == 'completed',
+            'can_annotate': assembly_task.status == 'completed' and not annotations and not auto_annotated,
+            'can_retry_annotation': assembly_task.status == 'completed' and not latest_completed_annotation and bool(latest_annotation and latest_annotation.status == 'failed') and not auto_annotated,
+            'has_fasta': assembly_task.status == 'completed',
             'has_json': bool(latest_completed_annotation) or has_auto_json,
             'annotation_status_badge': status_badge_class(effective_annotation.status) if effective_annotation else None,
             'is_auto_annotated': auto_annotated,
@@ -260,41 +260,41 @@ def build_process_rows(user):
 
 def build_task_context(user, task):
     if task.task_type in ASSEMBLY_TYPES:
-        sequencing_task = task
+        assembly_task = task
         annotations = list(
-            ConversionTask.objects.filter(user=user, previous_task=sequencing_task, task_type='annotation').order_by('-updated_at', '-id')
+            ConversionTask.objects.filter(user=user, previous_task=assembly_task, task_type='annotation').order_by('-updated_at', '-id')
         )
         latest_annotation = annotations[0] if annotations else None
         return {
-            'root_task': sequencing_task,
-            'sequencing_task': sequencing_task,
+            'root_task': assembly_task,
+            'assembly_task': assembly_task,
             'latest_annotation_attempt': latest_annotation,
             'latest_completed_annotation_attempt': find_latest_completed_annotation(annotations),
             'latest_annotation_with_uploaded_fasta': find_annotation_with_uploaded_fasta(annotations),
             'latest_json_attempt': None,
             'has_annotation_attempts': bool(annotations),
             'has_json_attempts': False,
-            'process_name': sequencing_task.process_name,
-            'pipeline_type': pipeline_label(sequencing_task.task_type),
+            'process_name': assembly_task.process_name,
+            'pipeline_type': pipeline_label(assembly_task.task_type),
         }
 
     if task.task_type == 'annotation' and task.previous_task_id:
-        sequencing_task = task.previous_task
+        assembly_task = task.previous_task
         annotations = list(
-            ConversionTask.objects.filter(user=user, previous_task=sequencing_task, task_type='annotation').order_by('-updated_at', '-id')
+            ConversionTask.objects.filter(user=user, previous_task=assembly_task, task_type='annotation').order_by('-updated_at', '-id')
         )
         latest_annotation = annotations[0] if annotations else None
         return {
-            'root_task': sequencing_task,
-            'sequencing_task': sequencing_task,
+            'root_task': assembly_task,
+            'assembly_task': assembly_task,
             'latest_annotation_attempt': latest_annotation,
             'latest_completed_annotation_attempt': find_latest_completed_annotation(annotations),
             'latest_annotation_with_uploaded_fasta': find_annotation_with_uploaded_fasta(annotations),
             'latest_json_attempt': None,
             'has_annotation_attempts': bool(annotations),
             'has_json_attempts': False,
-            'process_name': sequencing_task.process_name,
-            'pipeline_type': pipeline_label(sequencing_task.task_type),
+            'process_name': assembly_task.process_name,
+            'pipeline_type': pipeline_label(assembly_task.task_type),
         }
 
     if task.task_type == 'annotation':
@@ -310,7 +310,7 @@ def build_task_context(user, task):
         latest_annotation = annotations[0] if annotations else None
         return {
             'root_task': task,
-            'sequencing_task': None,
+            'assembly_task': None,
             'latest_annotation_attempt': latest_annotation,
             'latest_completed_annotation_attempt': find_latest_completed_annotation(annotations),
             'latest_annotation_with_uploaded_fasta': find_annotation_with_uploaded_fasta(annotations),
@@ -332,7 +332,7 @@ def build_task_context(user, task):
     latest_json = json_attempts[0] if json_attempts else None
     return {
         'root_task': task,
-        'sequencing_task': None,
+        'assembly_task': None,
         'latest_annotation_attempt': None,
         'latest_completed_annotation_attempt': None,
         'latest_annotation_with_uploaded_fasta': None,
@@ -369,7 +369,7 @@ def get_available_fasta_jobs(user):
     completed_assembly_tasks = ConversionTask.objects.filter(
         user=user,
         status='completed',
-        task_type__in=('sequencing_illumina', 'sequencing_ont'),
+        task_type__in=('assembly_illumina', 'assembly_ont'),
         external_job_id__isnull=False,
     ).exclude(external_job_id='').order_by('-updated_at', '-id')
 

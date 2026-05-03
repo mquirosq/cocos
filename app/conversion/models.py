@@ -100,10 +100,10 @@ class ConversionTask(models.Model):
     TYPE_CHOICES = [
         ('annotation', 'Annotation'),
         ('from_json', 'From JSON'),
-        ('sequencing_ont', 'ONT Assembly'),
-        ('sequencing_illumina', 'Illumina Assembly'),
-        ('sequencing_ont_annotated', 'ONT Assembly with Annotation'),
-        ('sequencing_illumina_annotated', 'Illumina Assembly with Annotation'),
+        ('assembly_ont', 'ONT Assembly'),
+        ('assembly_illumina', 'Illumina Assembly'),
+        ('assembly_ont_annotated', 'ONT Assembly with Annotation'),
+        ('assembly_illumina_annotated', 'Illumina Assembly with Annotation'),
     ]
     
     # Allow blank so we can create a pending task before an external job id exists.
@@ -132,7 +132,7 @@ class ConversionTask(models.Model):
         if self.previous_task and self.task_type != 'annotation':
             raise ValidationError({'previous_task': 'Only annotation tasks can have a previous_task.'})
 
-        if self.previous_task and self.previous_task.task_type not in {'sequencing_illumina', 'sequencing_ont'}:
+        if self.previous_task and self.previous_task.task_type not in {'assembly_illumina', 'assembly_ont'}:
             raise ValidationError({'previous_task': 'previous_task must be assembly_illumina or assembly_ont.'})
 
         if self.previous_task and self.user_id and self.previous_task.user_id != self.user_id:

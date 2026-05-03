@@ -24,10 +24,10 @@ def status_badge_class(status):
 
 def pipeline_label(task_type):
     label_map = {
-        'sequencing_ont_annotated': 'Assembly + Annotation · ONT',
-        'sequencing_illumina_annotated': 'Assembly + Annotation · Illumina',
-        'sequencing_ont': 'Assembly · ONT',
-        'sequencing_illumina': 'Assembly · Illumina',
+        'assembly_ont_annotated': 'Assembly + Annotation · ONT',
+        'assembly_illumina_annotated': 'Assembly + Annotation · Illumina',
+        'assembly_ont': 'Assembly · ONT',
+        'assembly_illumina': 'Assembly · Illumina',
         'annotation': 'Annotation',
         'from_json': 'From JSON',
     }

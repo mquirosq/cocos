@@ -15,7 +15,7 @@ def _cleanup_temp_fastq_inputs(task):
     """Remove temporary FASTQ files used as assembly inputs."""
     if not task or not task.input_path:
         return
-    if not task.task_type.startswith("sequencing_"):
+    if not task.task_type.startswith("assembly_"):
         return
 
     for candidate in task.input_path.split(','):
@@ -30,7 +30,7 @@ def _persist_assembly_fasta_output(task):
     """Download and persist assembled FASTA for assembly tasks."""
     if not task or not task.external_job_id:
         return
-    if not task.task_type.startswith("sequencing_"):
+    if not task.task_type.startswith("assembly_"):
         return
 
     filename_stem = get_result_filename_stem("assembly", task.external_job_id)
@@ -130,7 +130,7 @@ def poll_conversion_status(self, task_id, complete_version=False):
 
     if status == "completed":
         print("Conversion completed for task:", task.external_job_id)
-        if task.task_type.startswith("sequencing_"):
+        if task.task_type.startswith("assembly_"):
             try:
                 _persist_assembly_fasta_output(task)
             except Exception as e:
@@ -246,7 +246,7 @@ def poll_assembly_start(self, assembly_type="", dest_path=None, dest_path_2=None
     task = ConversionTask.objects.filter(id=task_id).first() if task_id else None
     effective_user = task.user if task else None
     combined_input_path = dest_path + ("," + dest_path_2 if dest_path_2 else "")
-    assembly_task_type = "sequencing" + ("_" + assembly_type) + ("_annotated" if annotate else "")
+    assembly_task_type = "assembly" + ("_" + assembly_type) + ("_annotated" if annotate else "")
 
     if assembly_type not in ["illumina", "ont"]:
         notify_user_conversion_failed(effective_user, task=task, message="Invalid assembly type")
@@ -346,7 +346,7 @@ def poll_annotation_from_assembly_start(self, job_id, user_id, new_task_id=None,
 
     previous_job_qs = ConversionTask.objects.filter(
         external_job_id=job_id,
-        task_type__startswith="sequencing_",
+        task_type__startswith="assembly_",
         status="completed"
     )
     previous_job_qs = previous_job_qs.filter(user_id=user_id)

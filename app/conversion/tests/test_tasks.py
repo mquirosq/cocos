@@ -54,11 +54,11 @@ class PollConversionStatusTests(TestCase):
     @patch("conversion.tasks._cleanup_temp_fastq_inputs")
     @patch("conversion.tasks._persist_assembly_fasta_output")
     @patch("conversion.tasks.get_job_status")
-    def test_sequencing_completion_paths(self, mock_status, mock_persist, mock_cleanup, mock_notify):
+    def test_assembly_completion_paths(self, mock_status, mock_persist, mock_cleanup, mock_notify):
         cases = [
-            ("sequencing_ont", "assembled", True),
-            ("sequencing_ont", "completed", True),
-            ("sequencing_ont", "annotated", True),
+            ("assembly_ont", "assembled", True),
+            ("assembly_illumina", "completed", True),
+            ("assembly_illumina", "annotated", True),
             ("annotation", "annotated", False),
         ]
         for task_type, incoming, should_persist in cases:
@@ -79,7 +79,7 @@ class PollConversionStatusTests(TestCase):
     @patch("conversion.tasks._persist_assembly_fasta_output", side_effect=ValueError("empty"))
     @patch("conversion.tasks.get_job_status", return_value=("assembled", 200))
     def test_persist_failure_marks_failed_when_retries_exhausted(self, _, __, mock_notify):
-        task = self._task(task_type="sequencing_ont")
+        task = self._task(task_type="assembly_ont")
         with patch.object(poll_conversion_status, "retry", side_effect=MaxRetriesExceededError()):
             poll_conversion_status(task.id)
         task.refresh_from_db()
@@ -92,10 +92,10 @@ class PollConversionStatusTests(TestCase):
     @patch("conversion.tasks._persist_annotation_json_output", side_effect=Exception("parse fail"))
     @patch("conversion.tasks._persist_assembly_fasta_output")
     @patch("conversion.tasks.get_job_status", return_value=("completed", 200))
-    def test_annotated_sequencing_warns_on_annotation_persist_failure(self, mock_status, mock_persist_assembly, mock_persist_ann, mock_complete, mock_warn, mock_delete):
+    def test_annotated_assembly_warns_on_annotation_persist_failure(self, mock_status, mock_persist_assembly, mock_persist_ann, mock_complete, mock_warn, mock_delete):
         cases = [
-            ("sequencing_ont_annotated", "job-annotated-1"),
-            ("sequencing_illumina_annotated", "job-annotated-illumina-1"),
+            ("assembly_ont_annotated", "job-annotated-1"),
+            ("assembly_illumina_annotated", "job-annotated-illumina-1"),
         ]
         for task_type, external_job_id in cases:
             with self.subTest(task_type=task_type):
@@ -122,8 +122,8 @@ class HelperTests(TestCase):
     @patch("conversion.tasks.delete_file_safely")
     def test_cleanup_temp_fastq_inputs(self, mock_delete):
         cases = [
-            ("sequencing_ont", "uploads/temp/user_1/fastq/a.fastq.gz", 1),
-            ("sequencing_illumina", "uploads/temp/user_1/fastq/a.fastq.gz, uploads/temp/user_1/fastq/b.fastq.gz", 2),
+            ("assembly_ont", "uploads/temp/user_1/fastq/a.fastq.gz", 1),
+            ("assembly_illumina", "uploads/temp/user_1/fastq/a.fastq.gz, uploads/temp/user_1/fastq/b.fastq.gz", 2),
             ("annotation", "uploads/temp/user_1/fastq/a.fastq.gz", 0),
         ]
         for task_type, input_path, expected_calls in cases:
@@ -143,7 +143,7 @@ class HelperTests(TestCase):
     def test_cleanup_temp_fastq_inputs_early_return(self, mock_delete):
         cases = [
             ("none task", None),
-            ("empty input path", SimpleNamespace(input_path="", task_type="sequencing_ont")),
+            ("empty input path", SimpleNamespace(input_path="", task_type="assembly_ont")),
         ]
         for label, task in cases:
             with self.subTest(label=label):
@@ -155,7 +155,7 @@ class HelperTests(TestCase):
     def test_persist_assembly_fasta_output(self, mock_download):
         cases = [
             ("annotation", False, False),
-            ("sequencing_ont", True, True),
+            ("assembly_ont", True, True),
         ]
         for task_type, should_download, should_create in cases:
             with self.subTest(task_type=task_type):
@@ -179,7 +179,7 @@ class HelperTests(TestCase):
         before = FileUpload.objects.filter(user=self.user).count()
         cases = [
             ("none task", None),
-            ("missing external id", SimpleNamespace(external_job_id=None, task_type="sequencing_ont", user_id=self.user.id)),
+            ("missing external id", SimpleNamespace(external_job_id=None, task_type="assembly_ont", user_id=self.user.id)),
         ]
         for label, task in cases:
             with self.subTest(label=label):
@@ -194,7 +194,7 @@ class HelperTests(TestCase):
             external_job_id="job-empty",
             status="completed",
             input_path="/tmp/input.fastq",
-            task_type="sequencing_ont",
+            task_type="assembly_ont",
             user=self.user,
         )
         with self.assertRaises(ValueError):
@@ -383,13 +383,13 @@ class AnnotationStartTests(TestCase):
                 mock_notify.reset_mock()
 
 
-class SequencingStartTests(TestCase):
+class AssemblyStartTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="pass1234")
         self.temp_fastq1 = "/tmp/test_R1.fastq.gz"
         self.temp_fastq2 = "/tmp/test_R2.fastq.gz"
 
-    def _mock_sequencing_response(self, status="running"):
+    def _mock_assembly_response(self, status="running"):
         return {"job_id": "seq-job", "status": status}
 
     def _set_open_bytes(self, mock_open, content=b"@read_id\nATGC\n+\n~~~~\n"):
@@ -400,7 +400,7 @@ class SequencingStartTests(TestCase):
             external_job_id=external_job_id,
             status="pending",
             input_path="/tmp/fastq.gz",
-            task_type="sequencing_ont",
+            task_type="assembly_ont",
             user=self.user,
         )
 
@@ -409,16 +409,16 @@ class SequencingStartTests(TestCase):
     @patch("builtins.open", create=True)
     @patch("conversion.tasks.sequence_ont")
     @patch("conversion.tasks.sequence_illumina")
-    def test_sequencing_start_works(self, mock_illumina, mock_ont, mock_open, mock_started, mock_poll):
+    def test_assembly_start_works(self, mock_illumina, mock_ont, mock_open, mock_started, mock_poll):
         self._set_open_bytes(mock_open)
-        mock_ont.return_value = self._mock_sequencing_response()
-        mock_illumina.return_value = self._mock_sequencing_response()
+        mock_ont.return_value = self._mock_assembly_response()
+        mock_illumina.return_value = self._mock_assembly_response()
 
         cases = [
-            ("create ont", "ont", None, False, "sequencing_ont", False),
-            ("create illumina", "illumina", self.temp_fastq2, False, "sequencing_illumina", False),
-            ("create annotated", "ont", None, True, "sequencing_ont_annotated", False),
-            ("update existing", "ont", None, False, "sequencing_ont", True),
+            ("create ont", "ont", None, False, "assembly_ont", False),
+            ("create illumina", "illumina", self.temp_fastq2, False, "assembly_illumina", False),
+            ("create annotated", "ont", None, True, "assembly_ont_annotated", False),
+            ("update existing", "ont", None, False, "assembly_ont", True),
         ]
         for desc, seq_type, dest_2, annotate, expected_type, use_existing_task in cases:
             with self.subTest(label=desc):
@@ -528,12 +528,12 @@ class AnnotationFromAssemblyStartTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="testuser4", password="pass1234")
 
-    def _create_previous_sequencing_task(self, external_job_id="seq-job-123"):
+    def _create_previous_assembly_task(self, external_job_id="seq-job-123"):
         return ConversionTask.objects.create(
             external_job_id=external_job_id,
             status="completed",
             input_path="/tmp/reads.fastq.gz",
-            task_type="sequencing_ont",
+            task_type="assembly_ont",
             user=self.user,
         )
 
@@ -548,7 +548,7 @@ class AnnotationFromAssemblyStartTests(TestCase):
 
     @patch("conversion.tasks.poll_annotation_start.delay")
     def test_uses_persisted_fasta_and_starts_annotation(self, mock_poll_annotation_start_delay):
-        previous_task = self._create_previous_sequencing_task("seq-job-ok")
+        previous_task = self._create_previous_assembly_task("seq-job-ok")
         pending_task = self._create_pending_annotation_task()
 
         upload = FileUpload.objects.create(user=self.user)
@@ -574,7 +574,7 @@ class AnnotationFromAssemblyStartTests(TestCase):
     @patch("conversion.tasks.poll_annotation_start.delay")
     def test_failure_paths_notify_and_do_not_start_annotation(self, mock_poll_annotation_start_delay, mock_notify_failed):
         cases = [
-            ("missing previous sequencing task", "missing-job", False),
+            ("missing previous assembly task", "missing-job", False),
             ("missing persisted fasta", "seq-job-no-file", True),
         ]
         for label, job_id, create_previous_task in cases:
@@ -582,7 +582,7 @@ class AnnotationFromAssemblyStartTests(TestCase):
                 pending_task = self._create_pending_annotation_task()
                 effective_job_id = job_id
                 if create_previous_task:
-                    previous_task = self._create_previous_sequencing_task(job_id)
+                    previous_task = self._create_previous_assembly_task(job_id)
                     effective_job_id = previous_task.external_job_id
 
                 poll_annotation_from_assembly_start(

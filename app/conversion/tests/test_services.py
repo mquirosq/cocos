@@ -7,9 +7,9 @@ from conversion import services
 class ServiceTests(TestCase):
     def test_is_auto_annotated_assembly(self):
         cases = [
-            ('sequencing_ont_annotated', True),
-            ('sequencing_illumina_annotated', True),
-            ('sequencing_ont', False),
+            ('assembly_ont_annotated', True),
+            ('assembly_illumina_annotated', True),
+            ('assembly_ont', False),
             (None, False),
         ]
         for task_type, expected in cases:

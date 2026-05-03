@@ -155,7 +155,7 @@ def assembly_task(request):
     On submission, create a ConversionTask and trigger polling of its status.
     """
     print("Received assembly task request")
-    assembly_type = request.POST.get('assembly_type') or request.POST.get('sequencing_type')
+    assembly_type = request.POST.get('assembly_type') or request.POST.get('assembly_type')
     annotate = request.POST.get('annotate') == 'on'  # Checkbox value
 
     fastq = request.FILES.get('fastq_file')
@@ -187,7 +187,7 @@ def assembly_task(request):
         external_job_id=None,
         status='pending',
         input_path=dest_path + ("," + dest_path_2 if dest_path_2 else ""),
-        task_type=f"sequencing_{assembly_type}{'_annotated' if annotate else ''}",
+        task_type=f"assembly_{assembly_type}{'_annotated' if annotate else ''}",
         user=request.user,
         process_name=fastq.name,
     )
@@ -223,7 +223,7 @@ def annotation_from_assembly_task(request, job_id):
     previous_task = _get_current_user_tasks(request).filter(
         external_job_id=job_id,
         status='completed',
-        task_type__in=('sequencing_illumina', 'sequencing_ont'),
+        task_type__in=('assembly_illumina', 'assembly_ont'),
     ).first()
     if not previous_task:
         messages.error(request, 'Assembly job not found or not available for annotation.')
@@ -334,7 +334,7 @@ def task_status_view(request, task_id):
         return redirect('conversion:task_list')
 
     context = build_task_context(request.user, task)
-    assembly_task = context['sequencing_task']
+    assembly_task = context['assembly_task']
     auto_annotated = is_auto_annotated_assembly(assembly_task)
     latest_annotation = context['latest_annotation_attempt']
     latest_json = context['latest_json_attempt']
@@ -364,7 +364,7 @@ def task_status_view(request, task_id):
         json_download_task_id = assembly_task.id
 
     process_kind = (
-        'sequencing' if assembly_task else
+        'assembly' if assembly_task else
         ('json' if context['has_json_attempts'] else 'annotation')
     )
 

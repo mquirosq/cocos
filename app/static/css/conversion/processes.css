@@ -65,13 +65,13 @@
   background: color-mix(in oklab, var(--color-primary) 20%, var(--color-base-100));
 }
 
-.process-row-sequencing .process-pipeline-badge {
+.process-row-assembly .process-pipeline-badge {
   color: color-mix(in oklab, var(--color-primary) 60%, black);
   background: color-mix(in oklab, var(--color-primary) 12%, var(--color-base-100));
   border-color: color-mix(in oklab, var(--color-primary) 30%, var(--color-base-300));
 }
 
-.process-row-sequencing .process-pipeline-badge.process-pipeline-badge-advanced {
+.process-row-assembly .process-pipeline-badge.process-pipeline-badge-advanced {
   color: color-mix(in oklab, var(--color-primary) 78%, black);
   background: color-mix(in oklab, var(--color-primary) 20%, var(--color-base-100));
   border-color: color-mix(in oklab, var(--color-primary) 46%, var(--color-base-300));
@@ -254,7 +254,7 @@
   background: color-mix(in oklab, var(--color-base-100) 94%, white);
 }
 
-.process-hero-sequencing {
+.process-hero-assembly {
   border-color: color-mix(in oklab, var(--color-primary) 30%, var(--color-base-300));
   background: color-mix(in oklab, var(--color-primary) 8%, var(--color-base-100));
 }
@@ -269,7 +269,7 @@
   background: color-mix(in oklab, var(--color-primary) 16%, var(--color-base-100));
 }
 
-.process-hero-sequencing .process-pipeline-badge {
+.process-hero-assembly .process-pipeline-badge {
   color: color-mix(in oklab, var(--color-primary) 60%, black);
   background: color-mix(in oklab, var(--color-primary) 12%, var(--color-base-100));
   border-color: color-mix(in oklab, var(--color-primary) 30%, var(--color-base-300));
@@ -287,7 +287,7 @@
   border-color: color-mix(in oklab, var(--color-primary) 52%, var(--color-base-300));
 }
 
-.process-timeline-card-sequencing .rounded-box {
+.process-timeline-card-assembly .rounded-box {
   border-color: color-mix(in oklab, var(--color-primary) 30%, var(--color-base-300));
   background: color-mix(in oklab, var(--color-primary) 8%, var(--color-base-100));
 }
