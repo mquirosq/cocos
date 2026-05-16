@@ -26,6 +26,9 @@ COPY . .
 # Bring compiled Tailwind + daisyUI stylesheet into Django static files.
 COPY --from=frontend /frontend/static/css/tailwind.css /app/app/static/css/tailwind.css
 
+# Collect static files for Django
+RUN python manage.py collectstatic --noinput
+
 # Crear un usuario no-root llamado 'app'
 RUN addgroup --system app && adduser --system --ingroup app app
 RUN chown -R app:app /app

@@ -5,10 +5,19 @@
 }
 
 .navbar-logo {
-  width: 34px;
-  height: 34px;
+  width: 70px !important;
+  height: 70px !important;
   object-fit: contain;
   border-radius: 6px;
+}
+
+.navbar-start > a.btn:hover,
+.navbar-start > a.btn-ghost:hover,
+.navbar-start > a.btn:is(:hover, :focus-visible, :active) {
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  border-color: transparent !important;
 }
 
 .nav-menu-link {
