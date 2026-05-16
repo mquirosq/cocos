@@ -7,7 +7,7 @@ from notifications.models import TaskNotification, UserNotificationSettings
 
 logger = logging.getLogger(__name__)
 
-EMAIL_SUBJECT = getattr(settings, 'NOTIFICATION_EMAIL_SUBJECT', 'TFG Conversion Notification')
+EMAIL_SUBJECT = getattr(settings, 'NOTIFICATION_EMAIL_SUBJECT', 'Cocos Process Notification')
 
 
 def _send_email_notification(user, message):

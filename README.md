@@ -1,10 +1,10 @@
-# tfg
+# cocos
 
 Framework to easily access and offer prediction models for predicting antibiotic resistance
 
 ## One-command setup (Windows)
 
-From the `tfg` folder run:
+From the `cocos` folder run:
 
 ```powershell
 .\setup.ps1
@@ -62,3 +62,17 @@ class MyAdapter:
 Important: the adapter `__init__` signature should be exactly `__init__(antibiotic: str)`.
 
 An example implementation can be found in `ai_models/base_bakta-50/`.
+
+### Testing
+
+To run tests:
+
+```bash
+python manage.py test
+```
+
+To run tests for a specific app:
+
+```bash
+python manage.py test notifications
+```
