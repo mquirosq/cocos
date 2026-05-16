@@ -26,6 +26,7 @@ class NotificationServiceTests(TestCase):
             input_path='uploads/persistent/user_1/fasta/demo.fasta',
             task_type='annotation',
             user=self.user,
+            process_name='process-1',
         )
 
     def test_notification_persist_events(self):
@@ -34,13 +35,13 @@ class NotificationServiceTests(TestCase):
                 'started',
                 lambda: notify_user_conversion_started(self.user, self.task),
                 TaskNotification.EVENT_STARTED,
-                'The conversion for task job-1 has started and is now processing.',
+                'The conversion for process-1 has started and is now running.',
             ),
             (
                 'complete',
                 lambda: notify_user_conversion_complete(self.user, self.task),
                 TaskNotification.EVENT_COMPLETED,
-                'The conversion for task job-1 is complete. You can now access your results.',
+                'The conversion for process-1 is complete. You can now access your results.',
             ),
             (
                 'failed-custom',
@@ -52,7 +53,7 @@ class NotificationServiceTests(TestCase):
                 'failed-default',
                 lambda: notify_user_conversion_failed(self.user, self.task),
                 TaskNotification.EVENT_FAILED,
-                'The conversion for task job-1 has failed. Please try again.',
+                'The conversion for process-1 has failed. Please try again.',
             ),
             (
                 'server-busy',
@@ -78,7 +79,6 @@ class NotificationServiceTests(TestCase):
                 email_mock.assert_called_once_with(self.user, expected_message)
 
 
-    # ---- Testing _create_notification using notify_user_server_busy
     @patch('notifications.services._send_email_notification', return_value=True)
     def test_notification_adds_email_channel_when_send_succeeds(self, email_mock):
         notification = notify_user_server_busy(self.user, self.task)
@@ -107,7 +107,6 @@ class NotificationServiceTests(TestCase):
         self.assertFalse(TaskNotification.objects.exists())
         email_mock.assert_not_called()
 
-    # ---- Testing _send_email_notification
     @override_settings(DEFAULT_FROM_EMAIL='noreply@example.com')
     @patch('notifications.services.send_mail')
     def test_send_email_notification_success_and_error_paths(self, send_mail_mock):
