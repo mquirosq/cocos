@@ -104,7 +104,7 @@ class PollConversionStatusTests(TestCase):
                 task.refresh_from_db()
                 self.assertEqual(task.status, "completed")
                 mock_persist_assembly.assert_called_once()
-                mock_persist_ann.assert_called_once_with(task)
+                mock_persist_ann.assert_called_once_with(task, complete_version=False)
                 mock_warn.assert_called_once()
                 mock_complete.assert_called_once_with(self.user, task)
 
@@ -333,7 +333,7 @@ class AnnotationStartTests(TestCase):
                 self.assertEqual(task.external_job_id, job_id)
                 self.assertEqual(task.status, "running")
                 mock_started.assert_called_once_with(self.user, task)
-                mock_poll.delay.assert_called_once_with(task.id)
+                mock_poll.delay.assert_called_once_with(task.id, complete_version=False)
                 mock_annotate.assert_called_once_with(fasta_bytes)
                 mock_annotate.reset_mock()
                 mock_started.reset_mock()
@@ -441,7 +441,7 @@ class AssemblyStartTests(TestCase):
                 self.assertEqual(task.status, "running")
                 self.assertEqual(task.external_job_id, "seq-job")
                 mock_started.assert_called_once_with(self.user, task)
-                mock_poll.delay.assert_called_once_with(task.id)
+                mock_poll.delay.assert_called_once_with(task.id, complete_version=False)
                 ConversionTask.objects.all().delete()
                 mock_started.reset_mock()
                 mock_poll.reset_mock()
@@ -467,7 +467,7 @@ class AssemblyStartTests(TestCase):
         task.refresh_from_db()
         self.assertEqual(task.status, "running")
         mock_started.assert_not_called()
-        mock_poll.delay.assert_called_once_with(task.id)
+        mock_poll.delay.assert_called_once_with(task.id, complete_version=False)
 
     @patch("conversion.tasks.notify_user_conversion_failed")
     @patch("builtins.open", create=True)
@@ -568,6 +568,7 @@ class AnnotationFromAssemblyStartTests(TestCase):
             fasta_bytes=b">seq\nATGC\n",
             task_id=pending_task.id,
             user_id=self.user.id,
+            complete_version=False,
         )
 
     @patch("conversion.tasks.notify_user_conversion_failed")

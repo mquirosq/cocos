@@ -113,6 +113,7 @@ class ConversionTask(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     process_name = models.CharField(max_length=255, blank=True, default='')
     input_path = models.CharField(max_length=255)
+    output_path = models.CharField(max_length=255, blank=True, default='')
     task_type = models.CharField(max_length=50, choices=TYPE_CHOICES)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='conversion_tasks')
     previous_task = models.ForeignKey(

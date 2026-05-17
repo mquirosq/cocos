@@ -3,14 +3,15 @@ import os
 import csv
 
 from django.contrib.auth.decorators import login_required
+from django.contrib.humanize.templatetags.humanize import naturaltime
+from django.db import models
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
-from conversion.models import FileUpload
+from conversion.models import FileUpload, ConversionTask
 from .registry import list_registered_models, get_model_supported_antibiotics, list_all_antibiotics
 from .service import get_prediction_matrix
-from django.contrib import messages as message
 from django.http import HttpResponse
 
 def _get_user_json_uploads(user):
@@ -23,14 +24,21 @@ def _get_user_json_uploads(user):
 def prediction_view(request):
     json_uploads = _get_user_json_uploads(request.user)
 
-    input_file_options = [
-        {
+    input_file_options = []
+    for upload in json_uploads:
+        basename = os.path.basename(upload.file.name)
+        task = ConversionTask.objects.filter(user=request.user).filter(
+            models.Q(output_path__contains=upload.file.name) |
+            models.Q(output_path__contains=basename) |
+            models.Q(input_path__contains=upload.file.name) |
+            models.Q(input_path__contains=basename)
+        ).first()
+        
+        label = task.process_name if task and task.process_name else basename
+        input_file_options.append({
             'id': str(upload.pk),
-            'file_name': os.path.basename(upload.file.name),
-            'uploaded_at': upload.uploaded_at,
-        }
-        for upload in json_uploads
-    ]
+            'label': f"{label} · {naturaltime(upload.uploaded_at)}",
+        })
 
     available_models = list_registered_models()
     available_antibiotics = list_all_antibiotics()

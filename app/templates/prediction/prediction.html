@@ -50,7 +50,7 @@
           <select id="file_id_batch" class="select select-bordered w-full source-job-select">
               <option value="">Select a processed file</option>
               {% for upload in input_file_options %}
-              <option value="{{ upload.id }}">{{ upload.file_name }} — {{ upload.uploaded_at|date:"Y-m-d H:i" }}</option>
+              <option value="{{ upload.id }}">{{ upload.label }}</option>
               {% endfor %}
             </select>
         </fieldset>

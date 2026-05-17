@@ -306,7 +306,8 @@ def parse_feature_file(request):
 
         task.status = 'completed'
         task.input_path = file_upload.file.name
-        task.save(update_fields=['status', 'input_path', 'updated_at'])
+        task.output_path = file_upload.file.name
+        task.save(update_fields=['status', 'input_path', 'output_path', 'updated_at'])
 
         messages.success(request, 'File parsed successfully!')
         return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='json', file_upload=file_upload))
