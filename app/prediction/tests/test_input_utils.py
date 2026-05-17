@@ -51,8 +51,8 @@ class InputFileLoadingTests(TestCase):
         self.assertTrue(all(isinstance(col, str) for col in cols))
 
     def test_get_model_weights_path_returns_existing_file_path(self):
-        out = input_utils.get_model_weights_path("ampicillin", self.model_name)
-        self.assertTrue(out.endswith("ampicillin.pt"))
+        out = input_utils.get_model_weights_path("amikacin", self.model_name)
+        self.assertTrue(out.endswith("amikacin.pt"))
 
     def test_get_model_weights_path_raises_when_missing(self):
         with self.assertRaises(FileNotFoundError):
