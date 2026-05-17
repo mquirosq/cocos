@@ -36,11 +36,11 @@
                   {% else %}
                     <li class="step {% if row.status == 'failed' %}step-error{% else %}step-primary{% endif %}">Started</li>
                     <li class="step {% if row.has_fasta or row.status == 'running' or row.status == 'completed' %}step-primary{% elif row.status == 'failed' %}step-error{% endif %}">Assembled</li>
-                    <li class="step {% if row.has_json %}step-primary{% elif row.can_retry_annotation %}step-error{% elif row.annotation_display and row.annotation_display.status == 'running' %}step-info{% elif row.annotation_display and row.annotation_display.status == 'pending' %}step-info{% endif %}">Annotated</li>
+                    <li class="step {% if row.has_json %}step-primary{% elif row.can_retry_annotation %}step-error{% endif %}">Annotated</li>
                   {% endif %}
                 {% elif row.kind == 'annotation' %}
                   <li class="step {% if row.status == 'failed' %}step-error{% else %}step-primary{% endif %}">Started</li>
-                  <li class="step {% if row.status == 'completed' %}step-primary{% elif row.status == 'running' %}step-info{% elif row.status == 'failed' %}step-error{% endif %}">Bakta</li>
+                  <li class="step {% if row.status == 'completed' %}step-primary{% elif row.status == 'failed' %}step-error{% endif %}">Bakta</li>
                   <li class="step {% if row.has_json %}step-primary{% endif %}">Parsed</li>
                 {% else %}
                   <li class="step {% if row.status == 'failed' %}step-error{% else %}step-primary{% endif %}">Started</li>
