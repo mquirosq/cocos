@@ -26,7 +26,10 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "'django-insecure-i(xqw0arcz3cc*ugzb
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.getenv(
+    "DJANGO_ALLOWED_HOSTS",
+     "localhost",
+).split(",")
 
 # Application definition
 
@@ -46,6 +49,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -94,13 +98,17 @@ DATABASES = {
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
-# TODO: Decide on password validation strategy for production. KISS approach for dev
 AUTH_PASSWORD_VALIDATORS = [
-    # {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',},
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 12}
     },
-    # {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',},
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
@@ -123,12 +131,24 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
-STATICFILES_DIRS = [BASE_DIR / "static"]
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
 
 # Media/uploads storage
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR
+MEDIA_ROOT = BASE_DIR / 'media'
 UPLOADS_ROOT = BASE_DIR / 'uploads'
 UPLOADS_TEMP_SUBDIR = os.getenv('UPLOADS_TEMP_SUBDIR', 'uploads/temp')
 UPLOADS_PERSISTENT_SUBDIR = os.getenv('UPLOADS_PERSISTENT_SUBDIR', 'uploads/persistent')
@@ -158,10 +178,32 @@ CELERY_RESULT_BACKEND = "django-db"
 # Email Configuration
 # Development: console backend (prints to terminal)
 # Production: SendGrid backend (requires sendgrid-django package and SENDGRID_API_KEY env var)
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@tfg.com')
-NOTIFICATION_EMAIL_SUBJECT = os.getenv('NOTIFICATION_EMAIL_SUBJECT', 'TFG Conversion Notification')
+if DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+else:
+    EMAIL_BACKEND = 'sendgrid_backend.SendgridBackend'
+
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@cocos.com')
+NOTIFICATION_EMAIL_SUBJECT = os.getenv('NOTIFICATION_EMAIL_SUBJECT', 'Cocos Notification')
+EMAIL_TIMEOUT = 10
 
 # SendGrid Configuration (for production)
 # Set EMAIL_BACKEND=sendgrid_backend.SendgridBackend and SENDGRID_API_KEY in environment
-SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY', '')
+SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
+
+if not DEBUG and not SENDGRID_API_KEY:
+    raise ValueError("SENDGRID_API_KEY is required in production")
+
+
+# Security:
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+else:
+    SECURE_SSL_REDIRECT = False

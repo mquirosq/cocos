@@ -11,27 +11,21 @@ RUN npm run build:css
 
 FROM python:3.11-slim
 
-# Python no genera archivos .pyc
 ENV PYTHONDONTWRITEBYTECODE=1
-# Python no hace buffering de stdout/stderr
-ENV PYTHONUNBUFFERED=1 
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
+RUN pip install --upgrade pip
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY app /app
 
-# Bring compiled Tailwind + daisyUI stylesheet into Django static files.
-COPY --from=frontend /frontend/static/css/tailwind.css /app/app/static/css/tailwind.css
 
-# Collect static files for Django
-RUN python manage.py collectstatic --noinput
+COPY --from=frontend /frontend/static /app/static/
 
-# Crear un usuario no-root llamado 'app'
+
+# Non-root user for security
 RUN addgroup --system app && adduser --system --ingroup app app
 RUN chown -R app:app /app
-
-# Ejecutar como usuario no-root por seguridad
-USER app

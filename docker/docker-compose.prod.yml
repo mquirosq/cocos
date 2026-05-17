@@ -1,0 +1,80 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cocos-postgres
+    env_file:
+      - ../.env.prod
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bio-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: cocos-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - bio-network
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: cocos-web
+    ports:
+      - "80:8000"
+    command: >
+      sh -c "
+      python manage.py migrate --noinput &&
+      python manage.py collectstatic --noinput --clear &&
+      gunicorn app.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120 --worker-class sync --max-requests 1000
+      "
+    env_file:
+      - ../.env.prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    volumes:
+      - media_volume:/app/media
+    networks:
+      - bio-network
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: cocos-worker
+    command: >
+      sh -c "export PYTHONPATH=/app &&
+             celery -A app worker -l info"
+    env_file:
+      - ../.env.prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - bio-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_volume:
+
+networks:
+  bio-network:
+    external: true
+    name: bio-network
