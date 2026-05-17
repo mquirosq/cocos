@@ -28,9 +28,9 @@ def register_model(name: str = None):
         _validate_adapter_init(cls)
         key = (name or cls.__name__).lower()
         base_dir = Path(__file__).resolve().parents[1]
-        pesos_dir = base_dir / 'ai_models' / key / 'pesos'
+        weights_dir = base_dir / 'ai_models' / key / 'weights'
         MODEL_REGISTRY[key] = cls
-        MODEL_ANTIBIOTICS[key] = _compute_model_supported_antibiotics(pesos_dir)
+        MODEL_ANTIBIOTICS[key] = _compute_model_supported_antibiotics(weights_dir)
         return cls
     return _decorator
 
@@ -56,11 +56,11 @@ def list_all_antibiotics():
     return sorted(antibiotics)
 
 # ---- Internal utilities
-def _compute_model_supported_antibiotics(pesos_dir: str):
+def _compute_model_supported_antibiotics(weights_dir: str):
     """
     Compute the list of antibiotic names available for a given registered model.
     """
-    if pesos_dir.exists() and pesos_dir.is_dir():
-        return sorted({p.stem for p in pesos_dir.glob('*.pt')})
+    if weights_dir.exists() and weights_dir.is_dir():
+        return sorted({p.stem for p in weights_dir.glob('*.pt')})
     else:
         return []

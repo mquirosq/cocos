@@ -37,7 +37,7 @@ To add a new prediction model include a folder under `ai_models/` with the model
 
 ```
 ai_models/<model_name>/
-	pesos/
+	weights/
 		<antibiotic>.pt       # model weights per-antibiotic
 	model_classes.py          # model definition and adapter implementation
 ```
