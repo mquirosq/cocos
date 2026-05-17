@@ -6,6 +6,7 @@ __pycache__/
 # App specific ignores
 uploads/
 *.sqlite3
+app/ai_models/*/weights/*
 app/node_modules/
 app/static/css/tailwind.css
 
