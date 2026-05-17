@@ -4,7 +4,7 @@ import os
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.http import HttpResponse, HttpResponseServerError
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -20,7 +20,7 @@ from .services import (
     rename_process_group,
     get_fasta_upload_for_task,
 )
-from .presentation import format_source_job_label, status_badge_class
+from .presentation import format_source_job_label, status_badge_class, pipeline_label
 from .tasks import (
     poll_annotation_from_assembly_start,
     poll_annotation_start,
@@ -369,10 +369,22 @@ def task_status_view(request, task_id):
         ('json' if context['has_json_attempts'] else 'annotation')
     )
 
+    pipeline_badges = []
+    if assembly_task:
+        pipeline_badges.append(pipeline_label(assembly_task.task_type))
+    if latest_annotation:
+        pipeline_badges.append('Annotation')
+    elif latest_json:
+        pipeline_badges.append('From JSON')
+
+    latest_task = latest_step if latest_step else (assembly_task if assembly_task else task)
+    latest_task_status = latest_task.status if latest_task else task.status
+
     return render(request, 'conversion/task_status.html', {
         'task': task,
         'process_name': context['process_name'],
-        'pipeline_type': context['pipeline_type'],
+        'pipeline_type': pipeline_label(task.task_type),
+        'pipeline_badges': pipeline_badges,
         'assembly_task': assembly_task,
         'latest_step': latest_step,
         'latest_step_label': latest_step_label,
@@ -381,12 +393,12 @@ def task_status_view(request, task_id):
         'json_download_task_id': json_download_task_id,
         'can_annotate': can_annotate,
         'can_retry_annotation': can_retry,
-        'status_badge': status_badge_class(task.status),
+        'status_badge': status_badge_class(latest_task_status),
+        'latest_task_status': latest_task_status,
         'assembly_status_badge': status_badge_class(assembly_task.status) if assembly_task else None,
         'latest_step_status_badge': status_badge_class(latest_step.status) if latest_step else None,
         'auto_annotated_assembly': auto_annotated,
-        'process_kind': process_kind,
-    })
+        'process_kind': process_kind,    })
 
 @login_required
 def download_json_view(request, task_id):

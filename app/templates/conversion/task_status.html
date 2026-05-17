@@ -15,8 +15,10 @@
     <div class="card-body">
       <h1 class="card-title text-2xl process-title-text">{{ process_name }}</h1>
       <div class="flex flex-wrap items-center gap-2">
-        <span class="badge badge-soft process-pipeline-badge">{{ pipeline_type }}</span>
-        <span class="badge process-status-badge {{ status_badge }}">{{ task.status|capfirst }}</span>
+        {% for badge in pipeline_badges %}
+          <span class="badge badge-soft process-pipeline-badge">{{ badge }}</span>
+        {% endfor %}
+        <span class="badge process-status-badge {{ status_badge }}">{{ latest_task_status|capfirst }}</span>
       </div>
 
       <form method="post" action="{% url 'conversion:rename_process' task.id %}" class="mt-4 max-w-2xl process-name-form">
