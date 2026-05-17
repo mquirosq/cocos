@@ -167,8 +167,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
       if (!res.ok) {
-        const txt = await res.text();
-        matrixDiv.innerHTML = `<div class="alert alert-error">Request failed: ${res.status} ${res.statusText}: ${txt}</div>`;
+        window.location.href = '/prediction/';
         return;
       }
       let data = await res.json();
@@ -210,9 +209,7 @@ document.addEventListener('DOMContentLoaded', function () {
       });
 
       if (!res.ok) {
-        const txt = await res.text();
-        console.error('CSV export failed: ' + txt);
-        matrixDiv.innerHTML = `<div class="alert alert-error">CSV export failed: ${txt}</div>`;
+        window.location.href = '/prediction/';
         return;
       }
 
@@ -230,7 +227,7 @@ document.addEventListener('DOMContentLoaded', function () {
       a.remove();
       setTimeout(() => window.URL.revokeObjectURL(url), 1500);
     } catch (err) {
-      matrixDiv.innerHTML = `<div class="alert alert-error">CSV export error: ${err && err.message ? err.message : err}</div>`;
+      window.location.href = '/prediction/';
     }
    }
 
