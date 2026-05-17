@@ -35,13 +35,13 @@ class NotificationServiceTests(TestCase):
                 'started',
                 lambda: notify_user_conversion_started(self.user, self.task),
                 TaskNotification.EVENT_STARTED,
-                'The conversion for process-1 has started and is now running.',
+                'The annotation for the process process-1 has started and is now running.',
             ),
             (
                 'complete',
                 lambda: notify_user_conversion_complete(self.user, self.task),
                 TaskNotification.EVENT_COMPLETED,
-                'The conversion for process-1 is complete. You can now access your results.',
+                'The annotation for the process process-1 is complete. You can now access your results.',
             ),
             (
                 'failed-custom',
@@ -53,13 +53,13 @@ class NotificationServiceTests(TestCase):
                 'failed-default',
                 lambda: notify_user_conversion_failed(self.user, self.task),
                 TaskNotification.EVENT_FAILED,
-                'The conversion for process-1 has failed. Please try again.',
+                'The annotation for the process process-1 has failed. Please try again.',
             ),
             (
                 'server-busy',
                 lambda: notify_user_server_busy(self.user, self.task),
                 TaskNotification.EVENT_WARNING,
-                'The conversion server is currently at maximum capacity. Please try again later.',
+                'The bio service server is currently at maximum capacity. Please try again later.',
             ),
         ]
 
@@ -87,7 +87,7 @@ class NotificationServiceTests(TestCase):
             notification.channels,
             [TaskNotification.CHANNEL_IN_APP, TaskNotification.CHANNEL_EMAIL],
         )
-        email_mock.assert_called_once_with(self.user, 'The conversion server is currently at maximum capacity. Please try again later.')
+        email_mock.assert_called_once_with(self.user, 'The bio service server is currently at maximum capacity. Please try again later.')
 
     @patch('notifications.services._send_email_notification')
     def test_notify_returns_none_without_user(self, email_mock):
