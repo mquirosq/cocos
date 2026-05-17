@@ -256,8 +256,6 @@ def poll_assembly_start(self, assembly_type="", dest_path=None, dest_path_2=None
     assembly_task_type = "assembly" + ("_" + assembly_type) + ("_annotated" if annotate else "")
 
     if assembly_type not in ["illumina", "ont"]:
-        task.status = "failed"
-        task.save(update_fields=['status'])
         notify_user_conversion_failed(effective_user, task=task, message="Invalid assembly type")
         return
 
@@ -267,8 +265,9 @@ def poll_assembly_start(self, assembly_type="", dest_path=None, dest_path_2=None
             fastq_bytes = f.read()
     except Exception as e:
         print("Failed to read fastq file from path:", dest_path, str(e))
-        task.status = "failed"
-        task.save(update_fields=['status'])
+        if task:
+            task.status = "failed"
+            task.save(update_fields=['status'])
         notify_user_conversion_failed(effective_user, task=task, message="Failed to read fastq file")
         return
 
@@ -276,8 +275,9 @@ def poll_assembly_start(self, assembly_type="", dest_path=None, dest_path_2=None
     if assembly_type == "illumina":
         if not dest_path_2:
             print("Illumina assembly requires a second FASTQ file but dest_path_2 is missing")
-            task.status = "failed"
-            task.save(update_fields=['status'])
+            if task:
+                task.status = "failed"
+                task.save(update_fields=['status'])
             notify_user_conversion_failed(effective_user, task=task, message="Missing second FASTQ for Illumina")
             return
         try:
@@ -285,8 +285,9 @@ def poll_assembly_start(self, assembly_type="", dest_path=None, dest_path_2=None
                 fastq_2_bytes = f2.read()
         except Exception as e:
             print("Failed to read second fastq file from path:", dest_path_2, str(e))
-            task.status = "failed"
-            task.save(update_fields=['status'])
+            if task:
+                task.status = "failed"
+                task.save(update_fields=['status'])
             notify_user_conversion_failed(effective_user, task=task, message="Failed to read second fastq file")
             return
         
@@ -358,8 +359,9 @@ def poll_annotation_from_assembly_start(self, job_id, user_id, new_task_id=None,
             task=pending_task,
             message=message,
         )
-        pending_task.status = "failed"
-        pending_task.save(update_fields=['status'])
+        if pending_task:
+            pending_task.status = "failed"
+            pending_task.save(update_fields=['status'])
 
     previous_job_qs = ConversionTask.objects.filter(
         external_job_id=job_id,

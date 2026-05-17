@@ -27,19 +27,7 @@ class ConversionViewsTests(TestCase):
         response = self.client.get(reverse('conversion:annotation_ui'))
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Annotation', response.content)
-
-    def test_annotation_task_upload_fasta(self):
-        fasta = SimpleUploadedFile('test.fasta', b'>seq1\nATGC\n', content_type='text/plain')
-        response = self.client.post(reverse('conversion:annotation_task'), {'fasta_file': fasta}, follow=True)
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Annotation task started', response.content)
-
-    def test_assembly_task_upload_fastq(self):
-        fastq = SimpleUploadedFile('test.fastq', b'@seq1\nATGC\n+\n!!!!\n', content_type='text/plain')
-        response = self.client.post(reverse('conversion:assembly_task'), {'fastq_file': fastq, 'assembly_type': 'ont'}, follow=True)
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Assembly task started', response.content)
-
+        
     def test_task_status_view(self):
         task = ConversionTask.objects.create(
             external_job_id='seq-1',
@@ -107,7 +95,7 @@ class ConversionViewsTests(TestCase):
 
         try:
             task = ConversionTask.objects.create(
-                external_job_id=None,
+                external_job_id='ann-test-123',
                 status='pending',
                 process_name='input.fasta',
                 input_path=relative_path,

@@ -127,8 +127,8 @@ class ConversionTask(models.Model):
     # Model-level validation
     def clean(self):
         # Check that external_job_id is not null when status is not 'pending'
-        if not self.external_job_id and self.status != 'pending' and self.task_type != 'from_json':
-            raise ValidationError({'external_job_id': 'external_job_id can be null only when status is "pending".'})
+        if not self.external_job_id and self.status != 'pending' and self.status != 'failed' and self.task_type != 'from_json':
+            raise ValidationError({'external_job_id': 'external_job_id can be null only when status is "pending" or "failed".'})
 
         if self.previous_task and self.task_type != 'annotation':
             raise ValidationError({'previous_task': 'Only annotation tasks can have a previous_task.'})
