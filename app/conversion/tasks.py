@@ -2,6 +2,8 @@ from celery import shared_task
 from django.core.files.base import ContentFile
 import json
 import os
+import logging
+import requests
 from .models import ConversionTask, FileUpload
 from .bio_api_client import annotate_from_fasta, download_assembly_fasta_result, download_bakta_json_result, get_job_status, sequence_illumina, sequence_ont
 from notifications.services import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed, notify_user_conversion_started, notify_user_conversion_warning
@@ -10,6 +12,15 @@ from celery.exceptions import MaxRetriesExceededError
 from .utils import delete_file_safely, find_latest_persisted_upload, get_result_filename_stem, read_persisted_upload_bytes
 from .parsers import parse_file
 
+logger = logging.getLogger(__name__)
+
+class BioServiceConnectionError(Exception):
+    """Raised when unable to reach bio service (network/timeout issues)"""
+    pass
+
+class BioServiceBusyError(Exception):
+    """Raised when bio service responds with 503 (server busy)"""
+    pass
 
 def _cleanup_temp_fastq_inputs(task):
     """Remove temporary FASTQ files used as assembly inputs."""
@@ -110,42 +121,43 @@ def poll_conversion_status(self, task_id, complete_version=False):
         task = ConversionTask.objects.get(id=task_id)
     except ConversionTask.DoesNotExist:
         # If some task is missing, just stop polling
+        logger.info(f"Task {task_id} not found, stopping poll")
         return
 
-    print("Polling status for task:", task.external_job_id)
+    logger.debug(f"Polling status for task: {task.external_job_id} (task_id={task_id})")
 
     status, code = get_job_status(task.external_job_id)
 
     if code == 404:
-        print("Job not found for task:", task.external_job_id)
+        logger.warning(f"External job not found: {task.external_job_id}")
         task.status = "failed"
         task.save()
         notify_user_conversion_failed(task.user, task)
         _ensure_in_app_notification(
             task,
             TaskNotification.EVENT_FAILED,
-            "The conversion failed because the external job was not found.",
+            "The conversion failed because the external job was not found on the bio service.",
         )
         return
     
     if status != task.status:
-        print("Status changed from", task.status, "to", status)
+        logger.info(f"Task {task.external_job_id}: status changed from {task.status} to {status}")
         if status == "annotated" or status == "assembled":
             status = "completed"
         task.status = status
         task.save()
 
     if status == "completed":
-        print("Conversion completed for task:", task.external_job_id)
+        logger.info(f"Conversion completed for task: {task.external_job_id}")
         if task.task_type.startswith("assembly_"):
             try:
                 _persist_assembly_fasta_output(task)
             except Exception as e:
-                print("Unable to persist assembled FASTA, will retry:", str(e))
+                logger.error(f"Unable to persist assembled FASTA for {task.external_job_id}, will retry: {str(e)}")
                 try:
                     self.retry(countdown=60)
                 except MaxRetriesExceededError:
-                    print("Max retries exceeded while persisting FASTA for task:", task.external_job_id)
+                    logger.error(f"Max retries exceeded while persisting FASTA for task: {task.external_job_id}")
                     task.status = "failed"
                     task.save()
                     notify_user_conversion_failed(task.user, task)
@@ -155,21 +167,21 @@ def poll_conversion_status(self, task_id, complete_version=False):
                 try:
                     _persist_annotation_json_output(task, complete_version=complete_version)
                 except Exception as e:
-                    print("Unable to auto-parse annotation JSON for auto-annotated assembly:", str(e))
+                    logger.error(f"Unable to auto-parse annotation JSON for auto-annotated assembly {task.external_job_id}: {str(e)}")
                     notify_user_conversion_warning(
                         task.user,
                         task,
-                        "Annotation finished, but automatic upload to the system for predictions failed. Upload the Bakta JSON in Annotation > Bakta JSON to DB to retry.",
+                        "Assembly & annotation succeeded, but automatic result upload failed. Try uploading the Bakta JSON manually from your downloads.",
                     )
         elif task.task_type == "annotation":
             try:
                 _persist_annotation_json_output(task, complete_version=complete_version)
             except Exception as e:
-                print("Unable to auto-parse annotation JSON:", str(e))
+                logger.error(f"Unable to auto-parse annotation JSON for task {task.external_job_id}: {str(e)}")
                 notify_user_conversion_warning(
                     task.user,
                     task,
-                    "Annotation finished, but automatic upload to the system for predictions failed. Upload the Bakta JSON in Annotation > Bakta JSON to System to retry.",
+                    "Annotation succeeded, but automatic result upload failed. Try uploading the Bakta JSON manually from your downloads.",
                 )
         _cleanup_temp_fastq_inputs(task)
         notify_user_conversion_complete(task.user, task)
@@ -190,34 +202,43 @@ def poll_conversion_status(self, task_id, complete_version=False):
         return
 
     try:
+        logger.debug(f"Polling will retry in 60s for task {task.external_job_id}")
         self.retry(countdown=60)  # Retry after 60 seconds
     
     except MaxRetriesExceededError: # When retries are exhausted
-        print("Max retries exceeded for task:", task.external_job_id)
+        logger.error(f"Max retries exceeded for task: {task.external_job_id}")
         task.status = "failed"
         task.save()
         notify_user_conversion_failed(task.user, task)
         _ensure_in_app_notification(
             task,
             TaskNotification.EVENT_FAILED,
-            "The conversion task failed after maximum polling retries.",
+            "The conversion task did not complete within the expected timeframe. The bio service may be experiencing issues. Please try again later.",
         )
         return
 
 # TODO: Por ahora aguanta máx 100 minutos, ver si es suficiente   
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
 def poll_annotation_start(self, fasta_bytes, task_id, dest_path=None, user_id=None, complete_version=False):
-    print("Trying to start annotation task for uploaded FASTA")
+    logger.info(f"Trying to start annotation task (task_id={task_id})")
     try:
         task = ConversionTask.objects.get(id=task_id)
     except ConversionTask.DoesNotExist:
+        logger.error(f"Task not found when starting annotation: {task_id}")
         notify_user_conversion_failed(None, message="Task not found when starting annotation", task=None)
         return
     
-    external_resp = annotate_from_fasta(fasta_bytes)
+    try:
+        external_resp = annotate_from_fasta(fasta_bytes)
+    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+        logger.warning(f"Connection error starting annotation for task {task_id}: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error starting annotation for task {task_id}: {str(e)}")
+        raise
 
     if external_resp.get("status") == "running" or external_resp.get("status") == "annotation_pending":
-        print("Annotation started with job ID:", external_resp["job_id"])
+        logger.info(f"Annotation started with job ID: {external_resp.get('job_id')} for task {task_id}")
         if user_id is None:
             user_id = task.user_id
         should_notify_started = task.status != "running"
@@ -229,15 +250,16 @@ def poll_annotation_start(self, fasta_bytes, task_id, dest_path=None, user_id=No
             _ensure_in_app_notification(
                 task,
                 TaskNotification.EVENT_STARTED,
-                "The conversion task has started and is currently running.",
+                "Your annotation task has started processing on the bio service.",
             )
         poll_conversion_status.delay(task.id, complete_version=complete_version)
         return
 
-    print("Server busy response received, will retry later.")
+    logger.info(f"Server busy response received for task {task_id}, will retry later")
     try:
         self.retry(countdown=60)  # Retry after 60 seconds
     except MaxRetriesExceededError: # When retries are exhausted
+        logger.error(f"Max retries exhausted starting annotation for task {task_id}")
         notify_user_server_busy(task.user if task else None, task=task)
         _ensure_in_app_notification(
             task,
@@ -248,7 +270,7 @@ def poll_annotation_start(self, fasta_bytes, task_id, dest_path=None, user_id=No
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
 def poll_assembly_start(self, assembly_type="", dest_path=None, dest_path_2=None, annotate=False, task_id=None, user_id=None, complete_version=False):
-    print("Trying to start assembly task for uploaded FASTQ (reading from disk)")
+    logger.info(f"Trying to start assembly task ({assembly_type}) for uploaded FASTQ")
 
     task = ConversionTask.objects.filter(id=task_id).first() if task_id else None
     effective_user = task.user if task else None
@@ -256,6 +278,7 @@ def poll_assembly_start(self, assembly_type="", dest_path=None, dest_path_2=None
     assembly_task_type = "assembly" + ("_" + assembly_type) + ("_annotated" if annotate else "")
 
     if assembly_type not in ["illumina", "ont"]:
+        logger.error(f"Invalid assembly type: {assembly_type}")
         notify_user_conversion_failed(effective_user, task=task, message="Invalid assembly type")
         return
 
@@ -264,7 +287,7 @@ def poll_assembly_start(self, assembly_type="", dest_path=None, dest_path_2=None
         with open(dest_path, 'rb') as f:
             fastq_bytes = f.read()
     except Exception as e:
-        print("Failed to read fastq file from path:", dest_path, str(e))
+        logger.error(f"Failed to read fastq file from path {dest_path}: {str(e)}")
         if task:
             task.status = "failed"
             task.save(update_fields=['status'])
@@ -274,7 +297,7 @@ def poll_assembly_start(self, assembly_type="", dest_path=None, dest_path_2=None
     # Illumina
     if assembly_type == "illumina":
         if not dest_path_2:
-            print("Illumina assembly requires a second FASTQ file but dest_path_2 is missing")
+            logger.error(f"Illumina assembly requires second FASTQ but dest_path_2 is missing for task {task_id}")
             if task:
                 task.status = "failed"
                 task.save(update_fields=['status'])
@@ -284,22 +307,30 @@ def poll_assembly_start(self, assembly_type="", dest_path=None, dest_path_2=None
             with open(dest_path_2, 'rb') as f2:
                 fastq_2_bytes = f2.read()
         except Exception as e:
-            print("Failed to read second fastq file from path:", dest_path_2, str(e))
+            logger.error(f"Failed to read second fastq file from path {dest_path_2}: {str(e)}")
             if task:
                 task.status = "failed"
                 task.save(update_fields=['status'])
             notify_user_conversion_failed(effective_user, task=task, message="Failed to read second fastq file")
             return
         
-        external_resp = sequence_illumina(fastq_bytes, fastq_2_bytes, annotate=annotate)
+        try:
+            external_resp = sequence_illumina(fastq_bytes, fastq_2_bytes, annotate=annotate)
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            logger.warning(f"Connection error starting Illumina assembly for task {task_id}: {str(e)}")
+            raise
     
     #ONT
     elif assembly_type == "ont":
-        external_resp = sequence_ont(fastq_bytes, annotate=annotate)
+        try:
+            external_resp = sequence_ont(fastq_bytes, annotate=annotate)
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            logger.warning(f"Connection error starting ONT assembly for task {task_id}: {str(e)}")
+            raise
 
     # Check response and update task
     if external_resp.get("status") in {"running", "pending"}:
-        print("Assembly started with job ID:", external_resp["job_id"])
+        logger.info(f"Assembly started with job ID: {external_resp.get('job_id')} for task {task_id}")
         if task:
             if user_id is None:
                 user_id = task.user_id
@@ -312,7 +343,7 @@ def poll_assembly_start(self, assembly_type="", dest_path=None, dest_path_2=None
                 _ensure_in_app_notification(
                     task,
                     TaskNotification.EVENT_STARTED,
-                    "The conversion task has started and is currently running.",
+                    f"Your {assembly_type.upper()} assembly task has started processing.",
                 )
         else:
             first_input = (combined_input_path or '').split(',')[0].strip()
@@ -328,32 +359,34 @@ def poll_assembly_start(self, assembly_type="", dest_path=None, dest_path_2=None
             _ensure_in_app_notification(
                 task,
                 TaskNotification.EVENT_STARTED,
-                "The conversion task has started and is currently running.",
+                f"Your {assembly_type.upper()} assembly task has started processing.",
             )
         poll_conversion_status.delay(task.id, complete_version=complete_version)
         return
 
-    print("Server busy response received, will retry later.")
+    logger.info(f"Server busy response received for assembly task {task_id}, will retry later")
     try:
         self.retry(countdown=60)  # Retry after 60 seconds
     except MaxRetriesExceededError: # When retries are exhausted
+        logger.error(f"Max retries exhausted starting assembly for task {task_id}")
         notify_user_server_busy(effective_user, task=task)
         _ensure_in_app_notification(
             task,
             TaskNotification.EVENT_WARNING,
-            "The conversion server is busy. Please retry later.",
+            "The bioservice server is busy. Please retry later.",
         )
         return
 
     
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
 def poll_annotation_from_assembly_start(self, job_id, user_id, new_task_id=None, complete_version=False):
-    print("Trying to start annotation task for uploaded FASTA")
+    logger.info(f"Trying to start annotation task for assembly job {job_id} (new_task_id={new_task_id})")
 
     pending_task = ConversionTask.objects.filter(id=new_task_id).first() if new_task_id else None
     pending_user = pending_task.user if pending_task else None
 
     def _fail_pending_annotation(message):
+        logger.error(f"Annotation task {new_task_id} failed: {message}")
         notify_user_conversion_failed(
             pending_user,
             task=pending_task,
@@ -372,20 +405,20 @@ def poll_annotation_from_assembly_start(self, job_id, user_id, new_task_id=None,
 
     previous_task = previous_job_qs.first()
     if not previous_task:
-        print("Previous assembly job not found for annotation task with job ID:", job_id)
+        logger.error(f"Previous assembly job not found for annotation task with job ID: {job_id}")
         _fail_pending_annotation(
-            "Invalid previous assembly job. Please make sure the assembly task has completed successfully before starting annotation."
+            "The previous assembly job could not be found. Make sure it completed successfully before starting annotation."
         )
         return
 
-    retrieval_error_message = "Could not retrieve assembled FASTA from persistent uploads for the previous assembly task."
+    retrieval_error_message = "The assembled FASTA result is not available in the system. Try again later."
     try:
         fasta_bytes = read_persisted_upload_bytes(
             user_id=previous_task.user_id,
             filename_stem=get_result_filename_stem("assembly", previous_task.external_job_id),
         )
     except Exception as e:
-        print("Failed to read persisted FASTA file:", str(e))
+        logger.error(f"Failed to read persisted FASTA file for previous task {previous_task.id}: {str(e)}")
         _fail_pending_annotation(retrieval_error_message)
         return
 
