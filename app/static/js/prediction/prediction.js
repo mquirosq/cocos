@@ -73,6 +73,13 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function cellHTML(v) {
+      if (v === 'NO_RESULT') {
+        return `<td style="background:#d7edfa;padding:9px 14px;text-align:center;">
+          <div style="display:inline-flex;flex-direction:column;align-items:center;gap:3px;min-width:52px">
+            <span style="font-size:12px;font-weight:500;color:#5fa9de">No results</span>
+          </div>
+        </td>`;
+      }
       const c = colorForProb(v);
       return `<td style="background:${c.bg};padding:9px 14px;text-align:center">
         <div style="display:inline-flex;flex-direction:column;align-items:center;gap:3px;min-width:52px">
@@ -85,6 +92,13 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function avgCellHTML(avg) {
+      if (avg === null || isNaN(avg)) {
+        return `<td style="background:#d7edfa;padding:9px 14px;text-align:center;font-weight:500">
+          <div style="display:inline-flex;flex-direction:column;align-items:center;gap:3px;min-width:52px">
+            <span style="font-size:12px;font-weight:500;color:#5fa9de">N/A</span>
+          </div>
+        </td>`;
+      }
       const c = colorForProb(avg);
       const rl = riskLabel(avg);
       return `<td style="background:${c.bg};padding:9px 14px;text-align:center;border-left:1.5px solid #d1d5db;font-weight:500">
@@ -100,7 +114,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const rows = matrix.antibiotics.map((ab, i) => {
       const vals = matrix.data[i];
-      const avg = parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2));
+      const numericVals = vals.filter(v => v !== 'NO_RESULT');
+      const avg = numericVals.length > 0 ? parseFloat((numericVals.reduce((a, b) => a + b, 0) / numericVals.length).toFixed(2)) : null;
       return `<tr style="border-bottom:0.5px solid #e5e7eb">
         <td style="padding:9px 14px;font-weight:500;font-size:13px;white-space:nowrap">${ab}</td>
         ${vals.map(v => cellHTML(v)).join('')}
@@ -142,6 +157,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const models = Array.from(modelSet);
       const data = antibiotics.map(a => models.map(m => {
         const cell = raw[a] && raw[a][m];
+        if (cell === 'NO_RESULT') return 'NO_RESULT';
         return Number(cell) || 0;
       }));
       return { models, antibiotics, data };

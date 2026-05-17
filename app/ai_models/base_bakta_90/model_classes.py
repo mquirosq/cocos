@@ -1,6 +1,7 @@
 from typing import List, Iterable
 import torch
 import torch.nn as nn
+from pathlib import Path
 from prediction.input_utils import (
     presence_from_list,
     get_columns_from_pickle,
@@ -64,6 +65,10 @@ class BaseBakta90Adapter(ModelInterface):
         self.features()
         model = BaselineMLP(input_dim=self._input_dim, hidden_dims=self.hidden_dims, dropout=self.dropout)
         resolved_path = get_model_weights_path(self.antibiotic, self.model_name)
+
+        if not Path(resolved_path).exists():
+            raise FileNotFoundError(f"Weights file not found for {self.model_name}/{self.antibiotic}: {resolved_path}")
+        
         checkpoint = torch.load(resolved_path, map_location='cpu')
         if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
             state_dict = checkpoint['state_dict']

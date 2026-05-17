@@ -16,8 +16,8 @@ def get_prediction_matrix(model_names: list[str], antibiotics: list[str], file_u
     Returns a dict of the form:
     {
         'antibiotic1': {
-            'model1': prediction_value,
-            'model2': prediction_value,
+            'model1': prediction_value or 'NO_RESULT',
+            'model2': prediction_value or 'NO_RESULT',
             ...
         },
         'antibiotic2': {
@@ -32,8 +32,8 @@ def get_prediction_matrix(model_names: list[str], antibiotics: list[str], file_u
         for model_name in model_names:
             try:
                 row[model_name] = get_prediction(model_name, antibiotic, file_upload)
-            except Exception:
-                row[model_name] = None
+            except Exception as e:
+                row[model_name] = 'NO_RESULT'
         data[antibiotic] = row
 
     return data
