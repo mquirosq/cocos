@@ -37,10 +37,6 @@ def make_task(user, task_type="annotation", job_id="job-1", status="running",
     )
 
 
-# ---------------------------------------------------------------------------
-# poll_conversion_status
-# ---------------------------------------------------------------------------
-
 class PollConversionStatusTests(TestCase):
     def setUp(self):
         self.user = make_user()
@@ -172,10 +168,6 @@ class PollConversionStatusTests(TestCase):
                 mock_warn.reset_mock(); mock_complete.reset_mock()
 
 
-# ---------------------------------------------------------------------------
-# _cleanup_temp_fastq_inputs
-# ---------------------------------------------------------------------------
-
 class CleanupTempFastqInputsTests(TestCase):
     def setUp(self):
         self.user = make_user()
@@ -212,10 +204,6 @@ class CleanupTempFastqInputsTests(TestCase):
                 mock_delete.assert_not_called()
                 mock_delete.reset_mock()
 
-
-# ---------------------------------------------------------------------------
-# _persist_assembly_fasta_output
-# ---------------------------------------------------------------------------
 
 class PersistAssemblyFastaOutputTests(TestCase):
     def setUp(self):
@@ -254,10 +242,6 @@ class PersistAssemblyFastaOutputTests(TestCase):
         _persist_assembly_fasta_output(task)
         mock_download.assert_not_called()
 
-
-# ---------------------------------------------------------------------------
-# _persist_annotation_json_output
-# ---------------------------------------------------------------------------
 
 class PersistAnnotationJsonOutputTests(TestCase):
     def setUp(self):
@@ -317,10 +301,6 @@ class PersistAnnotationJsonOutputTests(TestCase):
         self.assertTrue(mock_parse.call_args[1].get("options", {}).get("complete_version"))
 
 
-# ---------------------------------------------------------------------------
-# _ensure_in_app_notification
-# ---------------------------------------------------------------------------
-
 class EnsureInAppNotificationTests(TestCase):
     def setUp(self):
         self.user = make_user()
@@ -351,10 +331,6 @@ class EnsureInAppNotificationTests(TestCase):
         notif = TaskNotification.objects.get(task=self.task, event_type=TaskNotification.EVENT_FAILED)
         self.assertIn(TaskNotification.CHANNEL_IN_APP, notif.channels)
 
-
-# ---------------------------------------------------------------------------
-# poll_annotation_start
-# ---------------------------------------------------------------------------
 
 class PollAnnotationStartTests(TestCase):
     def setUp(self):
@@ -416,10 +392,6 @@ class PollAnnotationStartTests(TestCase):
         poll_annotation_start(fasta_bytes=FASTA, task_id=task.id, complete_version=True)
         mock_poll.delay.assert_called_once_with(task.id, complete_version=True)
 
-
-# ---------------------------------------------------------------------------
-# poll_assembly_start
-# ---------------------------------------------------------------------------
 
 class PollAssemblyStartTests(TestCase):
     def setUp(self):
@@ -553,10 +525,6 @@ class PollAssemblyStartTests(TestCase):
         task = ConversionTask.objects.get(external_job_id="seq-cv")
         mock_poll.delay.assert_called_once_with(task.id, complete_version=True)
 
-
-# ---------------------------------------------------------------------------
-# poll_annotation_from_assembly_start
-# ---------------------------------------------------------------------------
 
 class PollAnnotationFromAssemblyStartTests(TestCase):
     def setUp(self):
