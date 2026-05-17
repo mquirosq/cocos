@@ -1,77 +1,126 @@
 # cocos
 
-Framework to easily access and offer prediction models for predicting antibiotic resistance
+Framework to easily access and offer prediction models for predicting antibiotic resistance.
 
-## One-command setup (Windows)
+---
+
+## Quick Start
+
+### Development Setup (Windows)
 
 From the `cocos` folder run:
 
 ```powershell
-.\setup.ps1
+python setup.py
 ```
 
-This single command installs:
+This installs:
 
 - Python dependencies from `requirements.txt`
 - Frontend dependencies (`tailwindcss` + `daisyui`) from `app/package.json`
 - Compiled CSS output at `app/static/css/tailwind.css`
 
-## Database and Docker
+Then start the dev server:
 
-The project now uses PostgreSQL by default (SQLite is no longer the runtime database).
+```bash
+cd docker
+docker compose -f docker-compose.yml up
+```
 
-Environment variables in `.env`:
+Access at: `http://localhost:8080`
+
+### Production Deployment (Docker)
+
+From `cocos/docker` folder:
+
+```bash
+# Configure environment (copy template and fill with real values)
+cp ../.env.prod.example ../.env.prod
+# Edit .env.prod with production credentials
+
+# Deploy
+docker compose -f docker-compose.prod.yml up --build
+```
+
+Access at: `http://localhost` (port 80)
+
+---
+
+## Environment Configuration
+
+### Development (`.env`)
+
+- `DB_HOST=localhost` (PostgreSQL on host)
+- `DJANGO_DEBUG=1`
+
+### Production (`.env.prod`)
+
+- `DB_HOST=cocos-postgres` (Docker service name)
+- `DJANGO_DEBUG=0`
+- **MUST SET SECURELY:**
+  - `DJANGO_SECRET_KEY` - Generate with: `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`
+  - `POSTGRES_PASSWORD` - Strong, random password
+  - `DB_PASSWORD` - Same as POSTGRES_PASSWORD
+  - `SENDGRID_API_KEY` - If using email notifications
+
+---
+
+## Database & Docker
+
+**Environment variables:**
 
 - `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_CONN_MAX_AGE`
-- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` (used by Docker postgres service)
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` (Docker postgres service)
 
-For direct host execution (outside Docker), override `DB_HOST` to `localhost` if needed.
+**First build** can take time due to large ML dependencies (`torch`, etc.). Subsequent runs use Docker layer cache.
 
-First Docker build can take a long time because ML dependencies (notably `torch`) are large. After the first successful build, subsequent runs should be much faster due to Docker layer cache.
+---
 
-## Add new prediction models
+## Add New Prediction Models
 
-To add a new prediction model include a folder under `ai_models/` with the model name and the required files. Minimal layout and rules:
-
-- Folder layout
+Add a folder under `ai_models/` with required structure:
 
 ```
 ai_models/<model_name>/
-	weights/
-		<antibiotic>.pt       # model weights per-antibiotic
-	model_classes.py          # model definition and adapter implementation
+├── weights/
+│   ├── <antibiotic>.pt      # model weights per-antibiotic
+│   └── ...
+└── model_classes.py         # model definition & adapter
 ```
 
-- The weights file must be named with the antibiotic it targets, for example `ampicillin.pt`.
-- `model_classes.py` should expose the model architecture and the adapter class that implements the prediction interface. The adapter should be designed to load the appropriate weights based on the antibiotic specified during initialization.
+**Rules:**
 
-- Use the provided decorator to register your adapter implementation:
+- Weight files must be named after the antibiotic (e.g., `amikacin.pt`)
+- `model_classes.py` must implement adapter with `__init__(antibiotic: str)` signature
+- Use decorator to register:
 
-```py
+```python
 from app.ai_models.registry import register_model
 
-@register_model("model_alias")
+@register_model("my_model")
 class MyAdapter:
-	def __init__(self, antibiotic: str):
-		...
+    def __init__(self, antibiotic: str):
+        # Load weights/<antibiotic>.pt
+        pass
 
-	def predict(self, sequences):
-		...
+    def predict(self, sequences):
+        # Return predictions
+        pass
 ```
 
-Important: the adapter `__init__` signature should be exactly `__init__(antibiotic: str)`.
+See `ai_models/base_bakta_50/` for example.
 
-An example implementation can be found in `ai_models/base_bakta-50/`.
+---
 
-### Testing
+## Testing
 
-To run tests:
+Run all tests:
 
 ```bash
 python manage.py test
 ```
 
-To run tests for a specific app:
+Run tests for specific app:
 
 ```bash
 python manage.py test notifications
