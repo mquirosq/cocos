@@ -14,6 +14,8 @@ from .parsers import parse_file
 
 logger = logging.getLogger(__name__)
 
+MAX_TRIES = 100
+
 class BioServiceConnectionError(Exception):
     """Raised when unable to reach bio service (network/timeout issues)"""
     pass
@@ -114,8 +116,7 @@ def _ensure_in_app_notification(task, event_type, message):
         channels=[TaskNotification.CHANNEL_IN_APP],
     )
 
-# TODO: Por ahora aguanta máx 100 minutos, ver si es suficiente
-@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=10, max_retries=1000)
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=10, max_retries=MAX_TRIES)
 def poll_conversion_status(self, task_id, complete_version=False):
     try:
         task = ConversionTask.objects.get(id=task_id)
@@ -162,7 +163,6 @@ def poll_conversion_status(self, task_id, complete_version=False):
                     task.save()
                     notify_user_conversion_failed(task.user, task)
                 return
-            # TODO: Check it works
             if task.task_type.endswith("annotated"):
                 try:
                     _persist_annotation_json_output(task, complete_version=complete_version)
@@ -217,8 +217,7 @@ def poll_conversion_status(self, task_id, complete_version=False):
         )
         return
 
-# TODO: Por ahora aguanta máx 100 minutos, ver si es suficiente   
-@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=MAX_TRIES)
 def poll_annotation_start(self, fasta_bytes, task_id, dest_path=None, user_id=None, complete_version=False):
     logger.info(f"Trying to start annotation task (task_id={task_id})")
     try:
