@@ -1,15 +1,13 @@
+from django.contrib.humanize.templatetags.humanize import naturaltime
 from .utils import source_filename
 
 def format_source_job_label(task):
-    """Format a user-friendly label for a task, using process name or input filename."""
-    if task.process_name:
-        return task.process_name
-    source_name = getattr(task, 'source_filename', None) or source_filename(task.input_path)
-    timestamp = task.updated_at.strftime('%Y-%m-%d %H:%M') if task.updated_at else ''
-    pieces = [source_name, task.get_task_type_display()]
+    """Format a user-friendly label with process name and relative time."""
+    label = task.process_name or source_filename(task.input_path)
+    timestamp = task.updated_at or task.created_at
     if timestamp:
-        pieces.append(timestamp)
-    return ' · '.join(pieces)
+        label = f"{label} · {naturaltime(timestamp)}"
+    return label
 
 
 def status_badge_class(status):
