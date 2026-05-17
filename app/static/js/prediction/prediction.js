@@ -51,8 +51,8 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function renderMatrix(matrix) {
-    const warningColor = getCSSVar('--color-warning-soft');
-    const warningColorContent = getCSSVar('--color-warning-soft-content');
+    const warningColor = '#f7edc6';
+    const warningColorContent = '#d0ac18';
     const errorColor = getCSSVar('--color-error-soft');
     const errorColorContent = getCSSVar('--color-error-soft-content');
     const successColor = getCSSVar('--color-success-soft');
