@@ -87,7 +87,7 @@
                 {% elif row.kind == 'assembly' and row.can_retry_annotation and not row.is_auto_annotated %}
                   <form method="post" action="{% url 'conversion:annotation_from_job' row.task.external_job_id %}">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-sm btn-warning">Retry Annotation</button>
+                    <button type="submit" class="btn btn-sm btn-error">Retry Annotation</button>
                   </form>
                 {% endif %}
 

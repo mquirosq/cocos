@@ -138,9 +138,26 @@ def prediction_csv_from_matrix_view(request):
     for i, antibiotic in enumerate(antibiotics):
         vals = data[i]
         try:
-            avg = round(sum(float(v) for v in vals) / len(vals), 4)
+            numeric_vals = []
+            for v in vals:
+                if v is not None:
+                    try:
+                        numeric_vals.append(float(v))
+                    except (ValueError, TypeError):
+                        pass
+            avg = round(sum(numeric_vals) / len(numeric_vals), 4) if numeric_vals else ''
         except Exception:
             avg = ''
-        writer.writerow([antibiotic] + [round(float(v), 4) for v in vals] + [avg])
+        
+        row_vals = []
+        for v in vals:
+            if v is not None:
+                try:
+                    row_vals.append(round(float(v), 4))
+                except (ValueError, TypeError):
+                    row_vals.append('')
+            else:
+                row_vals.append('')
+        writer.writerow([antibiotic] + row_vals + [avg])
 
     return response
