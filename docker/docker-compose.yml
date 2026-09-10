@@ -41,6 +41,8 @@ services:
       - "8080:8000"
     env_file:
       - ../.env
+    environment:
+      DB_HOST: bio-web-postgres
     depends_on:
       postgres:
         condition: service_healthy
@@ -60,6 +62,8 @@ services:
     user: "1000:1000"
     env_file:
       - ../.env
+    environment:
+      DB_HOST: bio-web-postgres
     depends_on:
       postgres:
         condition: service_healthy
