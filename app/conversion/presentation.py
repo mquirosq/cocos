@@ -28,5 +28,6 @@ def pipeline_label(task_type):
         'assembly_illumina': 'Assembly · Illumina',
         'annotation': 'Annotation',
         'from_json': 'From JSON',
+        'prediction': 'Prediction',
     }
     return label_map.get(task_type, 'Process')

@@ -1,12 +1,10 @@
-"""
-Lightweight Celery task module for the `prediction` app.
-
-This module exists so Celery's `include=[...]` can import `prediction.tasks`.
-Add actual async tasks here if/when prediction needs background jobs.
-"""
 from celery import shared_task
 
+from conversion.models import FileUpload
+from .service import get_prediction_matrix
+
 @shared_task(bind=True)
-def noop_ping(self):
-    """Simple task used to verify Celery can import this module."""
-    return "pong"
+def predict(self, model_names: list[str], antibiotics: list[str], file_upload_id: int) -> dict:
+    file_upload = FileUpload.objects.get(pk=file_upload_id)
+    matrix = get_prediction_matrix(model_names, antibiotics, file_upload)
+    return matrix

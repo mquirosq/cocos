@@ -12,7 +12,7 @@ from django.views.decorators.http import require_POST
 
 from conversion.models import FileUpload, ConversionTask
 from .registry import list_registered_models, get_model_supported_antibiotics, list_all_antibiotics
-from .service import get_prediction_matrix
+from .tasks import predict
 
 def _get_user_json_uploads(user):
     return FileUpload.objects.filter(
@@ -86,10 +86,10 @@ def prediction_matrix_view(request):
         return JsonResponse({'error': 'No valid antibiotic/model combinations found.'}, status=400)
 
     try:
-        matrix = get_prediction_matrix(
+        matrix = predict.delay(
             model_names=model_names,
             antibiotics=valid_antibiotics,
-            file_upload=file_upload,
+            file_upload_id=file_upload.id if file_upload else None,
         )
     except Exception as e:
         messages.error(request, str(e))

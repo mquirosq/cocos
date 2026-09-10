@@ -104,6 +104,7 @@ class ConversionTask(models.Model):
         ('assembly_illumina', 'Illumina Assembly'),
         ('assembly_ont_annotated', 'ONT Assembly with Annotation'),
         ('assembly_illumina_annotated', 'Illumina Assembly with Annotation'),
+        ('prediction', 'Prediction'),
     ]
     
     # Allow blank so we can create a pending task before an external job id exists.
