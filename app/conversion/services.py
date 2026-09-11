@@ -8,7 +8,6 @@ from .utils import (
     resolve_absolute_path,
     resolve_persisted_result_filename,
     source_filename,
-    get_result_filename_stem,
 )
 
 ASSEMBLY_TYPES = {
