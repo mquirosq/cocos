@@ -3,6 +3,9 @@ import requests
 
 BASE = os.getenv("ANNOTATION_BASE", "http://localhost:8000")
 
+if os.getenv("MOCK", "false").lower() == "true":
+    BASE = os.getenv("MOCK_ANNOTATION_BASE", "http://localhost:8000")
+
 def get_job_status(job_id):
     response = requests.get(f"{BASE}/jobs/{job_id}")
     response.raise_for_status()
