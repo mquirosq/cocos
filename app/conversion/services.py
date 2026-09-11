@@ -1,6 +1,6 @@
 import os
 
-from .models import ConversionTask, FileUpload
+from .models import ConversionTask, File
 from .presentation import format_source_job_label, pipeline_label, status_badge_class
 from .utils import (
     get_primary_input_path,
@@ -24,7 +24,7 @@ def resolve_uploaded_fasta_input_path(task):
     if not task or task.task_type != 'annotation' or task.previous_task_id:
         return None
 
-    source = get_primary_input_path(task.input_path)
+    source = get_primary_input_path(task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else None)
     if not source:
         return None
 
@@ -50,7 +50,7 @@ def resolve_uploaded_fasta_input_path(task):
 
 
 def annotation_process_key(task):
-    return f"{task.process_name}::{task.input_path}"
+    return f"{task.process_name}::{task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else 'Unnamed Input'}"
 
 
 def is_auto_annotated_assembly(task):
@@ -90,47 +90,36 @@ def derive_process_name(task, fallback_name=None):
         return task.previous_task.process_name
     if task.process_name:
         return task.process_name
-    return source_filename(task.input_path)
+    return source_filename(task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else None) or "Unnamed Process"
 
 
 def get_json_upload_for_task(task):
-    # Annotation or auto-annotated assembly
-    if getattr(task, 'external_job_id', None):
-        user_id = task.user.id if hasattr(task.user, 'id') else task.user_id
-        json_filename = resolve_persisted_result_filename(
-            user_id=user_id,
-            result_prefix='annotation',
-            job_id=task.external_job_id,
-        )
-        if json_filename:
-            if not json_filename.endswith('.json'):
-                json_filename = json_filename + '.json'
-            json_dir = get_upload_dir(user_id, 'json', persistent=True)
-            json_path = os.path.join(json_dir, json_filename)
-            if os.path.exists(json_path):
-                return json_path
+    """Return the JSON File object for a task, or None if not found."""
 
-    # From-JSON tasks (uploaded JSON files)
-    if task.input_path:
-        upload = FileUpload.objects.filter(user=task.user, file=task.input_path).first()
-        if upload:
-            return upload
-        file_name = os.path.basename(task.input_path)
-        if file_name:
-            return FileUpload.objects.filter(user=task.user, file__endswith=file_name).order_by('-uploaded_at').first()
+    # Annotation / auto-annotated assembly
+    if getattr(task, 'external_job_id', None):
+        if task.output_file:
+            return task.output_file
+
+    # From-JSON tasks
+    input_file = task.input_file.first()
+
+    if input_file and input_file.file_type == File.FileType.JSON:
+        return input_file
 
     return None
 
 def get_fasta_upload_for_task(task):
     """Return the absolute path to the FASTA file for a task, or None if not found."""
+
     task_type = getattr(task, 'task_type', None)
+
     if task_type == 'annotation':
-        return resolve_uploaded_fasta_input_path(task)
-    if task_type in ASSEMBLY_TYPES and getattr(task, 'external_job_id', None):
-        user_id = getattr(getattr(task, 'user', None), 'id', None) or getattr(task, 'user_id', None)
-        filename = f"{get_result_filename_stem('assembly', task.external_job_id)}.fasta"
-        fasta_path = os.path.join(get_upload_dir(user_id, 'fasta', persistent=True), filename)
-        return fasta_path if os.path.exists(fasta_path) else None
+        return task.input_file.first()
+
+    if task_type in ASSEMBLY_TYPES:
+        return task.output_file
+
     return None
 
 
@@ -189,7 +178,7 @@ def build_process_rows(user):
             'top_status_badge': status_badge_class(top_status),
             'assembly_status': assembly_task.status,
             'assembly_status_badge': status_badge_class(assembly_task.status),
-            'input_filename': source_filename(assembly_task.input_path),
+            'input_filename': source_filename(assembly_task.input_file.first().file.name if hasattr(assembly_task.input_file.first(), 'file') else None),
             'updated_at': most_recent,
             'task': assembly_task,
             'detail_task_id': assembly_task.id,
@@ -217,7 +206,7 @@ def build_process_rows(user):
             'pipeline_type': 'Annotation',
             'status': latest.status,
             'status_badge': status_badge_class(latest.status),
-            'input_filename': source_filename(latest.input_path),
+            'input_filename': source_filename(latest.input_file.first().file.name if hasattr(latest.input_file.first(), 'file') else None),
             'updated_at': latest.updated_at,
             'task': latest,
             'detail_task_id': latest.id,
@@ -240,7 +229,7 @@ def build_process_rows(user):
             'pipeline_type': 'From JSON',
             'status': latest.status,
             'status_badge': status_badge_class(latest.status),
-            'input_filename': source_filename(latest.input_path),
+            'input_filename': source_filename(latest.input_file.first().file.name if hasattr(latest.input_file.first(), 'file') else None),
             'updated_at': latest.updated_at,
             'task': latest,
             'detail_task_id': latest.id,
@@ -304,7 +293,7 @@ def build_task_context(user, task):
                 task_type='annotation',
                 previous_task__isnull=True,
                 process_name=task.process_name,
-                input_path=task.input_path,
+                input_file=task.input_file.first(),
             ).order_by('-updated_at', '-id')
         )
         latest_annotation = annotations[0] if annotations else None
@@ -326,7 +315,7 @@ def build_task_context(user, task):
             user=user,
             task_type='from_json',
             process_name=task.process_name,
-            input_path=task.input_path,
+            input_file=task.input_file.first(),
         ).order_by('-updated_at', '-id')
     )
     latest_json = json_attempts[0] if json_attempts else None
@@ -359,7 +348,7 @@ def rename_process_group(user, task, new_name):
         user=user,
         task_type=task.task_type,
         process_name=task.process_name,
-        input_path=task.input_path,
+        input_file=task.input_file.first(),
         previous_task__isnull=True,
     ).update(process_name=new_name)
 
@@ -389,7 +378,7 @@ def get_available_fasta_jobs(user):
             job_id=task.external_job_id,
         )
         task.source_filename = resolved_name or 'Assembly output'
-        task.process_name = task.process_name or source_filename(task.input_path)
+        task.process_name = task.process_name or source_filename(task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else None)
         task.source_label = format_source_job_label(task)
 
     return available_tasks

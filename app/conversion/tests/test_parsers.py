@@ -1,7 +1,8 @@
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.test import TestCase
-from conversion.models import FileGene, FileUpload, Gene
+from conversion.models import FileGene, File, Gene
 from conversion.parsers import BaktaJsonParser, get_parser, parse_file, register_parser
 from pathlib import Path
 import json
@@ -72,7 +73,7 @@ class BaktaJsonParserTests(TestCase):
                     user=self.user,
                     options=options,
                 )
-                self.assertIsInstance(upload, FileUpload)
+                self.assertIsInstance(upload, File)
                 self.assertEqual(upload.genes.count(), 1)
                 gene = upload.genes.first()
                 for expected_identifier in [feature["gene"], feature["product"], feature["db_xrefs"][0]]:
@@ -95,3 +96,12 @@ class BaktaJsonParserTests(TestCase):
         )
         self.assertIn(existing.id, upload.genes.values_list("id", flat=True))
         self.assertIn("new alias", existing.__class__.objects.get(id=existing.id).identifiers_list())
+
+    def test_file_gene_requires_json_file(self):
+        fasta_file = File.objects.create(user=self.user, file_type=File.FileType.FASTA)
+        gene = Gene.objects.create(identifiers='gatA')
+
+        file_gene = FileGene(file_upload=fasta_file, gene=gene, expert='expert')
+
+        with self.assertRaises(ValidationError):
+            file_gene.save()

@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
-from conversion.models import ConversionTask, Gene
+from conversion.models import ConversionTask, File, Gene
 
 User = get_user_model()
 
@@ -71,7 +71,8 @@ class TaskModelTests(TestCase):
                 task = ConversionTask(
                     external_job_id=job_id,
                     status=status,
-                    input_path="/tmp/input",
+                    input_file=File.objects.create(file="/tmp/input"),
+                    output_file=File.objects.create(file="/tmp/output"),
                     task_type="annotation",
                     user=self.user,
                 )

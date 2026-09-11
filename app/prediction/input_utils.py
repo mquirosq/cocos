@@ -2,20 +2,20 @@ import pickle
 from pathlib import Path
 
 # --- For input parsing from db ---
-def presence_from_list(model_features, file_upload):
+def presence_from_list(model_features, file):
     """
-    Create presence/absence vector for `model_features` based on a single `file_upload`.
+    Create presence/absence vector for `model_features` based on a single `file`.
 
     Args:
         model_features: iterable of feature names expected by the model (e.g. gene identifiers)
-        file_upload: a single `FileUpload` instance with a `genes` related manager
+        file: a single `File` instance with a `genes` related manager
     Returns:
         A list of 0/1 values indicating absence/presence of each feature in `model_features`.
     """
 
-    # If file_upload is None or doesn't have genes, return all zeros
+    # If file is None or doesn't have genes, return all zeros
     present_features = set()
-    genes = getattr(file_upload, 'genes', None)
+    genes = getattr(file, 'genes', None)
     if genes is None:
         return [0] * len(list(model_features))
 

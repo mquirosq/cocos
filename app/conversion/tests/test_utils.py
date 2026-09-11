@@ -6,7 +6,7 @@ from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
-from conversion.models import FileUpload
+from conversion.models import File
 from conversion.utils import (
     delete_file_safely,
     get_upload_dir,
@@ -85,7 +85,7 @@ class UtilsTests(TestCase):
     def test_read_persisted_assembly_fasta_bytes(self):
         with override_settings(MEDIA_ROOT=self.tmp_dir):
             user = User.objects.create_user(username="util_user_fasta", password="pass1234")
-            upload = FileUpload.objects.create(user=user)
+            upload = File.objects.create(user=user)
             upload.file.save(
                 f"{get_result_filename_stem('assembly', 'job-1')}.fasta",
                 ContentFile(b">seq\nATGC\n"),
@@ -101,7 +101,7 @@ class UtilsTests(TestCase):
     def test_read_persisted_annotation_json_bytes(self):
         with override_settings(MEDIA_ROOT=self.tmp_dir):
             user = User.objects.create_user(username="util_user_json", password="pass1234")
-            upload = FileUpload.objects.create(user=user)
+            upload = File.objects.create(user=user)
             upload.file.save(
                 f"{get_result_filename_stem('annotation', 'ann-1')}.json",
                 ContentFile(b'{"status":"ok"}'),

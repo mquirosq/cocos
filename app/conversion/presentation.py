@@ -3,7 +3,7 @@ from .utils import source_filename
 
 def format_source_job_label(task):
     """Format a user-friendly label with process name and relative time."""
-    label = task.process_name or source_filename(task.input_path)
+    label = task.process_name or source_filename(task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else None) or "Unnamed Process"
     timestamp = task.updated_at or task.created_at
     if timestamp:
         label = f"{label} · {naturaltime(timestamp)}"

@@ -10,15 +10,15 @@ from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
-from conversion.models import FileUpload, ConversionTask
+from conversion.models import File, ConversionTask
 from .registry import list_registered_models, get_model_supported_antibiotics, list_all_antibiotics
 from .tasks import predict
 
 def _get_user_json_uploads(user):
-    return FileUpload.objects.filter(
+    return File.objects.filter(
         user=user,
-        file__iendswith='.json',
-    ).order_by('-uploaded_at')
+        file_type=File.FileType.JSON,
+    ).order_by('-created_at')
 
 @login_required
 def prediction_view(request):
@@ -28,16 +28,16 @@ def prediction_view(request):
     for upload in json_uploads:
         basename = os.path.basename(upload.file.name)
         task = ConversionTask.objects.filter(user=request.user).filter(
-            models.Q(output_path__contains=upload.file.name) |
-            models.Q(output_path__contains=basename) |
-            models.Q(input_path__contains=upload.file.name) |
-            models.Q(input_path__contains=basename)
+            models.Q(output_file__file__contains=upload.file.name) |
+            models.Q(output_file__file__contains=basename) |
+            models.Q(input_file__file__contains=upload.file.name) |
+            models.Q(input_file__file__contains=basename)
         ).first()
         
         label = task.process_name if task and task.process_name else basename
         input_file_options.append({
             'id': str(upload.pk),
-            'label': f"{label} · {naturaltime(upload.uploaded_at)}",
+            'label': f"{label} · {naturaltime(upload.created_at)}",
         })
 
     available_models = list_registered_models()
@@ -67,12 +67,12 @@ def prediction_matrix_view(request):
     file_upload = None
     if file_id:
         try:
-            file_upload = FileUpload.objects.get(
+            file_upload = File.objects.get(
                 pk=int(file_id),
                 user=request.user,
-                file__iendswith='.json',
+                file_type=File.FileType.JSON,
             )
-        except (ValueError, FileUpload.DoesNotExist):
+        except (ValueError, File.DoesNotExist):
             messages.error(request, 'Selected file not found.')
             return JsonResponse({'error': 'Selected file not found.'}, status=400)
 

@@ -4,11 +4,11 @@ import os
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse, request
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .models import ConversionTask
+from .models import ConversionTask, File
 from .parsers import parse_file
 from .services import (
     build_process_rows,
@@ -68,12 +68,12 @@ def _start_annotation_from_source_job(request, source_job_id):
     task = ConversionTask.objects.create(
         external_job_id=None,
         status='pending',
-        input_path=previous_task.input_path,
         task_type='annotation',
         user=request.user,
         previous_task=previous_task,
         process_name=previous_task.process_name or format_source_job_label(previous_task),
     )
+    task.input_file.set(previous_task.input_file.all())
 
     poll_annotation_from_assembly_start.delay(
         job_id=source_job_id,
@@ -93,26 +93,25 @@ def _start_annotation_from_uploaded_fasta(request, fasta):
         return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
 
     fasta_bytes = fasta.read()
-    dest_path = upload_file(
+    file = upload_file(
         fasta,
-        user_id=request.user.id,
-        file_kind='fasta',
-        persistent=True,
+        user=request.user,
+        file_kind=File.FileType.FASTA
     )
 
     task = ConversionTask.objects.create(
         external_job_id=None,
         status='pending',
-        input_path=dest_path,
         task_type='annotation',
         user=request.user,
         previous_task=None,
-        process_name=source_filename(dest_path),
+        process_name=os.path.basename(file.file.name)
     )
+
+    task.input_file.add(file)
 
     poll_annotation_start.delay(
         fasta_bytes=fasta_bytes,
-        dest_path=dest_path,
         task_id=task.id,   
         complete_version=request.POST.get('complete') == 'on',
     )
@@ -154,59 +153,69 @@ def assembly_task(request):
     Allow users to upload a FASTQ file via a simple web form to start an external assembly task.
     On submission, create a ConversionTask and trigger polling of its status.
     """
-    print("Received assembly task request")
-    assembly_type = request.POST.get('assembly_type') or request.POST.get('assembly_type')
-    annotate = request.POST.get('annotate') == 'on'  # Checkbox value
+
+    assembly_type = request.POST.get('assembly_type')
+    annotate = request.POST.get('annotate') == 'on'
 
     fastq = request.FILES.get('fastq_file')
     if not fastq:
         messages.error(request, 'No FASTQ file uploaded.')
         return redirect('conversion:assembly_ui')
 
-    fastq_2 = request.FILES.get('fastq_file_2')  # For Illumina
+    fastq_2 = request.FILES.get('fastq_file_2')
+
     if assembly_type != 'illumina' and fastq_2:
-        messages.error(request, 'Second FASTQ file is only valid for Illumina assembly.')
+        messages.error(
+            request,
+            'Second FASTQ file is only valid for Illumina assembly.'
+        )
         return redirect('conversion:assembly_ui')
 
-    dest_path = upload_file(
+    file_1 = upload_file(
         fastq,
-        user_id=request.user.id,
-        file_kind='fastq',
-        persistent=False,
+        user=request.user,
+        file_kind=File.FileType.FASTQ,
     )
-    dest_path_2 = None
+
+    file_2 = None
     if fastq_2:
-        dest_path_2 = upload_file(
+        file_2 = upload_file(
             fastq_2,
-            user_id=request.user.id,
-            file_kind='fastq',
-            persistent=False,
+            user=request.user,
+            file_kind=File.FileType.FASTQ,
         )
 
     task = ConversionTask.objects.create(
         external_job_id=None,
         status='pending',
-        input_path=dest_path + ("," + dest_path_2 if dest_path_2 else ""),
         task_type=f"assembly_{assembly_type}{'_annotated' if annotate else ''}",
         user=request.user,
         process_name=fastq.name,
     )
 
-    print(f"Starting assembly task with type {assembly_type} for file {fastq.name}")
+    task.input_file.add(file_1)
+
+    if file_2:
+        task.input_file.add(file_2)
+
     poll_assembly_start.delay(
         assembly_type=assembly_type,
-        dest_path=dest_path,
-        dest_path_2=dest_path_2,
+        file_id_1=file_1.id,
+        file_id_2=file_2.id if file_2 else None,
         annotate=annotate,
         task_id=task.id,
         complete_version=request.POST.get('complete') == 'on',
     )
 
-    message = f"Assembly task started for file {fastq.name}. You will be notified when it's complete."
+    message = (
+        f"Assembly task started for file {fastq.name}. "
+        "You will be notified when it's complete."
+    )
     messages.info(request, message)
 
     return redirect('conversion:assembly_ui')
-    
+
+
 @require_POST
 @login_required
 def annotation_from_assembly_task(request, job_id):
@@ -244,12 +253,12 @@ def annotation_from_assembly_task(request, job_id):
     task = ConversionTask.objects.create(
         external_job_id=None,
         status='pending',
-        input_path=previous_task.input_path,
         task_type='annotation',
         user=request.user,
         previous_task=previous_task,
         process_name=previous_task.process_name,
     )
+    task.input_file.set(previous_task.input_file.all())
 
     poll_annotation_from_assembly_start.delay(
         user_id=request.user.id,
@@ -265,39 +274,61 @@ def annotation_from_assembly_task(request, job_id):
 @login_required
 def parse_feature_file(request):
     """Handle Bakta JSON parsing from Annotation tab."""
+
     if request.method == 'POST':
         feature_file = request.FILES.get('feature_file')
+
         if not feature_file:
             messages.error(request, 'Select a JSON file.')
             return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='json'))
 
+        file = upload_file(
+            feature_file,
+            user=request.user,
+            file_kind=File.FileType.JSON,
+        )
+
         task = ConversionTask.objects.create(
             external_job_id=None,
             status='pending',
-            input_path=feature_file.name,
             task_type='from_json',
             user=request.user,
-            process_name=source_filename(feature_file.name),
+            process_name=os.path.basename(file.file.name),
         )
 
+        task.input_file.add(file)
+
         complete_version = request.POST.get('complete') == 'on'
+
+        # Read the file
         try:
-            data = json.load(feature_file)
-            feature_file.seek(0)
+            with file.file.open('rb') as stored_file:
+                data = json.load(stored_file)
+
         except Exception:
             task.status = 'failed'
             task.save(update_fields=['status', 'updated_at'])
+
             messages.error(request, 'Error decoding JSON file.')
-            return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='json'))
-        
-        try:
-            file_upload = parse_file(
-                "bakta_json",
-                data,
-                feature_file,
-                user=request.user,
-                options={"complete_version": complete_version}
+
+            return render(
+                request,
+                'conversion/annotation.html',
+                _annotation_context(request, active_tab='json')
             )
+
+        try:
+            with file.file.open('rb') as stored_file:
+                file_upload = parse_file(
+                    "bakta_json",
+                    data,
+                    stored_file,
+                    user=request.user,
+                    options={
+                        "complete_version": complete_version
+                    }
+                )
+
         except Exception as e:
             task.status = 'failed'
             task.save(update_fields=['status', 'updated_at'])
@@ -305,12 +336,20 @@ def parse_feature_file(request):
             return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='json'))
 
         task.status = 'completed'
-        task.input_path = file_upload.file.name
-        task.output_path = file_upload.file.name
-        task.save(update_fields=['status', 'input_path', 'output_path', 'updated_at'])
+        task.save(update_fields=['status', 'updated_at'])
 
         messages.success(request, 'File parsed successfully!')
-        return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='json', file_upload=file_upload))
+
+        return render(
+            request,
+            'conversion/annotation.html',
+            _annotation_context(
+                request,
+                active_tab='json',
+                file_upload=file_upload
+            )
+        )
+
     return redirect('conversion:annotation_ui')
 
 # Tasks
@@ -388,7 +427,7 @@ def task_status_view(request, task_id):
         'assembly_task': assembly_task,
         'latest_step': latest_step,
         'latest_step_label': latest_step_label,
-        'assembly_input_filename': source_filename(assembly_task.input_path) if assembly_task else None,
+        'assembly_input_filename': source_filename(assembly_task.input_file.first().file.name) if assembly_task else None,
         'fasta_download_task_id': fasta_download_task_id,
         'json_download_task_id': json_download_task_id,
         'can_annotate': can_annotate,
@@ -402,60 +441,62 @@ def task_status_view(request, task_id):
 
 @login_required
 def download_json_view(request, task_id):
-    """
-    Download the Bakta JSON result for a completed task as an attachment.
-    """
     task = get_object_or_404(_get_current_user_tasks(request), id=task_id)
+
     if task.status != 'completed':
         return redirect('conversion:task_status', task_id=task.id)
 
     upload = get_json_upload_for_task(task)
+
     if not upload:
         messages.error(request, 'JSON file is not available for download.')
         return redirect('conversion:task_status', task_id=task.id)
 
     try:
-        if hasattr(upload, 'file'):
-            upload.file.open('rb')
-            content = upload.file.read()
-            upload.file.close()
-            filename = os.path.basename(upload.file.name)
-        elif isinstance(upload, str) and os.path.exists(upload):
-            with open(upload, 'rb') as f:
-                content = f.read()
-            filename = os.path.basename(upload)
-        else:
-            raise ValueError('Invalid upload reference')
-    except Exception:
-        messages.error(request, 'Could not read the JSON file. Please try again later.')
-        return redirect('conversion:task_status', task_id=task.id)
+        file = upload.file.open('rb')
+        filename = os.path.basename(upload.file.name)
 
-    response = HttpResponse(content, content_type='application/json')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    return response
+        response = FileResponse(
+            file,
+            as_attachment=True,
+            filename=filename,
+            content_type='application/json',
+        )
+        return response
+
+    except Exception:
+        messages.error(request,'Could not read the JSON file. Please try again later.')
+        return redirect('conversion:task_status', task_id=task.id)
 
 @login_required
 def download_fasta_view(request, task_id):
     task = get_object_or_404(_get_current_user_tasks(request), id=task_id)
+
     if task.status != 'completed':
         return redirect('conversion:task_status', task_id=task.id)
 
-    fasta_path = get_fasta_upload_for_task(task)
-    if fasta_path:
-        try:
-            with open(fasta_path, 'rb') as fasta_file:
-                fasta_data = fasta_file.read()
-            filename = os.path.basename(fasta_path)
-            response = HttpResponse(fasta_data, content_type='application/octet-stream')
-            response['Content-Disposition'] = f'attachment; filename="{filename}"'
-            return response
-        except Exception:
-            messages.error(request, 'Could not read the FASTA file. Please try again later.')
-            return redirect('conversion:task_status', task_id=task.id)
-    else:
+    upload = get_fasta_upload_for_task(task)
+
+    if not upload:
         messages.error(request, 'FASTA file is not available for download.')
         return redirect('conversion:task_status', task_id=task.id)
 
+    try:
+        file = upload.file.open('rb')
+        filename = os.path.basename(upload.file.name)
+
+        response = FileResponse(
+            file,
+            as_attachment=True,
+            filename=filename,
+            content_type='application/octet-stream',
+        )
+        return response
+
+    except Exception:
+        messages.error(request, 'Could not read the FASTA file. Please try again later.')
+        return redirect('conversion:task_status', task_id=task.id)
+    
 @require_POST
 @login_required
 def rename_process_view(request, task_id):

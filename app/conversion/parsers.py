@@ -1,4 +1,4 @@
-from conversion.models import FileGene, Gene, FileUpload
+from conversion.models import FileGene, Gene, File
 from django.db import transaction
 
 # --- Registry for parsers ---
@@ -33,7 +33,7 @@ class BaseParser():
         """Parse data and persist results.
 
         `options` is a dict for parser-specific flags (e.g. {'complete_version': True}).
-        Must return `FileUpload`.
+        If the parser is successful, it should return a `File` object.
         """
         raise NotImplementedError
 
@@ -44,14 +44,13 @@ class BaktaJsonParser(BaseParser):
     
     def parse(self, data, file, user=None, options=None):
         """
-        Parse a Bakta JSON feature file and create FileUpload, Gene, and FileGene entries.
+        Parse a Bakta JSON feature file and create Gene, and FileGene entries.
 
         Reads `complete_version` from `options` (defaults to False).
         """
         complete_version = False if options is None else bool(options.get('complete_version', False))
         
         with transaction.atomic():
-            file_upload = FileUpload.objects.create(file=file, user=user)
             features = data.get('features', [])
             try:
                 for gene in features:
@@ -83,7 +82,7 @@ class BaktaJsonParser(BaseParser):
 
                     if gene_obj:
                         file_gene = FileGene.objects.create(
-                            file_upload=file_upload,
+                            file=file,
                             gene=gene_obj,
                             expert=expert_type
                         )
@@ -95,15 +94,15 @@ class BaktaJsonParser(BaseParser):
                             file_gene.aa = gene.get('aa')
                             file_gene.save(update_fields=['start', 'stop', 'nt', 'aa'])
 
-                        file_upload.genes.add(gene_obj)
+                        file.genes.add(gene_obj)
 
             except Exception as e:
                 try:
-                    file_upload.file.delete()
+                    file.file.delete()
                 except Exception:
                     pass
-                file_upload.delete()
+                file.delete()
                 transaction.set_rollback(True)
                 raise RuntimeError(f'Error parsing features: {str(e)}')
 
-            return file_upload
+            return file

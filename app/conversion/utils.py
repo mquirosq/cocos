@@ -3,7 +3,7 @@ from django.utils.text import get_valid_filename
 import uuid
 from django.conf import settings
 
-from .models import FileUpload
+from .models import File
 
 
 def get_upload_dir(user_id, file_kind, persistent=False):
@@ -34,34 +34,26 @@ def source_filename(path_value):
     return os.path.basename(first_path)
 
 
-def upload_file(file, upload_dir=None, user_id=None, file_kind=None, persistent=False):
+def upload_file(file, user, file_kind):
     if not file:
         raise ValueError("No file provided for upload.")
 
-    if upload_dir is None:
-        if user_id is None or not file_kind:
-            raise ValueError("user_id and file_kind are required when upload_dir is not provided.")
-        upload_dir = get_upload_dir(user_id=user_id, file_kind=file_kind, persistent=persistent)
-    elif not os.path.isabs(upload_dir):
-        upload_dir = os.path.join(settings.BASE_DIR, upload_dir)
-    
-    # Read the file content
-    file_bytes = file.read()
-    
-    # Uploads file, creating dir and avoiding collisions
-    os.makedirs(upload_dir, exist_ok=True)
+    file_obj = File(
+        user=user,
+        file_type=file_kind,
+    )
 
-    safe_name = get_valid_filename(file.name) # Makes filename safe
-    dest_path = os.path.join(upload_dir, safe_name)
-    if os.path.exists(dest_path):
-        base, ext = os.path.splitext(safe_name)
-        dest_path = os.path.join(upload_dir, f"{base}_{uuid.uuid4().hex}{ext}")
+    file_obj.file.save(
+        file.name,
+        file,
+        save=True,
+    )
 
-    # Upload the file
-    with open(dest_path, 'wb') as f:
-        f.write(file_bytes)
+    return file_obj
 
-    return dest_path
+
+def get_file_upload_path(instance, filename):
+    return f"uploads/{instance.user_id}/{instance.file_type}/{filename}"
 
 
 def delete_file_safely(path):
@@ -79,10 +71,10 @@ def get_result_filename_stem(result_prefix, job_id):
 
 def find_latest_persisted_upload(user_id, filename_stem):
     """Return latest persisted upload matching a filename stem, or None."""
-    return FileUpload.objects.filter(
+    return File.objects.filter(
         user_id=user_id,
         file__contains=filename_stem,
-    ).order_by("-uploaded_at").first()
+    ).order_by("-created_at").first()
 
 
 def resolve_persisted_result_filename(user_id, result_prefix, job_id):

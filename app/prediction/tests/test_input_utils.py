@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.test import TestCase
 
-from conversion.models import FileGene, FileUpload, Gene
+from conversion.models import FileGene, File, Gene
 from prediction import input_utils
 
 User = get_user_model()
@@ -11,9 +11,10 @@ User = get_user_model()
 class PresenceFromListTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="pred_user", password="pass1234")
-        self.file_upload = FileUpload.objects.create(
+        self.file_upload = File.objects.create(
             user=self.user,
             file=ContentFile(b"{}", name="sample.json"),
+            file_type='json'
         )
 
         gene_a = Gene.objects.create(identifiers=" UniRef:UniRef50_AAA , UniRef:UniRef50_BBB ")

@@ -79,8 +79,8 @@ class BaseBakta90Adapter(ModelInterface):
         model.eval()
         self.model = model
 
-    def predict(self, file_upload) -> float:
-        presence = presence_from_list(self._columns, file_upload)
+    def predict(self, file) -> float:
+        presence = presence_from_list(self._columns, file)
 
         tensor = torch.FloatTensor([list(presence)])
         with torch.no_grad():

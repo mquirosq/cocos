@@ -4,34 +4,7 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.conf import settings
 
-
-def _infer_file_type(filename):
-    ext = os.path.splitext((filename or '').lower())[1]
-    if ext in {'.fa', '.fasta', '.fna', '.ffn', '.faa', '.frn'}:
-        return 'fasta'
-    if ext in {'.json'}:
-        return 'json'
-    return 'other'
-
-
-def file_upload_path(instance, filename):
-    user_id = instance.user_id or 'unknown'
-    file_type = _infer_file_type(filename)
-    safe_name = os.path.basename(filename)
-    return f"uploads/persistent/user_{user_id}/{file_type}/{safe_name}"
-
-class FileUpload(models.Model):
-    """File that has been uploaded"""
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-    file = models.FileField(upload_to=file_upload_path)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='uploaded_files')
-    genes = models.ManyToManyField('Gene', related_name='files', blank=True, through='FileGene')
-
-    def __str__(self):
-        return f"File uploaded at {self.uploaded_at}"
-    class Meta:
-        db_table = 'model_fileupload'
-
+# GENE AND RELATED MODELS
 class GeneQuerySet(models.QuerySet):
     """Custom QuerySet for Gene model"""
     def search_identifiers(self, identifiers):
@@ -75,8 +48,8 @@ class Gene(models.Model):
     
     
 class FileGene(models.Model):
-    """Through model linking FileUpload and Gene with expert info"""
-    file_upload = models.ForeignKey(FileUpload, on_delete=models.CASCADE)
+    """Through model linking File and Gene with expert info"""
+    file = models.ForeignKey('File', on_delete=models.CASCADE)
     gene = models.ForeignKey(Gene, on_delete=models.CASCADE)
     expert = models.CharField(max_length=255)
     start = models.IntegerField(null=True, blank=True)
@@ -84,10 +57,47 @@ class FileGene(models.Model):
     nt = models.TextField(null=True, blank=True)
     aa = models.TextField(null=True, blank=True)
 
+    def clean(self):
+        if self.file and self.file.file_type != File.FileType.JSON:
+            raise ValidationError({'file': 'Genes can only be linked to JSON files.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.file_upload} - {self.gene} ({self.expert})"
+        return f"{self.file} - {self.gene} ({self.expert})"
     class Meta:
         db_table = 'model_filegene'
+
+
+# FILE AND CONVERSION TASK MODELS
+
+def get_file_upload_path(instance, filename):
+    user_id = instance.user_id or 'unknown'
+    file_type = instance.file_type or 'unknown'
+    safe_name = os.path.basename(filename)
+    return f"uploads/persistent/user_{user_id}/{file_type}/{safe_name}"
+
+class File(models.Model):
+    """File in the system"""
+    class FileType(models.TextChoices):
+        FASTQ = 'fastq', 'FASTQ'
+        FASTA = 'fasta', 'FASTA'
+        JSON = 'json', 'JSON'
+        CSV = 'csv', 'CSV'
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    file = models.FileField(upload_to=get_file_upload_path)
+    file_type = models.CharField(max_length=50, choices=FileType.choices)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='files')
+    genes = models.ManyToManyField('Gene', related_name='files', blank=True, through='FileGene')
+
+    def __str__(self):
+        return f"File created at {self.created_at} by {self.user.username} ({self.file.name})"
+    class Meta:
+        db_table = 'model_file'
+
 
 class ConversionTask(models.Model):
     STATUS_CHOICES = [
@@ -113,8 +123,8 @@ class ConversionTask(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     process_name = models.CharField(max_length=255, blank=True, default='')
-    input_path = models.CharField(max_length=255)
-    output_path = models.CharField(max_length=255, blank=True, default='')
+    input_file = models.ManyToManyField(File, related_name='input_conversion_tasks', blank=True)
+    output_file = models.ForeignKey(File, on_delete=models.SET_NULL, null=True, blank=True, related_name='output_conversion_tasks')
     task_type = models.CharField(max_length=50, choices=TYPE_CHOICES)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='conversion_tasks')
     previous_task = models.ForeignKey(

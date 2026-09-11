@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.test import TestCase
 
-from conversion.models import ConversionTask, FileUpload
+from conversion.models import ConversionTask, File
 from conversion.tasks import (
     _cleanup_temp_fastq_inputs,
     _ensure_in_app_notification,
@@ -214,8 +214,8 @@ class PersistAssemblyFastaOutputTests(TestCase):
         task = make_task(self.user, task_type="assembly_ont", status="completed", input_path="/tmp/in.fastq")
         _persist_assembly_fasta_output(task)
         task.refresh_from_db()
-        self.assertTrue(FileUpload.objects.filter(user=self.user).exists())
-        self.assertIsNotNone(task.output_path)
+        self.assertTrue(File.objects.filter(user=self.user).exists())
+        self.assertIsNotNone(task.output_file)
 
     @patch("conversion.tasks.download_assembly_fasta_result")
     def test_no_op_cases(self, mock_download):
@@ -543,7 +543,7 @@ class PollAnnotationFromAssemblyStartTests(TestCase):
         )
 
     def _upload_fasta(self, task, content=FASTA):
-        u = FileUpload.objects.create(user=self.user)
+        u = File.objects.create(user=self.user)
         u.file.save(f"assembly_{task.external_job_id}.fasta", ContentFile(content), save=True)
 
     @patch("conversion.tasks.poll_annotation_start.delay")

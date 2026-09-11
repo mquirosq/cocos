@@ -1,10 +1,10 @@
 from django.contrib import admin
 
-from conversion.models import FileUpload, Gene, FileGene, ConversionTask
+from conversion.models import File, Gene, FileGene, ConversionTask
 
-@admin.register(FileUpload)
-class FileUploadAdmin(admin.ModelAdmin):
-    list_display = ('id', 'uploaded_at', 'file')
+@admin.register(File)
+class FileAdmin(admin.ModelAdmin):
+    list_display = ('id', 'created_at', 'file', 'file_type', 'user')
     search_fields = ('file',)
 
 @admin.register(Gene)
@@ -14,8 +14,8 @@ class GeneAdmin(admin.ModelAdmin):
 
 @admin.register(FileGene)
 class FileGeneAdmin(admin.ModelAdmin):
-    list_display = ('id', 'file_upload', 'gene', 'expert')
-    search_fields = ('expert', 'gene__identifiers', 'file_upload__file')
+    list_display = ('id', 'file', 'gene', 'expert')
+    search_fields = ('expert', 'gene__identifiers', 'file__file')
 
 @admin.register(ConversionTask)
 class ConversionTaskAdmin(admin.ModelAdmin):

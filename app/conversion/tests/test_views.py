@@ -8,7 +8,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
-from conversion.models import ConversionTask, FileUpload
+from conversion.models import ConversionTask, File
 
 User = get_user_model()
 
@@ -43,7 +43,7 @@ class ConversionViewsTests(TestCase):
 
     @patch('conversion.views.parse_file')
     def test_parse_feature_file_creates_from_json_task(self, mock_parse_file):
-        mock_parse_file.return_value = FileUpload.objects.create(
+        mock_parse_file.return_value = File.objects.create(
             user=self.user,
             file=SimpleUploadedFile('parsed.json', b'{"genome": "x"}', content_type='application/json'),
         )
@@ -62,7 +62,7 @@ class ConversionViewsTests(TestCase):
         self.assertEqual(task.process_name, 'example.json')
 
     def test_download_json_uses_original_json_for_from_json_task(self):
-        upload = FileUpload.objects.create(
+        upload = File.objects.create(
             user=self.user,
             file=SimpleUploadedFile('original.json', b'{"hello": "world"}', content_type='application/json'),
         )
