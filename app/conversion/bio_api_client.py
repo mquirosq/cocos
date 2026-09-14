@@ -12,33 +12,6 @@ def get_job_status(job_id):
     status = response.json()["status"]
     return status, response.status_code
 
-def perform_bakta_annotation_from_job(job_id):
-    response = requests.post(f"{BASE}/annotation/bakta/existing/{job_id}?threads=4")
-    response.raise_for_status()
-    return response.json()
-
-def download_bakta_json_result(job_id):
-    response = requests.get(f"{BASE}/annotation/{job_id}/download?format=json")
-    response.raise_for_status()
-    return response.json()
-
-def download_assembly_fasta_result(job_id):
-    response = requests.get(f"{BASE}/assembly/{job_id}/download")
-    response.raise_for_status()
-    return response.content
-
-def annotate_from_fasta(fasta_content):
-    resp = requests.post(
-        f"{BASE}/annotation/bakta/upload?threads=4",
-        files={"assembly": ("sequences.fasta", fasta_content, "application/octet-stream")},
-        timeout=30,
-    )
-    if resp.status_code == 503:
-        print("Received 503 Server Busy response")
-        return resp.json()
-    resp.raise_for_status()
-    return resp.json()
-
 def sequence_illumina(fastq_content, fastq_2_content, annotate=False):
     resp = requests.post(
         f"{BASE}/assembly/illumina?annotate=" + str(annotate).lower(),
@@ -72,3 +45,30 @@ def sequence_ont(fastq_content, annotate=False):
         return resp.json()
     resp.raise_for_status()
     return resp.json()
+
+def perform_bakta_annotation_from_job(job_id):
+    response = requests.post(f"{BASE}/annotation/bakta/existing/{job_id}?threads=4")
+    response.raise_for_status()
+    return response.json()
+
+def annotate_from_fasta(fasta_content):
+    resp = requests.post(
+        f"{BASE}/annotation/bakta/upload?threads=4",
+        files={"assembly": ("sequences.fasta", fasta_content, "application/octet-stream")},
+        timeout=30,
+    )
+    if resp.status_code == 503:
+        print("Received 503 Server Busy response")
+        return resp.json()
+    resp.raise_for_status()
+    return resp.json()
+
+def download_bakta_json_result(job_id):
+    response = requests.get(f"{BASE}/annotation/{job_id}/download?format=json")
+    response.raise_for_status()
+    return response.json()
+
+def download_assembly_fasta_result(job_id):
+    response = requests.get(f"{BASE}/assembly/{job_id}/download")
+    response.raise_for_status()
+    return response.content
