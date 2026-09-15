@@ -63,7 +63,7 @@ def _persist_assembly_fasta_output(task):
 
 def _persist_annotation_json_output(task, complete_version=False):
     """Download Bakta JSON and parse it into DB entities for annotation tasks."""
-    if not task or not task.external_job_id or task.task_type != "annotation":
+    if not task or not task.external_job_id or task.task_type != ConversionTask.TaskType.ANNOTATION:
         return
 
     filename_stem = get_result_filename_stem("annotation", task.external_job_id)
@@ -175,7 +175,7 @@ def poll_conversion_status(self, task_id, complete_version=False):
                         task,
                         "Assembly & annotation succeeded, but automatic result upload failed. Try uploading the Bakta JSON manually from your downloads.",
                     )
-        elif task.task_type == "annotation":
+        elif task.task_type == ConversionTask.TaskType.ANNOTATION:
             try:
                 _persist_annotation_json_output(task, complete_version=complete_version)
             except Exception as e:

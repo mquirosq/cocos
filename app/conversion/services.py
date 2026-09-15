@@ -11,16 +11,16 @@ from .utils import (
 )
 
 ASSEMBLY_TYPES = {
-    'assembly_illumina',
-    'assembly_ont',
-    'assembly_illumina_annotated',
-    'assembly_ont_annotated',
+    ConversionTask.TaskType.ASSEMBLY_ILLUMINA,
+    ConversionTask.TaskType.ASSEMBLY_ONT,
+    ConversionTask.TaskType.ASSEMBLY_ILLUMINA_ANNOTATED,
+    ConversionTask.TaskType.ASSEMBLY_ONT_ANNOTATED,
 }
 
 FASTA_EXTENSIONS = {'.fa', '.fasta', '.fna', '.ffn', '.faa', '.frn'}
 
 def resolve_uploaded_fasta_input_path(task):
-    if not task or task.task_type != 'annotation' or task.previous_task_id:
+    if not task or task.task_type != ConversionTask.TaskType.ANNOTATION or task.previous_task_id:
         return None
 
     source = get_primary_input_path(task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else None)
@@ -53,7 +53,7 @@ def annotation_process_key(task):
 
 
 def is_auto_annotated_assembly(task):
-    return bool(task and task.task_type in {'assembly_ont_annotated', 'assembly_illumina_annotated'})
+        return bool(task and task.task_type in {ConversionTask.TaskType.ASSEMBLY_ONT_ANNOTATED, ConversionTask.TaskType.ASSEMBLY_ILLUMINA_ANNOTATED})
 
 
 def find_latest_completed_annotation(annotations):
@@ -110,13 +110,10 @@ def get_json_upload_for_task(task):
 
 def get_fasta_upload_for_task(task):
     """Return the absolute path to the FASTA file for a task, or None if not found."""
-
-    task_type = getattr(task, 'task_type', None)
-
-    if task_type == 'annotation':
+    if task.task_type == ConversionTask.TaskType.ANNOTATION:
         return task.input_file.first()
 
-    if task_type in ASSEMBLY_TYPES:
+    if task.task_type in ASSEMBLY_TYPES:
         return task.output_file
 
     return None
@@ -134,11 +131,11 @@ def build_process_rows(user):
 
     for task in tasks:
         task.process_name = derive_process_name(task)
-        if task.task_type == 'annotation' and task.previous_task_id in assembly_by_id:
+        if task.task_type == ConversionTask.TaskType.ANNOTATION and task.previous_task_id in assembly_by_id:
             annotations_by_parent.setdefault(task.previous_task_id, []).append(task)
-        elif task.task_type == 'annotation' and task.previous_task_id is None:
+        elif task.task_type == ConversionTask.TaskType.ANNOTATION and task.previous_task_id is None:
             standalone_annotations.setdefault(annotation_process_key(task), []).append(task)
-        elif task.task_type == 'from_json':
+        elif task.task_type == ConversionTask.TaskType.FROM_JSON:
             json_tasks.setdefault(annotation_process_key(task), []).append(task)
 
     rows = []
@@ -250,7 +247,7 @@ def build_task_context(user, task):
     if task.task_type in ASSEMBLY_TYPES:
         assembly_task = task
         annotations = list(
-            ConversionTask.objects.filter(user=user, previous_task=assembly_task, task_type='annotation').order_by('-updated_at', '-id')
+            ConversionTask.objects.filter(user=user, previous_task=assembly_task, task_type=ConversionTask.TaskType.ANNOTATION).order_by('-updated_at', '-id')
         )
         latest_annotation = annotations[0] if annotations else None
         return {
@@ -266,10 +263,10 @@ def build_task_context(user, task):
             'pipeline_type': pipeline_label(assembly_task.task_type),
         }
 
-    if task.task_type == 'annotation' and task.previous_task_id:
+    if task.task_type == ConversionTask.TaskType.ANNOTATION and task.previous_task_id:
         assembly_task = task.previous_task
         annotations = list(
-            ConversionTask.objects.filter(user=user, previous_task=assembly_task, task_type='annotation').order_by('-updated_at', '-id')
+            ConversionTask.objects.filter(user=user, previous_task=assembly_task, task_type=ConversionTask.TaskType.ANNOTATION).order_by('-updated_at', '-id')
         )
         latest_annotation = annotations[0] if annotations else None
         return {
@@ -285,11 +282,11 @@ def build_task_context(user, task):
             'pipeline_type': pipeline_label(assembly_task.task_type),
         }
 
-    if task.task_type == 'annotation':
+    if task.task_type == ConversionTask.TaskType.ANNOTATION:
         annotations = list(
             ConversionTask.objects.filter(
                 user=user,
-                task_type='annotation',
+                task_type=ConversionTask.TaskType.ANNOTATION,
                 previous_task__isnull=True,
                 process_name=task.process_name,
                 input_file=task.input_file.first(),
@@ -312,7 +309,7 @@ def build_task_context(user, task):
     json_attempts = list(
         ConversionTask.objects.filter(
             user=user,
-            task_type='from_json',
+            task_type=ConversionTask.TaskType.FROM_JSON,
             process_name=task.process_name,
             input_file=task.input_file.first(),
         ).order_by('-updated_at', '-id')
@@ -335,12 +332,12 @@ def build_task_context(user, task):
 def rename_process_group(user, task, new_name):
     if task.task_type in ASSEMBLY_TYPES:
         ConversionTask.objects.filter(user=user, id=task.id).update(process_name=new_name)
-        ConversionTask.objects.filter(user=user, previous_task=task, task_type='annotation').update(process_name=new_name)
+        ConversionTask.objects.filter(user=user, previous_task=task, task_type=ConversionTask.TaskType.ANNOTATION).update(process_name=new_name)
         return
 
-    if task.task_type == 'annotation' and task.previous_task_id:
+    if task.task_type == ConversionTask.TaskType.ANNOTATION and task.previous_task_id:
         ConversionTask.objects.filter(user=user, id=task.previous_task_id).update(process_name=new_name)
-        ConversionTask.objects.filter(user=user, previous_task_id=task.previous_task_id, task_type='annotation').update(process_name=new_name)
+        ConversionTask.objects.filter(user=user, previous_task_id=task.previous_task_id, task_type=ConversionTask.TaskType.ANNOTATION).update(process_name=new_name)
         return
 
     ConversionTask.objects.filter(
@@ -357,13 +354,13 @@ def get_available_fasta_jobs(user):
     completed_assembly_tasks = ConversionTask.objects.filter(
         user=user,
         status=ConversionTask.TaskStatus.COMPLETED,
-        task_type__in=('assembly_illumina', 'assembly_ont'),
+        task_type__in=(ConversionTask.TaskType.ASSEMBLY_ILLUMINA, ConversionTask.TaskType.ASSEMBLY_ONT),
         external_job_id__isnull=False,
     ).exclude(external_job_id='').order_by('-updated_at', '-id')
 
     already_annotated_ids = ConversionTask.objects.filter(
         user=user,
-        task_type='annotation',
+        task_type=ConversionTask.TaskType.ANNOTATION,
         status__in=(ConversionTask.TaskStatus.PENDING, ConversionTask.TaskStatus.RUNNING, ConversionTask.TaskStatus.COMPLETED),
         previous_task__isnull=False,
     ).values_list('previous_task_id', flat=True)
@@ -386,7 +383,7 @@ def get_available_fasta_jobs(user):
 def has_annotation_for_previous(user, previous_task):
     return ConversionTask.objects.filter(
         user=user,
-        task_type='annotation',
+        task_type=ConversionTask.TaskType.ANNOTATION,
         status__in=(ConversionTask.TaskStatus.PENDING, ConversionTask.TaskStatus.RUNNING, ConversionTask.TaskStatus.COMPLETED),
         previous_task=previous_task,
     ).exists()

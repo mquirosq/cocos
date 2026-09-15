@@ -106,15 +106,14 @@ class ConversionTask(models.Model):
         COMPLETED = 'completed', 'Completed'
         FAILED = 'failed', 'Failed'
 
-    TYPE_CHOICES = [
-        ('annotation', 'Annotation'),
-        ('from_json', 'From JSON'),
-        ('assembly_ont', 'ONT Assembly'),
-        ('assembly_illumina', 'Illumina Assembly'),
-        ('assembly_ont_annotated', 'ONT Assembly with Annotation'),
-        ('assembly_illumina_annotated', 'Illumina Assembly with Annotation'),
-        ('prediction', 'Prediction'),
-    ]
+    class TaskType(models.TextChoices):
+        ANNOTATION = 'annotation', 'Annotation'
+        FROM_JSON = 'from_json', 'From JSON'
+        ASSEMBLY_ONT = 'assembly_ont', 'ONT Assembly'
+        ASSEMBLY_ILLUMINA = 'assembly_illumina', 'Illumina Assembly'
+        ASSEMBLY_ONT_ANNOTATED = 'assembly_ont_annotated', 'ONT Assembly with Annotation'
+        ASSEMBLY_ILLUMINA_ANNOTATED = 'assembly_illumina_annotated', 'Illumina Assembly with Annotation'
+        PREDICTION = 'prediction', 'Prediction'
     
     # Allow blank so we can create a pending task before an external job id exists.
     external_job_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
@@ -124,7 +123,7 @@ class ConversionTask(models.Model):
     process_name = models.CharField(max_length=255, blank=True, default='')
     input_file = models.ManyToManyField(File, related_name='input_conversion_tasks', blank=True)
     output_file = models.ForeignKey(File, on_delete=models.SET_NULL, null=True, blank=True, related_name='output_conversion_tasks')
-    task_type = models.CharField(max_length=50, choices=TYPE_CHOICES)
+    task_type = models.CharField(max_length=50, choices=TaskType.choices)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='conversion_tasks')
     previous_task = models.ForeignKey(
         'self',
@@ -137,13 +136,13 @@ class ConversionTask(models.Model):
     # Model-level validation
     def clean(self):
         # Check that external_job_id is not null when status is not 'pending'
-        if not self.external_job_id and self.status != self.TaskStatus.PENDING and self.status != self.TaskStatus.FAILED and self.task_type != 'from_json':
+        if not self.external_job_id and self.status != self.TaskStatus.PENDING and self.status != self.TaskStatus.FAILED and self.task_type != self.TaskType.FROM_JSON:
             raise ValidationError({'external_job_id': 'external_job_id can be null only when status is "pending" or "failed".'})
 
-        if self.previous_task and self.task_type != 'annotation':
+        if self.previous_task and self.task_type != self.TaskType.ANNOTATION:
             raise ValidationError({'previous_task': 'Only annotation tasks can have a previous_task.'})
 
-        if self.previous_task and self.previous_task.task_type not in {'assembly_illumina', 'assembly_ont'}:
+        if self.previous_task and self.previous_task.task_type not in {self.TaskType.ASSEMBLY_ILLUMINA, self.TaskType.ASSEMBLY_ONT}:
             raise ValidationError({'previous_task': 'previous_task must be assembly_illumina or assembly_ont.'})
 
         if self.previous_task and self.user_id and self.previous_task.user_id != self.user_id:

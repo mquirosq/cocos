@@ -68,7 +68,7 @@ def _start_annotation_from_source_job(request, source_job_id):
     task = ConversionTask.objects.create(
         external_job_id=None,
         status=ConversionTask.TaskStatus.PENDING,
-        task_type='annotation',
+        task_type=ConversionTask.TaskType.ANNOTATION,
         user=request.user,
         previous_task=previous_task,
         process_name=previous_task.process_name or format_source_job_label(previous_task),
@@ -102,7 +102,7 @@ def _start_annotation_from_uploaded_fasta(request, fasta):
     task = ConversionTask.objects.create(
         external_job_id=None,
         status=ConversionTask.TaskStatus.PENDING,
-        task_type='annotation',
+        task_type=ConversionTask.TaskType.ANNOTATION,
         user=request.user,
         previous_task=None,
         process_name=os.path.basename(file.file.name)
@@ -232,7 +232,7 @@ def annotation_from_assembly_task(request, job_id):
     previous_task = _get_current_user_tasks(request).filter(
         external_job_id=job_id,
         status=ConversionTask.TaskStatus.COMPLETED,
-        task_type__in=('assembly_illumina', 'assembly_ont'),
+        task_type__in=(ConversionTask.TaskType.ASSEMBLY_ILLUMINA, ConversionTask.TaskType.ASSEMBLY_ONT),
     ).first()
     if not previous_task:
         messages.error(request, 'Assembly job not found or not available for annotation.')
@@ -253,7 +253,7 @@ def annotation_from_assembly_task(request, job_id):
     task = ConversionTask.objects.create(
         external_job_id=None,
         status=ConversionTask.TaskStatus.PENDING,
-        task_type='annotation',
+        task_type=ConversionTask.TaskType.ANNOTATION,
         user=request.user,
         previous_task=previous_task,
         process_name=previous_task.process_name,
@@ -291,7 +291,7 @@ def parse_feature_file(request):
         task = ConversionTask.objects.create(
             external_job_id=None,
             status=ConversionTask.TaskStatus.PENDING,
-            task_type='from_json',
+            task_type=ConversionTask.TaskType.FROM_JSON,
             user=request.user,
             process_name=os.path.basename(file.file.name),
         )

@@ -10,6 +10,16 @@ STATUS_BADGE_CLASSES = {
     ConversionTask.TaskStatus.FAILED: 'badge-soft badge-error',
 }
 
+PIPELINE_LABELS = {
+    ConversionTask.TaskType.ASSEMBLY_ONT_ANNOTATED: 'Assembly + Annotation · ONT',
+    ConversionTask.TaskType.ASSEMBLY_ILLUMINA_ANNOTATED: 'Assembly + Annotation · Illumina',
+    ConversionTask.TaskType.ASSEMBLY_ONT: 'Assembly · ONT',
+    ConversionTask.TaskType.ASSEMBLY_ILLUMINA: 'Assembly · Illumina',
+    ConversionTask.TaskType.ANNOTATION: 'Annotation',
+    ConversionTask.TaskType.FROM_JSON: 'From JSON',
+    ConversionTask.TaskType.PREDICTION: 'Prediction',
+}
+
 def format_source_job_label(task):
     """Format a user-friendly label with process name and relative time."""
     label = task.process_name or source_filename(task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else None) or "Unnamed Process"
@@ -24,13 +34,4 @@ def status_badge_class(status):
 
 
 def pipeline_label(task_type):
-    label_map = {
-        'assembly_ont_annotated': 'Assembly + Annotation · ONT',
-        'assembly_illumina_annotated': 'Assembly + Annotation · Illumina',
-        'assembly_ont': 'Assembly · ONT',
-        'assembly_illumina': 'Assembly · Illumina',
-        'annotation': 'Annotation',
-        'from_json': 'From JSON',
-        'prediction': 'Prediction',
-    }
-    return label_map.get(task_type, 'Process')
+    return PIPELINE_LABELS.get(task_type, 'Process')
