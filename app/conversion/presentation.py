@@ -1,5 +1,14 @@
 from django.contrib.humanize.templatetags.humanize import naturaltime
+
+from .models import ConversionTask
 from .utils import source_filename
+
+STATUS_BADGE_CLASSES = {
+    ConversionTask.TaskStatus.PENDING: 'badge-soft badge-warning',
+    ConversionTask.TaskStatus.RUNNING: 'badge-soft badge-info',
+    ConversionTask.TaskStatus.COMPLETED: 'badge-soft badge-success',
+    ConversionTask.TaskStatus.FAILED: 'badge-soft badge-error',
+}
 
 def format_source_job_label(task):
     """Format a user-friendly label with process name and relative time."""
@@ -11,13 +20,7 @@ def format_source_job_label(task):
 
 
 def status_badge_class(status):
-    normalized = (status or '').strip().lower().replace('_', ' ')
-    return {
-        'pending': 'badge-soft badge-warning',
-        'running': 'badge-soft badge-info',
-        'completed': 'badge-soft badge-success',
-        'failed': 'badge-soft badge-error',
-    }.get(normalized, 'badge-soft badge-neutral')
+    return STATUS_BADGE_CLASSES.get(status, 'badge-soft badge-neutral')
 
 
 def pipeline_label(task_type):

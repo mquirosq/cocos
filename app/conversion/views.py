@@ -61,13 +61,13 @@ def _start_annotation_from_source_job(request, source_job_id):
         messages.error(request, 'You do not have permission to annotate this FASTA output.')
         return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
     
-    if previous_task.status != 'completed':
+    if previous_task.status != ConversionTask.TaskStatus.COMPLETED:
         messages.error(request, 'Selected FASTA output is not ready for annotation.')
         return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
 
     task = ConversionTask.objects.create(
         external_job_id=None,
-        status='pending',
+        status=ConversionTask.TaskStatus.PENDING,
         task_type='annotation',
         user=request.user,
         previous_task=previous_task,
@@ -101,7 +101,7 @@ def _start_annotation_from_uploaded_fasta(request, fasta):
 
     task = ConversionTask.objects.create(
         external_job_id=None,
-        status='pending',
+        status=ConversionTask.TaskStatus.PENDING,
         task_type='annotation',
         user=request.user,
         previous_task=None,
@@ -187,7 +187,7 @@ def assembly_task(request):
 
     task = ConversionTask.objects.create(
         external_job_id=None,
-        status='pending',
+        status=ConversionTask.TaskStatus.PENDING,
         task_type=f"assembly_{assembly_type}{'_annotated' if annotate else ''}",
         user=request.user,
         process_name=fastq.name,
@@ -231,7 +231,7 @@ def annotation_from_assembly_task(request, job_id):
 
     previous_task = _get_current_user_tasks(request).filter(
         external_job_id=job_id,
-        status='completed',
+        status=ConversionTask.TaskStatus.COMPLETED,
         task_type__in=('assembly_illumina', 'assembly_ont'),
     ).first()
     if not previous_task:
@@ -246,13 +246,13 @@ def annotation_from_assembly_task(request, job_id):
         messages.error(request, 'You do not have permission to annotate this assembly result.')
         return redirect('conversion:annotation_ui')
     
-    if previous_task.status != 'completed':
+    if previous_task.status != ConversionTask.TaskStatus.COMPLETED:
         messages.error(request, 'Selected assembly job is not ready for annotation.')
         return redirect('conversion:annotation_ui')
 
     task = ConversionTask.objects.create(
         external_job_id=None,
-        status='pending',
+        status=ConversionTask.TaskStatus.PENDING,
         task_type='annotation',
         user=request.user,
         previous_task=previous_task,
@@ -290,7 +290,7 @@ def parse_feature_file(request):
 
         task = ConversionTask.objects.create(
             external_job_id=None,
-            status='pending',
+            status=ConversionTask.TaskStatus.PENDING,
             task_type='from_json',
             user=request.user,
             process_name=os.path.basename(file.file.name),
@@ -306,7 +306,7 @@ def parse_feature_file(request):
                 data = json.load(stored_file)
 
         except Exception:
-            task.status = 'failed'
+            task.status = ConversionTask.TaskStatus.FAILED
             task.save(update_fields=['status', 'updated_at'])
 
             messages.error(request, 'Error decoding JSON file.')
@@ -330,12 +330,12 @@ def parse_feature_file(request):
                 )
 
         except Exception as e:
-            task.status = 'failed'
+            task.status = ConversionTask.TaskStatus.FAILED
             task.save(update_fields=['status', 'updated_at'])
             messages.error(request, f'Error parsing features: {e}')
             return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='json'))
 
-        task.status = 'completed'
+        task.status = ConversionTask.TaskStatus.COMPLETED
         task.save(update_fields=['status', 'updated_at'])
 
         messages.success(request, 'File parsed successfully!')
@@ -384,9 +384,10 @@ def task_status_view(request, task_id):
         'Annotation' if latest_annotation else ('From JSON' if latest_json else None)
     )
 
-    has_completed_assembly = bool(assembly_task and assembly_task.status == 'completed')
+
+    has_completed_assembly = bool(assembly_task and assembly_task.status == ConversionTask.TaskStatus.COMPLETED)
     can_annotate = has_completed_assembly and not context['has_annotation_attempts'] and not auto_annotated
-    can_retry = has_completed_assembly and latest_annotation and latest_annotation.status == 'failed' and not auto_annotated
+    can_retry = has_completed_assembly and latest_annotation and latest_annotation.status == ConversionTask.TaskStatus.FAILED and not auto_annotated
 
     # FASTA download
     fasta_download_task_id = (
@@ -397,7 +398,7 @@ def task_status_view(request, task_id):
     # JSON download
     json_download_task_id = (
         latest_completed.id if latest_completed else
-        (latest_json.id if latest_json and latest_json.status == 'completed' and get_json_upload_for_task(latest_json) else None)
+        (latest_json.id if latest_json and latest_json.status == ConversionTask.TaskStatus.COMPLETED and get_json_upload_for_task(latest_json) else None)
         if not latest_completed else None
     )
     if not json_download_task_id and auto_annotated and has_completed_assembly:
@@ -443,7 +444,7 @@ def task_status_view(request, task_id):
 def download_json_view(request, task_id):
     task = get_object_or_404(_get_current_user_tasks(request), id=task_id)
 
-    if task.status != 'completed':
+    if task.status != ConversionTask.TaskStatus.COMPLETED:
         return redirect('conversion:task_status', task_id=task.id)
 
     upload = get_json_upload_for_task(task)
@@ -472,7 +473,7 @@ def download_json_view(request, task_id):
 def download_fasta_view(request, task_id):
     task = get_object_or_404(_get_current_user_tasks(request), id=task_id)
 
-    if task.status != 'completed':
+    if task.status != ConversionTask.TaskStatus.COMPLETED:
         return redirect('conversion:task_status', task_id=task.id)
 
     upload = get_fasta_upload_for_task(task)

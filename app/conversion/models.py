@@ -100,12 +100,11 @@ class File(models.Model):
 
 
 class ConversionTask(models.Model):
-    STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('running', 'Running'),
-        ('completed', 'Completed'),
-        ('failed', 'Failed'),
-    ]
+    class TaskStatus(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        RUNNING = 'running', 'Running'
+        COMPLETED = 'completed', 'Completed'
+        FAILED = 'failed', 'Failed'
 
     TYPE_CHOICES = [
         ('annotation', 'Annotation'),
@@ -119,7 +118,7 @@ class ConversionTask(models.Model):
     
     # Allow blank so we can create a pending task before an external job id exists.
     external_job_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
-    status = models.CharField(max_length=50, choices=STATUS_CHOICES)
+    status = models.CharField(max_length=50, choices=TaskStatus.choices, default=TaskStatus.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     process_name = models.CharField(max_length=255, blank=True, default='')
@@ -138,7 +137,7 @@ class ConversionTask(models.Model):
     # Model-level validation
     def clean(self):
         # Check that external_job_id is not null when status is not 'pending'
-        if not self.external_job_id and self.status != 'pending' and self.status != 'failed' and self.task_type != 'from_json':
+        if not self.external_job_id and self.status != self.TaskStatus.PENDING and self.status != self.TaskStatus.FAILED and self.task_type != 'from_json':
             raise ValidationError({'external_job_id': 'external_job_id can be null only when status is "pending" or "failed".'})
 
         if self.previous_task and self.task_type != 'annotation':

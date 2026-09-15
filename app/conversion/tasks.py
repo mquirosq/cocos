@@ -133,7 +133,7 @@ def poll_conversion_status(self, task_id, complete_version=False):
 
     if code == 404:
         logger.warning(f"External job not found: {task.external_job_id}")
-        task.status = "failed"
+        task.status = ConversionTask.TaskStatus.FAILED
         task.save()
         notify_user_conversion_failed(task.user, task)
         _ensure_in_app_notification(
@@ -161,7 +161,7 @@ def poll_conversion_status(self, task_id, complete_version=False):
                     self.retry(countdown=60)
                 except MaxRetriesExceededError:
                     logger.error(f"Max retries exceeded while persisting FASTA for task: {task.external_job_id}")
-                    task.status = "failed"
+                    task.status = ConversionTask.TaskStatus.FAILED
                     task.save()
                     notify_user_conversion_failed(task.user, task)
                 return
@@ -209,7 +209,7 @@ def poll_conversion_status(self, task_id, complete_version=False):
     
     except MaxRetriesExceededError: # When retries are exhausted
         logger.error(f"Max retries exceeded for task: {task.external_job_id}")
-        task.status = "failed"
+        task.status = ConversionTask.TaskStatus.FAILED
         task.save()
         notify_user_conversion_failed(task.user, task)
         _ensure_in_app_notification(
@@ -242,9 +242,9 @@ def poll_annotation_start(self, fasta_bytes, task_id, user_id=None, complete_ver
         logger.info(f"Annotation started with job ID: {external_resp.get('job_id')} for task {task_id}")
         if user_id is None:
             user_id = task.user_id
-        should_notify_started = task.status != "running"
+        should_notify_started = task.status != ConversionTask.TaskStatus.RUNNING
         task.external_job_id = external_resp["job_id"]
-        task.status = "running"
+        task.status = ConversionTask.TaskStatus.RUNNING
         task.save()
         if should_notify_started:
             notify_user_conversion_started(task.user, task)
@@ -293,7 +293,7 @@ def poll_assembly_start(self, assembly_type="", file_id_1=None, file_id_2=None, 
     except File.DoesNotExist:
         logger.error(f"Input FASTQ file {file_id_1} does not exist")
         if task:
-            task.status = "failed"
+            task.status = ConversionTask.TaskStatus.FAILED
             task.save(update_fields=["status"])
         notify_user_conversion_failed(
             effective_user,
@@ -310,7 +310,7 @@ def poll_assembly_start(self, assembly_type="", file_id_1=None, file_id_2=None, 
             f"Failed to read fastq file {file_1.file.name}: {str(e)}"
         )
         if task:
-            task.status = "failed"
+            task.status = ConversionTask.TaskStatus.FAILED
             task.save(update_fields=["status"])
         notify_user_conversion_failed(
             effective_user,
@@ -327,7 +327,7 @@ def poll_assembly_start(self, assembly_type="", file_id_1=None, file_id_2=None, 
                 f"but file_id_2 is missing for task {task_id}"
             )
             if task:
-                task.status = "failed"
+                task.status = ConversionTask.TaskStatus.FAILED
                 task.save(update_fields=["status"])
             notify_user_conversion_failed(
                 effective_user,
@@ -341,7 +341,7 @@ def poll_assembly_start(self, assembly_type="", file_id_1=None, file_id_2=None, 
         except File.DoesNotExist:
             logger.error(f"Second input FASTQ file {file_id_2} does not exist")
             if task:
-                task.status = "failed"
+                task.status = ConversionTask.TaskStatus.FAILED
                 task.save(update_fields=["status"])
             notify_user_conversion_failed(
                 effective_user,
@@ -359,7 +359,7 @@ def poll_assembly_start(self, assembly_type="", file_id_1=None, file_id_2=None, 
                 f"{file_2.file.name}: {str(e)}"
             )
             if task:
-                task.status = "failed"
+                task.status = ConversionTask.TaskStatus.FAILED
                 task.save(update_fields=["status"])
             notify_user_conversion_failed(
                 effective_user,
@@ -409,10 +409,10 @@ def poll_assembly_start(self, assembly_type="", file_id_1=None, file_id_2=None, 
             if user_id is None:
                 user_id = task.user_id
 
-            should_notify_started = task.status != "running"
+            should_notify_started = task.status != ConversionTask.TaskStatus.RUNNING
 
             task.external_job_id = external_resp["job_id"]
-            task.status = "running"
+            task.status = ConversionTask.TaskStatus.RUNNING
             task.save()
 
             if should_notify_started:
@@ -427,7 +427,7 @@ def poll_assembly_start(self, assembly_type="", file_id_1=None, file_id_2=None, 
         else:
             task = ConversionTask.objects.create(
                 external_job_id=external_resp["job_id"],
-                status="running",
+                status=ConversionTask.TaskStatus.RUNNING,
                 task_type=assembly_task_type,
                 user_id=user_id,
                 process_name=file_1.file.name,
@@ -486,13 +486,13 @@ def poll_annotation_from_assembly_start(self, job_id, user_id, new_task_id=None,
             message=message,
         )
         if pending_task:
-            pending_task.status = "failed"
+            pending_task.status = ConversionTask.TaskStatus.FAILED
             pending_task.save(update_fields=['status'])
 
     previous_job_qs = ConversionTask.objects.filter(
         external_job_id=job_id,
         task_type__startswith="assembly_",
-        status="completed"
+        status=ConversionTask.TaskStatus.COMPLETED,
     )
     previous_job_qs = previous_job_qs.filter(user_id=user_id)
 

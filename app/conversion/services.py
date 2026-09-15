@@ -58,7 +58,7 @@ def is_auto_annotated_assembly(task):
 
 def find_latest_completed_annotation(annotations):
     for annotation in annotations:
-        if annotation.status == 'completed':
+        if annotation.status == ConversionTask.TaskStatus.COMPLETED:
             return annotation
     return None
 
@@ -163,7 +163,7 @@ def build_process_rows(user):
             top_pipeline = pipeline_label(assembly_task.task_type)
             top_status = assembly_task.status
 
-        has_auto_json = bool(auto_annotated and assembly_task.status == 'completed' and assembly_task.external_job_id)
+        has_auto_json = bool(auto_annotated and assembly_task.status == ConversionTask.TaskStatus.COMPLETED and assembly_task.external_job_id)
 
         rows.append({
             'kind': 'assembly',
@@ -187,9 +187,9 @@ def build_process_rows(user):
             'annotation_progress_status': effective_annotation.status if effective_annotation else 'not_started',
             'has_more_attempts': len(annotations) > 1,
             'extra_attempts_count': max(len(annotations) - 1, 0),
-            'can_annotate': assembly_task.status == 'completed' and not annotations and not auto_annotated,
-            'can_retry_annotation': assembly_task.status == 'completed' and not latest_completed_annotation and bool(latest_annotation and latest_annotation.status == 'failed') and not auto_annotated,
-            'has_fasta': assembly_task.status == 'completed',
+            'can_annotate': assembly_task.status == ConversionTask.TaskStatus.COMPLETED and not annotations and not auto_annotated,
+            'can_retry_annotation': assembly_task.status == ConversionTask.TaskStatus.COMPLETED and not latest_completed_annotation and bool(latest_annotation and latest_annotation.status == ConversionTask.TaskStatus.FAILED) and not auto_annotated,
+            'has_fasta': assembly_task.status == ConversionTask.TaskStatus.COMPLETED,
             'has_json': bool(latest_completed_annotation) or has_auto_json,
             'annotation_status_badge': status_badge_class(effective_annotation.status) if effective_annotation else None,
             'is_auto_annotated': auto_annotated,
@@ -215,7 +215,7 @@ def build_process_rows(user):
             'can_annotate': False,
             'can_retry_annotation': False,
             'has_fasta': bool(latest_uploaded_fasta),
-            'has_json': bool(latest.status == 'completed' and latest.external_job_id),
+            'has_json': bool(latest.status == ConversionTask.TaskStatus.COMPLETED and latest.external_job_id),
             'annotation_status_badge': status_badge_class(latest.status),
         })
 
@@ -238,7 +238,7 @@ def build_process_rows(user):
             'can_annotate': False,
             'can_retry_annotation': False,
             'has_fasta': False,
-            'has_json': bool(latest.status == 'completed' and get_json_upload_for_task(latest)),
+            'has_json': bool(latest.status == ConversionTask.TaskStatus.COMPLETED and get_json_upload_for_task(latest)),
             'annotation_status_badge': None,
         })
 
@@ -356,7 +356,7 @@ def get_available_fasta_jobs(user):
     """Return completed base assembly jobs that are not already annotated."""
     completed_assembly_tasks = ConversionTask.objects.filter(
         user=user,
-        status='completed',
+        status=ConversionTask.TaskStatus.COMPLETED,
         task_type__in=('assembly_illumina', 'assembly_ont'),
         external_job_id__isnull=False,
     ).exclude(external_job_id='').order_by('-updated_at', '-id')
@@ -364,7 +364,7 @@ def get_available_fasta_jobs(user):
     already_annotated_ids = ConversionTask.objects.filter(
         user=user,
         task_type='annotation',
-        status__in=('pending', 'running', 'completed'),
+        status__in=(ConversionTask.TaskStatus.PENDING, ConversionTask.TaskStatus.RUNNING, ConversionTask.TaskStatus.COMPLETED),
         previous_task__isnull=False,
     ).values_list('previous_task_id', flat=True)
 
@@ -387,7 +387,7 @@ def has_annotation_for_previous(user, previous_task):
     return ConversionTask.objects.filter(
         user=user,
         task_type='annotation',
-        status__in=('pending', 'running', 'completed'),
+        status__in=(ConversionTask.TaskStatus.PENDING, ConversionTask.TaskStatus.RUNNING, ConversionTask.TaskStatus.COMPLETED),
         previous_task=previous_task,
     ).exists()
 
