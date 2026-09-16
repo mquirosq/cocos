@@ -1,5 +1,3 @@
-import os
-
 from .models import ConversionTask, File
 from .presentation import format_source_job_label, pipeline_label, status_badge_class
 from .utils import (
