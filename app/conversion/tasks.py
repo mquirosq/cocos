@@ -9,7 +9,7 @@ from .bio_api_client import annotate_from_fasta, download_assembly_fasta_result,
 from notifications.services import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed, notify_user_conversion_started, notify_user_conversion_warning
 from notifications.models import TaskNotification
 from celery.exceptions import MaxRetriesExceededError
-from .utils import find_latest_persisted_upload, get_result_filename_stem, read_persisted_upload_bytes
+from .utils import find_latest_persisted_upload, get_result_filename_stem, read_persisted_upload_bytes, upload_file
 from .parsers import parse_file
 
 logger = logging.getLogger(__name__)
@@ -25,37 +25,37 @@ class BioServiceBusyError(Exception):
     pass
 
 def _persist_assembly_fasta_output(task):
-    """Download and persist assembled FASTA for assembly tasks."""
-    if not task or not task.external_job_id:
-        return
-    if not task.task_type.startswith("assembly_"):
+    """Download and persist the assembled FASTA for an assembly task."""
+    if not task or not task.external_job_id or not task.task_type.startswith("assembly_") or task.output_file:
         return
 
     filename_stem = get_result_filename_stem("assembly", task.external_job_id)
     filename = f"{filename_stem}.fasta"
-    if find_latest_persisted_upload(user_id=task.user_id, filename_stem=filename_stem):
-        return
 
     fasta_content = download_assembly_fasta_result(task.external_job_id)
     if not fasta_content:
         raise ValueError("Downloaded FASTA content is empty")
-    file = File(user_id=task.user_id, file_type=File.FileType.FASTA)
-    file.file.save(filename, ContentFile(fasta_content), save=True)
+
+    file = upload_file(ContentFile(fasta_content, name=filename), task.user, File.FileType.FASTA,)
 
     task.output_file = file
-    task.save(update_fields=['output_file'])
+    task.save(update_fields=["output_file", "updated_at"])
 
 
 def _persist_annotation_json_output(task, complete_version=False):
-    """Download Bakta JSON and parse it into DB entities for annotation tasks."""
-    if not task or not task.external_job_id or task.task_type != ConversionTask.TaskType.ANNOTATION:
+    """Download and persist the Bakta JSON for an annotation task."""
+    if (not task or not task.external_job_id or task.output_file
+        or task.task_type != ConversionTask.TaskType.ANNOTATION):
         return
-
-    filename_stem = get_result_filename_stem("annotation", task.external_job_id)
-    if find_latest_persisted_upload(user_id=task.user_id, filename_stem=filename_stem):
-        return
+    
+    filename_stem = get_result_filename_stem(
+        "annotation",
+        task.external_job_id,
+    )
+    filename = f"{filename_stem}.json"
 
     json_result = download_bakta_json_result(task.external_job_id)
+
     if isinstance(json_result, list):
         parsed_payload = {"features": json_result}
     elif isinstance(json_result, dict):
@@ -63,24 +63,15 @@ def _persist_annotation_json_output(task, complete_version=False):
     else:
         raise ValueError("Downloaded annotation payload has invalid format")
 
-    filename = f"{filename_stem}.json"
-    json_bytes = json.dumps(parsed_payload).encode("utf-8")
-    source_file = ContentFile(json_bytes, name=filename)
+    source_file = ContentFile(json.dumps(parsed_payload).encode("utf-8"), name=filename)
 
-    file = File.objects.create(file=source_file, user=task.user, file_type=File.FileType.JSON)
+    file = upload_file(source_file, task.user, File.FileType.JSON)
 
-    file = parse_file(
-        parser="bakta_json",
-        data=parsed_payload,
-        file=file,
-        user=task.user,
-        options={"complete_version": complete_version},
-    )
-    
+    file = parse_file(parser="bakta_json", data=parsed_payload, file=file, user=task.user, options={"complete_version": complete_version})
+
     if file:
         task.output_file = file
-        task.save(update_fields=['output_file'])
-
+        task.save(update_fields=["output_file", "updated_at"])
 
 def _ensure_in_app_notification(task, event_type, message):
     """Guarantee at least one in-app notification exists for task/event."""
