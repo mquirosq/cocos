@@ -466,7 +466,10 @@ def poll_annotation_from_assembly_start(self, job_id, user_id, new_task_id=None,
 
     previous_job_qs = ConversionTask.objects.filter(
         external_job_id=job_id,
-        task_type__startswith="assembly_",
+        task_type__in=[
+            ConversionTask.TaskType.ASSEMBLY_ILLUMINA,
+            ConversionTask.TaskType.ASSEMBLY_ONT,
+        ],
         status=ConversionTask.TaskStatus.COMPLETED,
     )
     previous_job_qs = previous_job_qs.filter(user_id=user_id)
@@ -474,26 +477,24 @@ def poll_annotation_from_assembly_start(self, job_id, user_id, new_task_id=None,
     previous_task = previous_job_qs.first()
     if not previous_task:
         logger.error(f"Previous assembly job not found for annotation task with job ID: {job_id}")
-        _fail_pending_annotation(
-            "The previous assembly job could not be found. Make sure it completed successfully before starting annotation."
-        )
+        _fail_pending_annotation("The previous assembly job could not be found. Make sure it completed successfully before starting annotation.")
         return
 
-    retrieval_error_message = "The assembled FASTA result is not available in the system. Try again later."
+    if not previous_task.output_file:
+        _fail_pending_annotation("The assembled FASTA result is not available in the system. Try again later.")
+        return
+
     try:
-        fasta_bytes = read_persisted_upload_bytes(
-            user_id=previous_task.user_id,
-            filename_stem=get_result_filename_stem("assembly", previous_task.external_job_id),
-        )
+        with previous_task.output_file.file.open("rb") as f:
+            fasta_bytes = f.read()
     except Exception as e:
-        logger.error(f"Failed to read persisted FASTA file for previous task {previous_task.id}: {str(e)}")
-        _fail_pending_annotation(retrieval_error_message)
+        logger.error(f"Failed to read assembled FASTA for previous task {previous_task.id}: {e}")
+        _fail_pending_annotation("The assembled FASTA result could not be read. Try again later.")
         return
 
-    if fasta_bytes is None or not fasta_bytes:
-        _fail_pending_annotation(retrieval_error_message)
+    if not fasta_bytes:
+        _fail_pending_annotation("The assembled FASTA result is empty. Try again later.")
         return
-
 
     poll_annotation_start.delay(
         fasta_bytes=fasta_bytes,
