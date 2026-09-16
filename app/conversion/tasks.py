@@ -408,10 +408,10 @@ def poll_assembly_start(self, assembly_type="", file_id_1=None, file_id_2=None, 
                 process_name=file_1.file.name,
             )
 
-            task.input_file.add(file_1)
+            task.input_files.add(file_1)
 
             if assembly_type == "illumina":
-                task.input_file.add(file_2)
+                task.input_files.add(file_2)
 
             notify_user_conversion_started(task.user, task)
             _ensure_in_app_notification(

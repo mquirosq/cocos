@@ -30,8 +30,8 @@ def prediction_view(request):
         task = ConversionTask.objects.filter(user=request.user).filter(
             models.Q(output_file__file__contains=upload.file.name) |
             models.Q(output_file__file__contains=basename) |
-            models.Q(input_file__file__contains=upload.file.name) |
-            models.Q(input_file__file__contains=basename)
+            models.Q(input_files__file__contains=upload.file.name) |
+            models.Q(input_files__file__contains=basename)
         ).first()
         
         label = task.process_name if task and task.process_name else basename

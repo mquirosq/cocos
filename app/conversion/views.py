@@ -70,7 +70,7 @@ def _start_annotation_from_source_job(request, source_job_id):
         previous_task=previous_task,
         process_name=previous_task.process_name or format_source_job_label(previous_task),
     )
-    task.input_file.add(previous_task.output_file)
+    task.input_files.add(previous_task.output_file)
 
     poll_annotation_from_assembly_start.delay(
         job_id=source_job_id,
@@ -105,7 +105,7 @@ def _start_annotation_from_uploaded_fasta(request, fasta):
         process_name=os.path.basename(file.file.name)
     )
 
-    task.input_file.add(file)
+    task.input_files.add(file)
 
     poll_annotation_start.delay(
         fasta_bytes=fasta_bytes,
@@ -190,10 +190,10 @@ def assembly_task(request):
         process_name=fastq.name,
     )
 
-    task.input_file.add(file_1)
+    task.input_files.add(file_1)
 
     if file_2:
-        task.input_file.add(file_2)
+        task.input_files.add(file_2)
 
     poll_assembly_start.delay(
         assembly_type=assembly_type,
@@ -255,7 +255,7 @@ def annotation_from_assembly_task(request, job_id):
         previous_task=previous_task,
         process_name=previous_task.process_name,
     )
-    task.input_file.add(previous_task.output_file)
+    task.input_files.add(previous_task.output_file)
 
     poll_annotation_from_assembly_start.delay(
         user_id=request.user.id,
@@ -293,7 +293,7 @@ def parse_feature_file(request):
             process_name=os.path.basename(file.file.name),
         )
 
-        task.input_file.add(file)
+        task.input_files.add(file)
 
         complete_version = request.POST.get('complete') == 'on'
 
@@ -425,7 +425,7 @@ def task_status_view(request, task_id):
         'assembly_task': assembly_task,
         'latest_step': latest_step,
         'latest_step_label': latest_step_label,
-        'assembly_input_filename': os.path.basename(assembly_task.input_file.first().file.name) if assembly_task else None,
+        'assembly_input_filename': os.path.basename(assembly_task.input_files.first().file.name) if assembly_task else None,
         'fasta_download_task_id': fasta_download_task_id,
         'json_download_task_id': json_download_task_id,
         'can_annotate': can_annotate,

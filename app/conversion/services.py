@@ -25,7 +25,7 @@ ASSEMBLY_AND_ANNOTATION_TYPES = {
 FASTA_EXTENSIONS = {'.fa', '.fasta', '.fna', '.ffn', '.faa', '.frn'}
 
 def annotation_process_key(task):
-    return f"{task.process_name}::{task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else 'Unnamed Input'}"
+    return f"{task.process_name}::{task.input_files.first().file.name if hasattr(task.input_files.first(), 'file') else 'Unnamed Input'}"
 
 
 def is_auto_annotated_assembly(task):
@@ -53,7 +53,7 @@ def get_effective_annotation(annotations):
 def find_annotation_with_uploaded_fasta(annotation_attempts):
     """Return the first annotation attempt that has a valid uploaded FASTA path."""
     for attempt in annotation_attempts:
-        if attempt.input_file.exists() and attempt.input_file.first() and attempt.input_file.first().file_type == File.FileType.FASTA:
+        if attempt.input_files.exists() and attempt.input_files.first() and attempt.input_files.first().file_type == File.FileType.FASTA:
             return attempt
     return None
 
@@ -65,7 +65,7 @@ def derive_process_name(task, fallback_name=None):
         return task.previous_task.process_name
     if task.process_name:
         return task.process_name
-    return (task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else None) or "Unnamed Process"
+    return (task.input_files.first().file.name if hasattr(task.input_files.first(), 'file') else None) or "Unnamed Process"
 
 
 def get_json_upload_for_task(task):
@@ -76,7 +76,7 @@ def get_json_upload_for_task(task):
             return task.output_file
 
     elif task.task_type == ConversionTask.TaskType.FROM_JSON:
-        input_file = task.input_file.first()
+        input_file = task.input_files.first()
         return input_file
 
     return None
@@ -84,7 +84,7 @@ def get_json_upload_for_task(task):
 def get_fasta_upload_for_task(task):
     """Return the absolute path to the FASTA file for a task, or None if not found."""
     if task.task_type == ConversionTask.TaskType.ANNOTATION:
-        return task.input_file.first()
+        return task.input_files.first()
 
     if task.task_type in ASSEMBLY_TYPES:
         return task.output_file
@@ -147,7 +147,7 @@ def build_process_rows(user):
             'top_status_badge': status_badge_class(top_status),
             'assembly_status': assembly_task.status,
             'assembly_status_badge': status_badge_class(assembly_task.status),
-            'input_filename': (assembly_task.input_file.first().file.name if hasattr(assembly_task.input_file.first(), 'file') else None),
+            'input_filename': (assembly_task.input_files.first().file.name if hasattr(assembly_task.input_files.first(), 'file') else None),
             'updated_at': most_recent,
             'task': assembly_task,
             'detail_task_id': assembly_task.id,
@@ -168,14 +168,14 @@ def build_process_rows(user):
     for _, attempts in standalone_annotations.items():
         sorted_attempts = sorted(attempts, key=lambda item: (item.updated_at, item.id), reverse=True)
         latest = sorted_attempts[0]
-        latest_uploaded_fasta = latest.input_file.first() if latest.input_file.exists() and latest.input_file.first().file_type == File.FileType.FASTA else None
+        latest_uploaded_fasta = latest.input_files.first() if latest.input_files.exists() and latest.input_files.first().file_type == File.FileType.FASTA else None
         rows.append({
             'kind': 'annotation',
             'process_name': latest.process_name,
             'pipeline_type': 'Annotation',
             'status': latest.status,
             'status_badge': status_badge_class(latest.status),
-            'input_filename': (latest.input_file.first().file.name if hasattr(latest.input_file.first(), 'file') else None),
+            'input_filename': (latest.input_files.first().file.name if hasattr(latest.input_files.first(), 'file') else None),
             'updated_at': latest.updated_at,
             'task': latest,
             'detail_task_id': latest.id,
@@ -198,7 +198,7 @@ def build_process_rows(user):
             'pipeline_type': 'From JSON',
             'status': latest.status,
             'status_badge': status_badge_class(latest.status),
-            'input_filename': (latest.input_file.first().file.name if hasattr(latest.input_file.first(), 'file') else None),
+            'input_filename': (latest.input_files.first().file.name if hasattr(latest.input_files.first(), 'file') else None),
             'updated_at': latest.updated_at,
             'task': latest,
             'detail_task_id': latest.id,
@@ -262,7 +262,7 @@ def build_task_context(user, task):
                 task_type=ConversionTask.TaskType.ANNOTATION,
                 previous_task__isnull=True,
                 process_name=task.process_name,
-                input_file=task.input_file.first(),
+                input_files=task.input_files.first(),
             ).order_by('-updated_at', '-id')
         )
         latest_annotation = annotations[0] if annotations else None
@@ -284,7 +284,7 @@ def build_task_context(user, task):
             user=user,
             task_type=ConversionTask.TaskType.FROM_JSON,
             process_name=task.process_name,
-            input_file=task.input_file.first(),
+            input_files=task.input_files.first(),
         ).order_by('-updated_at', '-id')
     )
     latest_json = json_attempts[0] if json_attempts else None
@@ -317,7 +317,7 @@ def rename_process_group(user, task, new_name):
         user=user,
         task_type=task.task_type,
         process_name=task.process_name,
-        input_file=task.input_file.first(),
+        input_files=task.input_files.first(),
         previous_task__isnull=True,
     ).update(process_name=new_name)
 
@@ -347,7 +347,7 @@ def get_available_fasta_jobs(user):
             job_id=task.external_job_id,
         )
         task.source_filename = resolved_name or 'Assembly output'
-        task.process_name = task.process_name or (task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else None)
+        task.process_name = task.process_name or (task.input_files.first().file.name if hasattr(task.input_files.first(), 'file') else None)
         task.source_label = format_source_job_label(task)
 
     return available_tasks
