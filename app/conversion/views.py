@@ -70,7 +70,7 @@ def _start_annotation_from_source_job(request, source_job_id):
         previous_task=previous_task,
         process_name=previous_task.process_name or format_source_job_label(previous_task),
     )
-    task.input_file.set(previous_task.input_file.all())
+    task.input_file.add(previous_task.output_file)
 
     poll_annotation_from_assembly_start.delay(
         job_id=source_job_id,
@@ -255,7 +255,7 @@ def annotation_from_assembly_task(request, job_id):
         previous_task=previous_task,
         process_name=previous_task.process_name,
     )
-    task.input_file.set(previous_task.input_file.all())
+    task.input_file.add(previous_task.output_file)
 
     poll_annotation_from_assembly_start.delay(
         user_id=request.user.id,
