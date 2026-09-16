@@ -3,11 +3,7 @@ import os
 from .models import ConversionTask, File
 from .presentation import format_source_job_label, pipeline_label, status_badge_class
 from .utils import (
-    get_primary_input_path,
-    get_upload_dir,
-    resolve_absolute_path,
     resolve_persisted_result_filename,
-    source_filename,
 )
 
 ASSEMBLY_TYPES = {
@@ -17,43 +13,25 @@ ASSEMBLY_TYPES = {
     ConversionTask.TaskType.ASSEMBLY_ONT_ANNOTATED,
 }
 
+ANNOTATED_TYPES = {
+    ConversionTask.TaskType.ASSEMBLY_ILLUMINA_ANNOTATED,
+    ConversionTask.TaskType.ASSEMBLY_ONT_ANNOTATED,
+    ConversionTask.TaskType.ANNOTATION,
+}
+
+ASSEMBLY_AND_ANNOTATION_TYPES = {
+    ConversionTask.TaskType.ASSEMBLY_ILLUMINA_ANNOTATED,
+    ConversionTask.TaskType.ASSEMBLY_ONT_ANNOTATED,
+}
+
 FASTA_EXTENSIONS = {'.fa', '.fasta', '.fna', '.ffn', '.faa', '.frn'}
-
-def resolve_uploaded_fasta_input_path(task):
-    if not task or task.task_type != ConversionTask.TaskType.ANNOTATION or task.previous_task_id:
-        return None
-
-    source = get_primary_input_path(task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else None)
-    if not source:
-        return None
-
-    if os.path.splitext(source.lower())[1] not in FASTA_EXTENSIONS:
-        return None
-
-    abs_source = resolve_absolute_path(source)
-
-    expected_dir = os.path.normpath(get_upload_dir(task.user_id, 'fasta', persistent=True))
-    normalized_source = os.path.normpath(abs_source)
-    try:
-        within_expected_dir = os.path.commonpath([normalized_source, expected_dir]) == expected_dir
-    except ValueError:
-        return None
-    
-    if not within_expected_dir:
-        return None
-
-    if not os.path.exists(abs_source):
-        return None
-
-    return abs_source
-
 
 def annotation_process_key(task):
     return f"{task.process_name}::{task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else 'Unnamed Input'}"
 
 
 def is_auto_annotated_assembly(task):
-        return bool(task and task.task_type in {ConversionTask.TaskType.ASSEMBLY_ONT_ANNOTATED, ConversionTask.TaskType.ASSEMBLY_ILLUMINA_ANNOTATED})
+        return bool(task and task.task_type in ASSEMBLY_AND_ANNOTATION_TYPES)
 
 
 def find_latest_completed_annotation(annotations):
@@ -77,7 +55,7 @@ def get_effective_annotation(annotations):
 def find_annotation_with_uploaded_fasta(annotation_attempts):
     """Return the first annotation attempt that has a valid uploaded FASTA path."""
     for attempt in annotation_attempts:
-        if resolve_uploaded_fasta_input_path(attempt):
+        if attempt.input_file.exists() and attempt.input_file.first() and attempt.input_file.first().file_type == File.FileType.FASTA:
             return attempt
     return None
 
@@ -89,21 +67,18 @@ def derive_process_name(task, fallback_name=None):
         return task.previous_task.process_name
     if task.process_name:
         return task.process_name
-    return source_filename(task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else None) or "Unnamed Process"
+    return (task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else None) or "Unnamed Process"
 
 
 def get_json_upload_for_task(task):
     """Return the JSON File object for a task, or None if not found."""
 
-    # Annotation / auto-annotated assembly
-    if getattr(task, 'external_job_id', None):
+    if task.task_type in ANNOTATED_TYPES:
         if task.output_file:
             return task.output_file
 
-    # From-JSON tasks
-    input_file = task.input_file.first()
-
-    if input_file and input_file.file_type == File.FileType.JSON:
+    elif task.task_type == ConversionTask.TaskType.FROM_JSON:
+        input_file = task.input_file.first()
         return input_file
 
     return None
@@ -174,7 +149,7 @@ def build_process_rows(user):
             'top_status_badge': status_badge_class(top_status),
             'assembly_status': assembly_task.status,
             'assembly_status_badge': status_badge_class(assembly_task.status),
-            'input_filename': source_filename(assembly_task.input_file.first().file.name if hasattr(assembly_task.input_file.first(), 'file') else None),
+            'input_filename': (assembly_task.input_file.first().file.name if hasattr(assembly_task.input_file.first(), 'file') else None),
             'updated_at': most_recent,
             'task': assembly_task,
             'detail_task_id': assembly_task.id,
@@ -195,14 +170,14 @@ def build_process_rows(user):
     for _, attempts in standalone_annotations.items():
         sorted_attempts = sorted(attempts, key=lambda item: (item.updated_at, item.id), reverse=True)
         latest = sorted_attempts[0]
-        latest_uploaded_fasta = resolve_uploaded_fasta_input_path(latest)
+        latest_uploaded_fasta = latest.input_file.first() if latest.input_file.exists() and latest.input_file.first().file_type == File.FileType.FASTA else None
         rows.append({
             'kind': 'annotation',
             'process_name': latest.process_name,
             'pipeline_type': 'Annotation',
             'status': latest.status,
             'status_badge': status_badge_class(latest.status),
-            'input_filename': source_filename(latest.input_file.first().file.name if hasattr(latest.input_file.first(), 'file') else None),
+            'input_filename': (latest.input_file.first().file.name if hasattr(latest.input_file.first(), 'file') else None),
             'updated_at': latest.updated_at,
             'task': latest,
             'detail_task_id': latest.id,
@@ -225,7 +200,7 @@ def build_process_rows(user):
             'pipeline_type': 'From JSON',
             'status': latest.status,
             'status_badge': status_badge_class(latest.status),
-            'input_filename': source_filename(latest.input_file.first().file.name if hasattr(latest.input_file.first(), 'file') else None),
+            'input_filename': (latest.input_file.first().file.name if hasattr(latest.input_file.first(), 'file') else None),
             'updated_at': latest.updated_at,
             'task': latest,
             'detail_task_id': latest.id,
@@ -374,7 +349,7 @@ def get_available_fasta_jobs(user):
             job_id=task.external_job_id,
         )
         task.source_filename = resolved_name or 'Assembly output'
-        task.process_name = task.process_name or source_filename(task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else None)
+        task.process_name = task.process_name or (task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else None)
         task.source_label = format_source_job_label(task)
 
     return available_tasks

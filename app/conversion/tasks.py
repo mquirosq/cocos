@@ -9,7 +9,7 @@ from .bio_api_client import annotate_from_fasta, download_assembly_fasta_result,
 from notifications.services import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed, notify_user_conversion_started, notify_user_conversion_warning
 from notifications.models import TaskNotification
 from celery.exceptions import MaxRetriesExceededError
-from .utils import delete_file_safely, find_latest_persisted_upload, get_result_filename_stem, read_persisted_upload_bytes
+from .utils import find_latest_persisted_upload, get_result_filename_stem, read_persisted_upload_bytes
 from .parsers import parse_file
 
 logger = logging.getLogger(__name__)
@@ -23,21 +23,6 @@ class BioServiceConnectionError(Exception):
 class BioServiceBusyError(Exception):
     """Raised when bio service responds with 503 (server busy)"""
     pass
-
-def _cleanup_temp_fastq_inputs(task):
-    """Remove temporary FASTQ files used as assembly inputs."""
-    if not task or not task.input_file.first().file:
-        return
-    if not task.task_type.startswith("assembly_"):
-        return
-
-    for candidate in task.input_file.first().file.name.split(','):
-        path = (candidate or '').strip()
-        if not path:
-            continue
-        if 'uploads\\temp\\' in path or 'uploads/temp/' in path:
-            delete_file_safely(path)
-
 
 def _persist_assembly_fasta_output(task):
     """Download and persist assembled FASTA for assembly tasks."""
@@ -185,7 +170,6 @@ def poll_conversion_status(self, task_id, complete_version=False):
                     task,
                     "Annotation succeeded, but automatic result upload failed. Try uploading the Bakta JSON manually from your downloads.",
                 )
-        _cleanup_temp_fastq_inputs(task)
         notify_user_conversion_complete(task.user, task)
         _ensure_in_app_notification(
             task,

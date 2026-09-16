@@ -1,7 +1,6 @@
 from django.contrib.humanize.templatetags.humanize import naturaltime
 
 from .models import ConversionTask
-from .utils import source_filename
 
 STATUS_BADGE_CLASSES = {
     ConversionTask.TaskStatus.PENDING: 'badge-soft badge-warning',
@@ -22,7 +21,7 @@ PIPELINE_LABELS = {
 
 def format_source_job_label(task):
     """Format a user-friendly label with process name and relative time."""
-    label = task.process_name or source_filename(task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else None) or "Unnamed Process"
+    label = task.process_name or (task.input_file.first().file.name if hasattr(task.input_file.first(), 'file') else None) or "Unnamed Process"
     timestamp = task.updated_at or task.created_at
     if timestamp:
         label = f"{label} · {naturaltime(timestamp)}"

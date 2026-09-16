@@ -26,10 +26,7 @@ from .tasks import (
     poll_annotation_start,
     poll_assembly_start,
 )
-from .utils import (
-    source_filename,
-    upload_file,
-)
+from .utils import upload_file
 
 def _get_current_user_tasks(request):
     """Return tasks filtered by authenticated user."""
@@ -428,7 +425,7 @@ def task_status_view(request, task_id):
         'assembly_task': assembly_task,
         'latest_step': latest_step,
         'latest_step_label': latest_step_label,
-        'assembly_input_filename': source_filename(assembly_task.input_file.first().file.name) if assembly_task else None,
+        'assembly_input_filename': os.path.basename(assembly_task.input_file.first().file.name) if assembly_task else None,
         'fasta_download_task_id': fasta_download_task_id,
         'json_download_task_id': json_download_task_id,
         'can_annotate': can_annotate,

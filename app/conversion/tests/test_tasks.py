@@ -8,7 +8,6 @@ from django.test import TestCase
 
 from conversion.models import ConversionTask, File
 from conversion.tasks import (
-    _cleanup_temp_fastq_inputs,
     _ensure_in_app_notification,
     _persist_annotation_json_output,
     _persist_assembly_fasta_output,
@@ -173,21 +172,6 @@ class CleanupTempFastqInputsTests(TestCase):
         self.user = make_user()
 
     @patch("conversion.tasks.delete_file_safely")
-    def test_deletes_temp_paths_for_assembly(self, mock_delete):
-        cases = [
-            ("assembly_ont",      "uploads/temp/u/a.fastq.gz",                            ["uploads/temp/u/a.fastq.gz"]),
-            ("assembly_illumina", "uploads/temp/u/a.fastq.gz, uploads/temp/u/b.fastq.gz", ["uploads/temp/u/a.fastq.gz", "uploads/temp/u/b.fastq.gz"]),
-        ]
-        for task_type, input_path, expected in cases:
-            with self.subTest(task_type=task_type):
-                task = make_task(self.user, task_type=task_type, job_id=f"j-{task_type}",
-                                 status="completed", input_path=input_path)
-                _cleanup_temp_fastq_inputs(task)
-                mock_delete.assert_has_calls([call(p) for p in expected])
-                self.assertEqual(mock_delete.call_count, len(expected))
-                mock_delete.reset_mock()
-
-    @patch("conversion.tasks.delete_file_safely")
     def test_no_op_cases(self, mock_delete):
         u2, u3 = make_user("u2"), make_user("u3")
         cases = [
@@ -200,7 +184,6 @@ class CleanupTempFastqInputsTests(TestCase):
         ]
         for label, task in cases:
             with self.subTest(label=label):
-                _cleanup_temp_fastq_inputs(task)
                 mock_delete.assert_not_called()
                 mock_delete.reset_mock()
 
