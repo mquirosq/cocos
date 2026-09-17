@@ -8,7 +8,7 @@ from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .models import ConversionTask, File
+from .models import ConversionTask, File, ProcessGroup
 from .parsers import parse_file
 from .services import (
     build_process_rows,
@@ -17,10 +17,10 @@ from .services import (
     get_json_upload_for_task,
     has_annotation_for_previous,
     is_auto_annotated_assembly,
-    rename_process_group,
+    rename_task_process,
     get_fasta_upload_for_task,
 )
-from .presentation import format_source_job_label, status_badge_class, pipeline_label
+from .presentation import status_badge_class, pipeline_label
 from .tasks import (
     poll_annotation_from_assembly_start,
     poll_annotation_start,
@@ -68,7 +68,7 @@ def _start_annotation_from_source_job(request, source_job_id):
         task_type=ConversionTask.TaskType.ANNOTATION,
         user=request.user,
         previous_task=previous_task,
-        process_name=previous_task.process_name or format_source_job_label(previous_task),
+        process=previous_task.process,
     )
     task.input_files.set(previous_task.output_files.all())
 
@@ -96,13 +96,14 @@ def _start_annotation_from_uploaded_fasta(request, fasta):
         file_type=File.FileType.FASTA
     )
 
+    process = ProcessGroup.objects.create(name=os.path.basename(file.file.name))
     task = ConversionTask.objects.create(
         external_job_id=None,
         status=ConversionTask.TaskStatus.PENDING,
         task_type=ConversionTask.TaskType.ANNOTATION,
         user=request.user,
         previous_task=None,
-        process_name=os.path.basename(file.file.name)
+        process=process
     )
 
     task.input_files.add(file)
@@ -182,12 +183,13 @@ def assembly_task(request):
             file_type=File.FileType.FASTQ,
         )
 
+    process = ProcessGroup.objects.create(name=os.path.basename(fastq.name))
     task = ConversionTask.objects.create(
         external_job_id=None,
         status=ConversionTask.TaskStatus.PENDING,
         task_type=f"assembly_{assembly_type}{'_annotated' if annotate else ''}",
         user=request.user,
-        process_name=fastq.name,
+        process = process,
     )
 
     task.input_files.add(file_1)
@@ -253,7 +255,7 @@ def annotation_from_assembly_task(request, job_id):
         task_type=ConversionTask.TaskType.ANNOTATION,
         user=request.user,
         previous_task=previous_task,
-        process_name=previous_task.process_name,
+        process=previous_task.process,
     )
     task.input_files.set(previous_task.output_files.all())
 
@@ -285,12 +287,13 @@ def parse_feature_file(request):
             file_type=File.FileType.JSON,
         )
 
+        process = ProcessGroup.objects.create(name=os.path.basename(file.file.name))
         task = ConversionTask.objects.create(
             external_job_id=None,
             status=ConversionTask.TaskStatus.PENDING,
             task_type=ConversionTask.TaskType.FROM_JSON,
             user=request.user,
-            process_name=os.path.basename(file.file.name),
+            process=process,
         )
 
         task.input_files.add(file)
@@ -504,7 +507,7 @@ def rename_process_view(request, task_id):
         messages.error(request, 'Process name cannot be empty.')
         return redirect('conversion:task_status', task_id=task.id)
 
-    rename_process_group(request.user, task, new_name)
+    rename_task_process(request.user, task, new_name)
     messages.success(request, 'Process name updated.')
     return redirect('conversion:task_status', task_id=task.id)
 

@@ -6,7 +6,7 @@ from .task_types import ASSEMBLY_TYPES, ANNOTATED_TYPES, ASSEMBLY_AND_ANNOTATION
 FASTA_EXTENSIONS = {'.fa', '.fasta', '.fna', '.ffn', '.faa', '.frn'}
 
 def annotation_process_key(task):
-    return f"{task.process_name}::{task.input_files.first().file.name if hasattr(task.input_files.first(), 'file') else 'Unnamed Input'}"
+    return f"{task.process.name}::{task.input_files.first().file.name if hasattr(task.input_files.first(), 'file') else 'Unnamed Input'}"
 
 
 def is_auto_annotated_assembly(task):
@@ -42,10 +42,10 @@ def find_annotation_with_uploaded_fasta(annotation_attempts):
 def derive_process_name(task, fallback_name=None):
     if fallback_name:
         return fallback_name
-    if task.previous_task_id and task.previous_task and task.previous_task.process_name:
-        return task.previous_task.process_name
-    if task.process_name:
-        return task.process_name
+    if task.previous_task_id and task.previous_task and task.previous_task.process.name:
+        return task.previous_task.process.name
+    if task.process.name:
+        return task.process.name
     return (task.input_files.first().file.name if hasattr(task.input_files.first(), 'file') else None) or "Unnamed Process"
 
 
@@ -84,7 +84,7 @@ def build_process_rows(user):
     json_tasks = {}
 
     for task in tasks:
-        task.process_name = derive_process_name(task)
+        task.process.name = derive_process_name(task)
         if task.task_type == ConversionTask.TaskType.ANNOTATION and task.previous_task_id in assembly_by_id:
             annotations_by_parent.setdefault(task.previous_task_id, []).append(task)
         elif task.task_type == ConversionTask.TaskType.ANNOTATION and task.previous_task_id is None:
@@ -118,7 +118,7 @@ def build_process_rows(user):
 
         rows.append({
             'kind': 'assembly',
-            'process_name': assembly_task.process_name,
+            'process_name': assembly_task.process.name,
             'pipeline_type': pipeline_label(assembly_task.task_type),
             'assembly_type_label': pipeline_label(assembly_task.task_type),
             'status': assembly_task.status,
@@ -152,7 +152,7 @@ def build_process_rows(user):
         latest_uploaded_fasta = latest.input_files.first() if latest.input_files.exists() and latest.input_files.first().file_type == File.FileType.FASTA else None
         rows.append({
             'kind': 'annotation',
-            'process_name': latest.process_name,
+            'process_name': latest.process.name,
             'pipeline_type': 'Annotation',
             'status': latest.status,
             'status_badge': status_badge_class(latest.status),
@@ -175,7 +175,7 @@ def build_process_rows(user):
         latest = sorted_attempts[0]
         rows.append({
             'kind': 'json',
-            'process_name': latest.process_name,
+            'process_name': latest.process.name,
             'pipeline_type': 'From JSON',
             'status': latest.status,
             'status_badge': status_badge_class(latest.status),
@@ -213,7 +213,7 @@ def build_task_context(user, task):
             'latest_json_attempt': None,
             'has_annotation_attempts': bool(annotations),
             'has_json_attempts': False,
-            'process_name': assembly_task.process_name,
+            'process_name': assembly_task.process.name,
             'pipeline_type': pipeline_label(assembly_task.task_type),
         }
 
@@ -232,7 +232,7 @@ def build_task_context(user, task):
             'latest_json_attempt': None,
             'has_annotation_attempts': bool(annotations),
             'has_json_attempts': False,
-            'process_name': assembly_task.process_name,
+            'process_name': assembly_task.process.name,
             'pipeline_type': pipeline_label(assembly_task.task_type),
         }
 
@@ -242,7 +242,7 @@ def build_task_context(user, task):
                 user=user,
                 task_type=ConversionTask.TaskType.ANNOTATION,
                 previous_task__isnull=True,
-                process_name=task.process_name,
+                process_name=task.process.name,
                 input_files=task.input_files.first(),
             ).order_by('-updated_at', '-id')
         )
@@ -256,7 +256,7 @@ def build_task_context(user, task):
             'latest_json_attempt': None,
             'has_annotation_attempts': bool(annotations),
             'has_json_attempts': False,
-            'process_name': task.process_name,
+            'process_name': task.process.name,
             'pipeline_type': 'Annotation',
         }
 
@@ -264,7 +264,7 @@ def build_task_context(user, task):
         ConversionTask.objects.filter(
             user=user,
             task_type=ConversionTask.TaskType.FROM_JSON,
-            process_name=task.process_name,
+            process_name=task.process.name,
             input_files=task.input_files.first(),
         ).order_by('-updated_at', '-id')
     )
@@ -278,29 +278,17 @@ def build_task_context(user, task):
         'latest_json_attempt': latest_json,
         'has_annotation_attempts': False,
         'has_json_attempts': bool(json_attempts),
-        'process_name': task.process_name,
+        'process_name': task.process.name,
         'pipeline_type': 'From JSON',
     }
 
 
-def rename_process_group(user, task, new_name):
-    if task.task_type in ASSEMBLY_TYPES:
-        ConversionTask.objects.filter(user=user, id=task.id).update(process_name=new_name)
-        ConversionTask.objects.filter(user=user, previous_task=task, task_type=ConversionTask.TaskType.ANNOTATION).update(process_name=new_name)
+def rename_task_process(user, task, new_name):
+    if task.user_id != user.id:
         return
 
-    if task.task_type == ConversionTask.TaskType.ANNOTATION and task.previous_task_id:
-        ConversionTask.objects.filter(user=user, id=task.previous_task_id).update(process_name=new_name)
-        ConversionTask.objects.filter(user=user, previous_task_id=task.previous_task_id, task_type=ConversionTask.TaskType.ANNOTATION).update(process_name=new_name)
-        return
-
-    ConversionTask.objects.filter(
-        user=user,
-        task_type=task.task_type,
-        process_name=task.process_name,
-        input_files=task.input_files.first(),
-        previous_task__isnull=True,
-    ).update(process_name=new_name)
+    task.process.name = new_name
+    task.process.save(update_fields=["name"])
 
 
 def get_available_fasta_jobs(user):
@@ -323,7 +311,6 @@ def get_available_fasta_jobs(user):
 
     for task in available_tasks:
         task.source_filename = (os.path.basename(task.output_files.first().file.name) if task.output_files.first() else "Assembly output")
-        task.process_name = task.process_name or (task.input_files.first().file.name if hasattr(task.input_files.first(), 'file') else None)
         task.source_label = format_source_job_label(task)
 
     return available_tasks

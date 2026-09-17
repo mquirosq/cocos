@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from conversion.models import File, Gene, FileGene, ConversionTask
+from conversion.models import File, Gene, FileGene, ConversionTask, ProcessGroup
 
 @admin.register(File)
 class FileAdmin(admin.ModelAdmin):
@@ -21,3 +21,8 @@ class FileGeneAdmin(admin.ModelAdmin):
 class ConversionTaskAdmin(admin.ModelAdmin):
     list_display = ('id', 'external_job_id', 'status', 'created_at', 'updated_at')
     search_fields = ('external_job_id', 'status')
+
+@admin.register(ProcessGroup)
+class ProcessGroupAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name')
+    search_fields = ('name',)

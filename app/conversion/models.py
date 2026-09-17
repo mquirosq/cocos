@@ -98,8 +98,16 @@ class File(models.Model):
     class Meta:
         db_table = 'model_file'
 
+class ProcessGroup(models.Model):
+    """Grouping of conversion tasks under a name"""
+    name = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.name
 
 class ConversionTask(models.Model):
+    """A conversion task representing a bioinformatics process"""
+
     class TaskStatus(models.TextChoices):
         PENDING = 'pending', 'Pending'
         RUNNING = 'running', 'Running'
@@ -120,7 +128,7 @@ class ConversionTask(models.Model):
     status = models.CharField(max_length=50, choices=TaskStatus.choices, default=TaskStatus.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    process_name = models.CharField(max_length=255, blank=True, default='')
+    process = models.ForeignKey(ProcessGroup, on_delete=models.PROTECT, related_name='conversion_tasks')
     input_files = models.ManyToManyField(File, related_name='input_conversion_tasks', blank=True)
     output_files = models.ManyToManyField(File, related_name='output_conversion_tasks', blank=True)
     task_type = models.CharField(max_length=50, choices=TaskType.choices)

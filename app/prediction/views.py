@@ -1,5 +1,4 @@
 import json
-import os
 import csv
 
 from django.contrib.auth.decorators import login_required
@@ -13,6 +12,7 @@ from django.views.decorators.http import require_POST
 from conversion.models import File, ConversionTask
 from .registry import list_registered_models, get_model_supported_antibiotics, list_all_antibiotics
 from .tasks import predict
+from conversion.presentation import format_source_job_label
 
 def _get_user_json_uploads(user):
     return File.objects.filter(
@@ -26,19 +26,16 @@ def prediction_view(request):
 
     input_file_options = []
     for upload in json_uploads:
-        basename = os.path.basename(upload.file.name)
-        task = ConversionTask.objects.filter(user=request.user).filter(
-            models.Q(output_files__file__contains=upload.file.name) |
-            models.Q(output_files__file__contains=basename) |
-            models.Q(input_files__file__contains=upload.file.name) |
-            models.Q(input_files__file__contains=basename)
-        ).first()
-        
-        label = task.process_name if task and task.process_name else basename
-        input_file_options.append({
-            'id': str(upload.pk),
-            'label': f"{label} · {naturaltime(upload.created_at)}",
-        })
+        task = ConversionTask.objects.filter(
+                models.Q(input_files=upload) |
+                models.Q(output_files=upload)
+            ).order_by('-created_at').first()
+        if task:
+            label = format_source_job_label(task)
+            input_file_options.append({
+                'id': str(upload.pk),
+                'label': label
+            })
 
     available_models = list_registered_models()
     available_antibiotics = list_all_antibiotics()

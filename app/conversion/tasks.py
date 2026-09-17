@@ -3,7 +3,7 @@ from django.core.files.base import ContentFile
 import json
 import logging
 import requests
-from .models import ConversionTask, File
+from .models import ConversionTask, File, ProcessGroup
 from .bio_api_client import annotate_from_fasta, download_assembly_fasta_result, download_bakta_json_result, get_job_status, sequence_illumina, sequence_ont
 from notifications.services import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed, notify_user_conversion_started, notify_user_conversion_warning
 from notifications.models import TaskNotification
@@ -391,12 +391,14 @@ def poll_assembly_start(self, assembly_type="", file_id_1=None, file_id_2=None, 
                 )
 
         else:
+            process = ProcessGroup.objects.create(name=file_1.file.name)
+
             task = ConversionTask.objects.create(
                 external_job_id=external_resp["job_id"],
                 status=ConversionTask.TaskStatus.RUNNING,
                 task_type=assembly_task_type,
                 user_id=user_id,
-                process_name=file_1.file.name,
+                process=process,
             )
 
             task.input_files.add(file_1)
