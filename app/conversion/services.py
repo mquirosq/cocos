@@ -72,8 +72,8 @@ def get_json_upload_for_task(task):
     """Return the JSON File object for a task, or None if not found."""
 
     if task.task_type in ANNOTATED_TYPES:
-        if task.output_file:
-            return task.output_file
+        if task.output_files.exists():
+            return task.output_files.filter(file_type=File.FileType.JSON).first()
 
     elif task.task_type == ConversionTask.TaskType.FROM_JSON:
         input_file = task.input_files.first()
@@ -87,7 +87,7 @@ def get_fasta_upload_for_task(task):
         return task.input_files.first()
 
     if task.task_type in ASSEMBLY_TYPES:
-        return task.output_file
+        return task.output_files.filter(file_type=File.FileType.FASTA).first()
 
     return None
 

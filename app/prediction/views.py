@@ -28,8 +28,8 @@ def prediction_view(request):
     for upload in json_uploads:
         basename = os.path.basename(upload.file.name)
         task = ConversionTask.objects.filter(user=request.user).filter(
-            models.Q(output_file__file__contains=upload.file.name) |
-            models.Q(output_file__file__contains=basename) |
+            models.Q(output_files__file__contains=upload.file.name) |
+            models.Q(output_files__file__contains=basename) |
             models.Q(input_files__file__contains=upload.file.name) |
             models.Q(input_files__file__contains=basename)
         ).first()

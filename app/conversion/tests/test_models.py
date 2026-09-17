@@ -71,8 +71,8 @@ class TaskModelTests(TestCase):
                 task = ConversionTask(
                     external_job_id=job_id,
                     status=status,
-                    input_file=File.objects.create(file="/tmp/input"),
-                    output_file=File.objects.create(file="/tmp/output"),
+                    input_files=[File.objects.create(file="/tmp/input")],
+                    output_files=[File.objects.create(file="/tmp/output")],
                     task_type="annotation",
                     user=self.user,
                 )

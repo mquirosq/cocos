@@ -198,7 +198,7 @@ class PersistAssemblyFastaOutputTests(TestCase):
         _persist_assembly_fasta_output(task)
         task.refresh_from_db()
         self.assertTrue(File.objects.filter(user=self.user).exists())
-        self.assertIsNotNone(task.output_file)
+        self.assertIsNotNone(task.output_files)
 
     @patch("conversion.tasks.download_assembly_fasta_result")
     def test_no_op_cases(self, mock_download):

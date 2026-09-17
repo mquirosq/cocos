@@ -122,7 +122,7 @@ class ConversionTask(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     process_name = models.CharField(max_length=255, blank=True, default='')
     input_files = models.ManyToManyField(File, related_name='input_conversion_tasks', blank=True)
-    output_file = models.ForeignKey(File, on_delete=models.SET_NULL, null=True, blank=True, related_name='output_conversion_tasks')
+    output_files = models.ManyToManyField(File, related_name='output_conversion_tasks', blank=True)
     task_type = models.CharField(max_length=50, choices=TaskType.choices)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='conversion_tasks')
     previous_task = models.ForeignKey(

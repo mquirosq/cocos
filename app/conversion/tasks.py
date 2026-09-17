@@ -26,7 +26,7 @@ class BioServiceBusyError(Exception):
 
 def _persist_assembly_fasta_output(task):
     """Download and persist the assembled FASTA for an assembly task."""
-    if not task or not task.external_job_id or not task.task_type.startswith("assembly_") or task.output_file:
+    if not task or not task.external_job_id or not task.task_type.startswith("assembly_") or task.output_files.exists():
         return
 
     filename_stem = get_result_filename_stem("assembly", task.external_job_id)
@@ -38,13 +38,13 @@ def _persist_assembly_fasta_output(task):
 
     file = upload_file(ContentFile(fasta_content, name=filename), task.user, File.FileType.FASTA,)
 
-    task.output_file = file
-    task.save(update_fields=["output_file", "updated_at"])
+    task.output_files.add(file)
+    task.save(update_fields=["output_files", "updated_at"])
 
 
 def _persist_annotation_json_output(task, complete_version=False):
     """Download and persist the Bakta JSON for an annotation task."""
-    if (not task or not task.external_job_id or task.output_file
+    if (not task or not task.external_job_id or task.output_files.exists()
         or task.task_type != ConversionTask.TaskType.ANNOTATION):
         return
     
@@ -70,8 +70,8 @@ def _persist_annotation_json_output(task, complete_version=False):
     file = parse_file(parser="bakta_json", data=parsed_payload, file=file, user=task.user, options={"complete_version": complete_version})
 
     if file:
-        task.output_file = file
-        task.save(update_fields=["output_file", "updated_at"])
+        task.output_files.add(file)
+        task.save(update_fields=["output_files", "updated_at"])
 
 def _ensure_in_app_notification(task, event_type, message):
     """Guarantee at least one in-app notification exists for task/event."""
@@ -480,12 +480,12 @@ def poll_annotation_from_assembly_start(self, job_id, user_id, new_task_id=None,
         _fail_pending_annotation("The previous assembly job could not be found. Make sure it completed successfully before starting annotation.")
         return
 
-    if not previous_task.output_file:
+    if not previous_task.output_files.exists():
         _fail_pending_annotation("The assembled FASTA result is not available in the system. Try again later.")
         return
 
     try:
-        with previous_task.output_file.file.open("rb") as f:
+        with previous_task.output_files.filter(file_type=File.FileType.FASTA).first().file.open("rb") as f:
             fasta_bytes = f.read()
     except Exception as e:
         logger.error(f"Failed to read assembled FASTA for previous task {previous_task.id}: {e}")
