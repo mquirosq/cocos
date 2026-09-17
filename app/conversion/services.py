@@ -1,8 +1,6 @@
+import os
 from .models import ConversionTask, File
 from .presentation import format_source_job_label, pipeline_label, status_badge_class
-from .utils import (
-    resolve_persisted_result_filename,
-)
 
 ASSEMBLY_TYPES = {
     ConversionTask.TaskType.ASSEMBLY_ILLUMINA,
@@ -341,12 +339,7 @@ def get_available_fasta_jobs(user):
     available_tasks = list(completed_assembly_tasks.exclude(id__in=already_annotated_ids))
 
     for task in available_tasks:
-        resolved_name = resolve_persisted_result_filename(
-            user_id=user.id,
-            result_prefix='assembly',
-            job_id=task.external_job_id,
-        )
-        task.source_filename = resolved_name or 'Assembly output'
+        task.source_filename = (os.path.basename(task.output_files.first().file.name) if task.output_files.first() else "Assembly output")
         task.process_name = task.process_name or (task.input_files.first().file.name if hasattr(task.input_files.first(), 'file') else None)
         task.source_label = format_source_job_label(task)
 

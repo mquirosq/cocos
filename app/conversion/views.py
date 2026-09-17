@@ -93,7 +93,7 @@ def _start_annotation_from_uploaded_fasta(request, fasta):
     file = upload_file(
         fasta,
         user=request.user,
-        file_kind=File.FileType.FASTA
+        file_type=File.FileType.FASTA
     )
 
     task = ConversionTask.objects.create(
@@ -171,7 +171,7 @@ def assembly_task(request):
     file_1 = upload_file(
         fastq,
         user=request.user,
-        file_kind=File.FileType.FASTQ,
+        file_type=File.FileType.FASTQ,
     )
 
     file_2 = None
@@ -179,7 +179,7 @@ def assembly_task(request):
         file_2 = upload_file(
             fastq_2,
             user=request.user,
-            file_kind=File.FileType.FASTQ,
+            file_type=File.FileType.FASTQ,
         )
 
     task = ConversionTask.objects.create(
@@ -282,7 +282,7 @@ def parse_feature_file(request):
         file = upload_file(
             feature_file,
             user=request.user,
-            file_kind=File.FileType.JSON,
+            file_type=File.FileType.JSON,
         )
 
         task = ConversionTask.objects.create(

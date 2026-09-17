@@ -9,7 +9,7 @@ from .bio_api_client import annotate_from_fasta, download_assembly_fasta_result,
 from notifications.services import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed, notify_user_conversion_started, notify_user_conversion_warning
 from notifications.models import TaskNotification
 from celery.exceptions import MaxRetriesExceededError
-from .utils import find_latest_persisted_upload, get_result_filename_stem, read_persisted_upload_bytes, upload_file
+from .utils import get_result_filename_stem, upload_file
 from .parsers import parse_file
 
 logger = logging.getLogger(__name__)
