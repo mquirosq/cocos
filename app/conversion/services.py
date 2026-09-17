@@ -1,24 +1,7 @@
 import os
 from .models import ConversionTask, File
 from .presentation import format_source_job_label, pipeline_label, status_badge_class
-
-ASSEMBLY_TYPES = {
-    ConversionTask.TaskType.ASSEMBLY_ILLUMINA,
-    ConversionTask.TaskType.ASSEMBLY_ONT,
-    ConversionTask.TaskType.ASSEMBLY_ILLUMINA_ANNOTATED,
-    ConversionTask.TaskType.ASSEMBLY_ONT_ANNOTATED,
-}
-
-ANNOTATED_TYPES = {
-    ConversionTask.TaskType.ASSEMBLY_ILLUMINA_ANNOTATED,
-    ConversionTask.TaskType.ASSEMBLY_ONT_ANNOTATED,
-    ConversionTask.TaskType.ANNOTATION,
-}
-
-ASSEMBLY_AND_ANNOTATION_TYPES = {
-    ConversionTask.TaskType.ASSEMBLY_ILLUMINA_ANNOTATED,
-    ConversionTask.TaskType.ASSEMBLY_ONT_ANNOTATED,
-}
+from .task_types import ASSEMBLY_TYPES, ANNOTATED_TYPES, ASSEMBLY_AND_ANNOTATION_TYPES
 
 FASTA_EXTENSIONS = {'.fa', '.fasta', '.fna', '.ffn', '.faa', '.frn'}
 
