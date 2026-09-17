@@ -1,7 +1,6 @@
 from celery import shared_task
 from django.core.files.base import ContentFile
 import json
-import os
 import logging
 import requests
 from .models import ConversionTask, File
@@ -11,6 +10,7 @@ from notifications.models import TaskNotification
 from celery.exceptions import MaxRetriesExceededError
 from .utils import get_result_filename_stem, upload_file
 from .parsers import parse_file
+from .task_types import ASSEMBLY_TYPES, ANNOTATED_TYPES, ASSEMBLY_AND_ANNOTATION_TYPES
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +39,14 @@ def _persist_assembly_fasta_output(task):
     file = upload_file(ContentFile(fasta_content, name=filename), task.user, File.FileType.FASTA,)
 
     task.output_files.add(file)
-    task.save(update_fields=["output_files", "updated_at"])
+    task.save(update_fields=["updated_at"])
 
 
 def _persist_annotation_json_output(task, complete_version=False):
     """Download and persist the Bakta JSON for an annotation task."""
-    if (not task or not task.external_job_id or task.output_files.exists()
-        or task.task_type != ConversionTask.TaskType.ANNOTATION):
+    if (not task or not task.external_job_id
+        or task.task_type not in ANNOTATED_TYPES
+        or task.output_files.filter(file_type=File.FileType.JSON).exists()):
         return
     
     filename_stem = get_result_filename_stem(
@@ -71,7 +72,7 @@ def _persist_annotation_json_output(task, complete_version=False):
 
     if file:
         task.output_files.add(file)
-        task.save(update_fields=["output_files", "updated_at"])
+        task.save(update_fields=["updated_at"])
 
 def _ensure_in_app_notification(task, event_type, message):
     """Guarantee at least one in-app notification exists for task/event."""
@@ -128,7 +129,7 @@ def poll_conversion_status(self, task_id, complete_version=False):
 
     if status == "completed":
         logger.info(f"Conversion completed for task: {task.external_job_id}")
-        if task.task_type.startswith("assembly_"):
+        if task.task_type in ASSEMBLY_TYPES:
             try:
                 _persist_assembly_fasta_output(task)
             except Exception as e:
@@ -141,17 +142,7 @@ def poll_conversion_status(self, task_id, complete_version=False):
                     task.save()
                     notify_user_conversion_failed(task.user, task)
                 return
-            if task.task_type.endswith("annotated"):
-                try:
-                    _persist_annotation_json_output(task, complete_version=complete_version)
-                except Exception as e:
-                    logger.error(f"Unable to auto-parse annotation JSON for auto-annotated assembly {task.external_job_id}: {str(e)}")
-                    notify_user_conversion_warning(
-                        task.user,
-                        task,
-                        "Assembly & annotation succeeded, but automatic result upload failed. Try uploading the Bakta JSON manually from your downloads.",
-                    )
-        elif task.task_type == ConversionTask.TaskType.ANNOTATION:
+        if task.task_type in ANNOTATED_TYPES:
             try:
                 _persist_annotation_json_output(task, complete_version=complete_version)
             except Exception as e:
