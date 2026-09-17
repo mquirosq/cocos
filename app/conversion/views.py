@@ -30,7 +30,7 @@ from .utils import upload_file
 
 def _get_current_user_tasks(request):
     """Return tasks filtered by authenticated user."""
-    return ConversionTask.objects.filter(user=request.user)
+    return ConversionTask.objects.filter(process__user=request.user)
 
 
 def _annotation_context(request, active_tab='fasta', **extra):
@@ -54,7 +54,7 @@ def _start_annotation_from_source_job(request, source_job_id):
         messages.error(request, 'This FASTA output already has an annotation task.')
         return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
 
-    if previous_task.user != request.user:
+    if previous_task.process.user != request.user:
         messages.error(request, 'You do not have permission to annotate this FASTA output.')
         return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
     
@@ -66,7 +66,6 @@ def _start_annotation_from_source_job(request, source_job_id):
         external_job_id=None,
         status=ConversionTask.TaskStatus.PENDING,
         task_type=ConversionTask.TaskType.ANNOTATION,
-        user=request.user,
         previous_task=previous_task,
         process=previous_task.process,
     )
@@ -96,12 +95,11 @@ def _start_annotation_from_uploaded_fasta(request, fasta):
         file_type=File.FileType.FASTA
     )
 
-    process = ProcessGroup.objects.create(name=os.path.basename(file.file.name))
+    process = ProcessGroup.objects.create(name=os.path.basename(file.file.name), user=request.user)
     task = ConversionTask.objects.create(
         external_job_id=None,
         status=ConversionTask.TaskStatus.PENDING,
         task_type=ConversionTask.TaskType.ANNOTATION,
-        user=request.user,
         previous_task=None,
         process=process
     )
@@ -183,12 +181,11 @@ def assembly_task(request):
             file_type=File.FileType.FASTQ,
         )
 
-    process = ProcessGroup.objects.create(name=os.path.basename(fastq.name))
+    process = ProcessGroup.objects.create(name=os.path.basename(fastq.name), user=request.user)
     task = ConversionTask.objects.create(
         external_job_id=None,
         status=ConversionTask.TaskStatus.PENDING,
         task_type=f"assembly_{assembly_type}{'_annotated' if annotate else ''}",
-        user=request.user,
         process = process,
     )
 
@@ -241,7 +238,7 @@ def annotation_from_assembly_task(request, job_id):
         messages.warning(request, 'This assembly result already has an annotation task.')
         return redirect('conversion:annotation_ui')
     
-    if previous_task.user != request.user:
+    if previous_task.process.user != request.user:
         messages.error(request, 'You do not have permission to annotate this assembly result.')
         return redirect('conversion:annotation_ui')
     
@@ -253,7 +250,6 @@ def annotation_from_assembly_task(request, job_id):
         external_job_id=None,
         status=ConversionTask.TaskStatus.PENDING,
         task_type=ConversionTask.TaskType.ANNOTATION,
-        user=request.user,
         previous_task=previous_task,
         process=previous_task.process,
     )
@@ -287,12 +283,11 @@ def parse_feature_file(request):
             file_type=File.FileType.JSON,
         )
 
-        process = ProcessGroup.objects.create(name=os.path.basename(file.file.name))
+        process = ProcessGroup.objects.create(name=os.path.basename(file.file.name), user=request.user)
         task = ConversionTask.objects.create(
             external_job_id=None,
             status=ConversionTask.TaskStatus.PENDING,
             task_type=ConversionTask.TaskType.FROM_JSON,
-            user=request.user,
             process=process,
         )
 
@@ -319,14 +314,8 @@ def parse_feature_file(request):
 
         try:
             with file.file.open('rb') as stored_file:
-                file_upload = parse_file(
-                    "bakta_json",
-                    data,
-                    stored_file,
-                    user=request.user,
-                    options={
-                        "complete_version": complete_version
-                    }
+                file_upload = parse_file("bakta_json", data, stored_file, user=request.user,
+                    options={"complete_version": complete_version}
                 )
 
         except Exception as e:
@@ -369,7 +358,7 @@ def task_list_view(request):
 def task_status_view(request, task_id):
     task = get_object_or_404(_get_current_user_tasks(request), id=task_id)
 
-    if task.user != request.user:
+    if task.process.user != request.user:
         messages.error(request, 'You do not have permission to view this task.')
         return redirect('conversion:task_list')
 

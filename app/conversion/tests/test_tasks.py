@@ -295,7 +295,7 @@ class EnsureInAppNotificationTests(TestCase):
 
     def test_does_not_duplicate(self):
         TaskNotification.objects.create(
-            user_id=self.task.user_id, task=self.task,
+            user_id=self.task.process.user.id, task=self.task,
             event_type=TaskNotification.EVENT_COMPLETED, message="done",
             channels=[TaskNotification.CHANNEL_IN_APP],
         )

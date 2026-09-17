@@ -36,7 +36,7 @@ def _persist_assembly_fasta_output(task):
     if not fasta_content:
         raise ValueError("Downloaded FASTA content is empty")
 
-    file = upload_file(ContentFile(fasta_content, name=filename), task.user, File.FileType.FASTA,)
+    file = upload_file(ContentFile(fasta_content, name=filename), task.process.user, File.FileType.FASTA,)
 
     task.output_files.add(file)
     task.save(update_fields=["updated_at"])
@@ -66,9 +66,9 @@ def _persist_annotation_json_output(task, complete_version=False):
 
     source_file = ContentFile(json.dumps(parsed_payload).encode("utf-8"), name=filename)
 
-    file = upload_file(source_file, task.user, File.FileType.JSON)
+    file = upload_file(source_file, task.process.user, File.FileType.JSON)
 
-    file = parse_file(parser="bakta_json", data=parsed_payload, file=file, user=task.user, options={"complete_version": complete_version})
+    file = parse_file(parser="bakta_json", data=parsed_payload, file=file, user=task.process.user, options={"complete_version": complete_version})
 
     if file:
         task.output_files.add(file)
@@ -76,19 +76,19 @@ def _persist_annotation_json_output(task, complete_version=False):
 
 def _ensure_in_app_notification(task, event_type, message):
     """Guarantee at least one in-app notification exists for task/event."""
-    if not task or not task.user_id:
+    if not task or not task.process.user.id:
         return
 
     already_exists = TaskNotification.objects.filter(
         task=task,
-        user_id=task.user_id,
+        user_id=task.process.user.id,
         event_type=event_type,
     ).exists()
     if already_exists:
         return
 
     TaskNotification.objects.create(
-        user_id=task.user_id,
+        user_id=task.process.user.id,
         task=task,
         event_type=event_type,
         message=message,
@@ -112,7 +112,7 @@ def poll_conversion_status(self, task_id, complete_version=False):
         logger.warning(f"External job not found: {task.external_job_id}")
         task.status = ConversionTask.TaskStatus.FAILED
         task.save()
-        notify_user_conversion_failed(task.user, task)
+        notify_user_conversion_failed(task.process.user, task)
         _ensure_in_app_notification(
             task,
             TaskNotification.EVENT_FAILED,
@@ -140,19 +140,16 @@ def poll_conversion_status(self, task_id, complete_version=False):
                     logger.error(f"Max retries exceeded while persisting FASTA for task: {task.external_job_id}")
                     task.status = ConversionTask.TaskStatus.FAILED
                     task.save()
-                    notify_user_conversion_failed(task.user, task)
+                    notify_user_conversion_failed(task.process.user, task)
                 return
         if task.task_type in ANNOTATED_TYPES:
             try:
                 _persist_annotation_json_output(task, complete_version=complete_version)
             except Exception as e:
                 logger.error(f"Unable to auto-parse annotation JSON for task {task.external_job_id}: {str(e)}")
-                notify_user_conversion_warning(
-                    task.user,
-                    task,
-                    "Annotation succeeded, but automatic result upload failed. Try uploading the Bakta JSON manually from your downloads.",
+                notify_user_conversion_warning(task.process.user, task, "Annotation succeeded, but automatic result upload failed. Try uploading the Bakta JSON manually from your downloads.",
                 )
-        notify_user_conversion_complete(task.user, task)
+        notify_user_conversion_complete(task.process.user, task)
         _ensure_in_app_notification(
             task,
             TaskNotification.EVENT_COMPLETED,
@@ -161,7 +158,7 @@ def poll_conversion_status(self, task_id, complete_version=False):
         return
 
     if status == "failed":
-        notify_user_conversion_failed(task.user, task)
+        notify_user_conversion_failed(task.process.user, task)
         _ensure_in_app_notification(
             task,
             TaskNotification.EVENT_FAILED,
@@ -177,7 +174,7 @@ def poll_conversion_status(self, task_id, complete_version=False):
         logger.error(f"Max retries exceeded for task: {task.external_job_id}")
         task.status = ConversionTask.TaskStatus.FAILED
         task.save()
-        notify_user_conversion_failed(task.user, task)
+        notify_user_conversion_failed(task.process.user, task)
         _ensure_in_app_notification(
             task,
             TaskNotification.EVENT_FAILED,
@@ -207,18 +204,14 @@ def poll_annotation_start(self, fasta_bytes, task_id, user_id=None, complete_ver
     if external_resp.get("status") == "running" or external_resp.get("status") == "annotation_pending":
         logger.info(f"Annotation started with job ID: {external_resp.get('job_id')} for task {task_id}")
         if user_id is None:
-            user_id = task.user_id
+            user_id = task.process.user.id
         should_notify_started = task.status != ConversionTask.TaskStatus.RUNNING
         task.external_job_id = external_resp["job_id"]
         task.status = ConversionTask.TaskStatus.RUNNING
         task.save()
         if should_notify_started:
-            notify_user_conversion_started(task.user, task)
-            _ensure_in_app_notification(
-                task,
-                TaskNotification.EVENT_STARTED,
-                "Your annotation task has started processing on the bio service.",
-            )
+            notify_user_conversion_started(task.process.user, task)
+            _ensure_in_app_notification(task, TaskNotification.EVENT_STARTED, "Your annotation task has started processing on the bio service.")
         poll_conversion_status.delay(task.id, complete_version=complete_version)
         return
 
@@ -227,7 +220,7 @@ def poll_annotation_start(self, fasta_bytes, task_id, user_id=None, complete_ver
         self.retry(countdown=60)  # Retry after 60 seconds
     except MaxRetriesExceededError: # When retries are exhausted
         logger.error(f"Max retries exhausted starting annotation for task {task_id}")
-        notify_user_server_busy(task.user if task else None, task=task)
+        notify_user_server_busy(task.process.user if task else None, task=task)
         _ensure_in_app_notification(
             task,
             TaskNotification.EVENT_WARNING,
@@ -240,7 +233,7 @@ def poll_assembly_start(self, assembly_type="", file_id_1=None, file_id_2=None, 
     logger.info(f"Trying to start assembly task ({assembly_type}) for uploaded FASTQ")
 
     task = ConversionTask.objects.filter(id=task_id).first() if task_id else None
-    effective_user = task.user if task else None
+    effective_user = task.process.user if task else None
 
     assembly_task_type = ("assembly" + ("_" + assembly_type) + ("_annotated" if annotate else ""))
 
@@ -373,7 +366,7 @@ def poll_assembly_start(self, assembly_type="", file_id_1=None, file_id_2=None, 
 
         if task:
             if user_id is None:
-                user_id = task.user_id
+                user_id = task.process.user.id
 
             should_notify_started = task.status != ConversionTask.TaskStatus.RUNNING
 
@@ -382,7 +375,7 @@ def poll_assembly_start(self, assembly_type="", file_id_1=None, file_id_2=None, 
             task.save()
 
             if should_notify_started:
-                notify_user_conversion_started(task.user, task)
+                notify_user_conversion_started(task.process.user, task)
                 _ensure_in_app_notification(
                     task,
                     TaskNotification.EVENT_STARTED,
@@ -406,7 +399,7 @@ def poll_assembly_start(self, assembly_type="", file_id_1=None, file_id_2=None, 
             if assembly_type == "illumina":
                 task.input_files.add(file_2)
 
-            notify_user_conversion_started(task.user, task)
+            notify_user_conversion_started(task.process.user, task)
             _ensure_in_app_notification(
                 task,
                 TaskNotification.EVENT_STARTED,
@@ -444,7 +437,7 @@ def poll_annotation_from_assembly_start(self, job_id, user_id, new_task_id=None,
     logger.info(f"Trying to start annotation task for assembly job {job_id} (new_task_id={new_task_id})")
 
     pending_task = ConversionTask.objects.filter(id=new_task_id).first() if new_task_id else None
-    pending_user = pending_task.user if pending_task else None
+    pending_user = pending_task.process.user if pending_task else None
 
     def _fail_pending_annotation(message):
         logger.error(f"Annotation task {new_task_id} failed: {message}")
@@ -464,8 +457,7 @@ def poll_annotation_from_assembly_start(self, job_id, user_id, new_task_id=None,
             ConversionTask.TaskType.ASSEMBLY_ONT,
         ],
         status=ConversionTask.TaskStatus.COMPLETED,
-    )
-    previous_job_qs = previous_job_qs.filter(user_id=user_id)
+    ).filter(process__user_id=user_id)
 
     previous_task = previous_job_qs.first()
     if not previous_task:

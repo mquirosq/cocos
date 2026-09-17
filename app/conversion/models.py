@@ -101,6 +101,7 @@ class File(models.Model):
 class ProcessGroup(models.Model):
     """Grouping of conversion tasks under a name"""
     name = models.CharField(max_length=255)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='process_groups')
 
     def __str__(self):
         return self.name
@@ -132,7 +133,6 @@ class ConversionTask(models.Model):
     input_files = models.ManyToManyField(File, related_name='input_conversion_tasks', blank=True)
     output_files = models.ManyToManyField(File, related_name='output_conversion_tasks', blank=True)
     task_type = models.CharField(max_length=50, choices=TaskType.choices)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='conversion_tasks')
     previous_task = models.ForeignKey(
         'self',
         on_delete=models.SET_NULL,
@@ -153,7 +153,7 @@ class ConversionTask(models.Model):
         if self.previous_task and self.previous_task.task_type not in {self.TaskType.ASSEMBLY_ILLUMINA, self.TaskType.ASSEMBLY_ONT}:
             raise ValidationError({'previous_task': 'previous_task must be assembly_illumina or assembly_ont.'})
 
-        if self.previous_task and self.user_id and self.previous_task.user_id != self.user_id:
+        if self.previous_task and self.process.user_id and self.previous_task.process.user_id != self.process.user_id:
             raise ValidationError({'previous_task': 'previous_task must belong to the same user.'})
 
     # Ensure model validation runs on save

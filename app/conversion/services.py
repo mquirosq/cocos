@@ -74,7 +74,7 @@ def get_fasta_upload_for_task(task):
 
 
 def build_process_rows(user):
-    tasks = list(ConversionTask.objects.filter(user=user).select_related('previous_task').order_by('-updated_at', '-id'))
+    tasks = list(ConversionTask.objects.filter(process__user=user).select_related('previous_task').order_by('-updated_at', '-id'))
 
     assembly_tasks = [task for task in tasks if task.task_type in ASSEMBLY_TYPES]
     assembly_by_id = {task.id: task for task in assembly_tasks}
@@ -201,7 +201,7 @@ def build_task_context(user, task):
     if task.task_type in ASSEMBLY_TYPES:
         assembly_task = task
         annotations = list(
-            ConversionTask.objects.filter(user=user, previous_task=assembly_task, task_type=ConversionTask.TaskType.ANNOTATION).order_by('-updated_at', '-id')
+            ConversionTask.objects.filter(process__user=user, previous_task=assembly_task, task_type=ConversionTask.TaskType.ANNOTATION).order_by('-updated_at', '-id')
         )
         latest_annotation = annotations[0] if annotations else None
         return {
@@ -220,7 +220,7 @@ def build_task_context(user, task):
     if task.task_type == ConversionTask.TaskType.ANNOTATION and task.previous_task_id:
         assembly_task = task.previous_task
         annotations = list(
-            ConversionTask.objects.filter(user=user, previous_task=assembly_task, task_type=ConversionTask.TaskType.ANNOTATION).order_by('-updated_at', '-id')
+            ConversionTask.objects.filter(process__user=user, previous_task=assembly_task, task_type=ConversionTask.TaskType.ANNOTATION).order_by('-updated_at', '-id')
         )
         latest_annotation = annotations[0] if annotations else None
         return {
@@ -239,10 +239,10 @@ def build_task_context(user, task):
     if task.task_type == ConversionTask.TaskType.ANNOTATION:
         annotations = list(
             ConversionTask.objects.filter(
-                user=user,
+                process__user=user,
                 task_type=ConversionTask.TaskType.ANNOTATION,
                 previous_task__isnull=True,
-                process_name=task.process.name,
+                process__name=task.process.name,
                 input_files=task.input_files.first(),
             ).order_by('-updated_at', '-id')
         )
@@ -262,9 +262,9 @@ def build_task_context(user, task):
 
     json_attempts = list(
         ConversionTask.objects.filter(
-            user=user,
+            process__user=user,
             task_type=ConversionTask.TaskType.FROM_JSON,
-            process_name=task.process.name,
+            process__name=task.process.name,
             input_files=task.input_files.first(),
         ).order_by('-updated_at', '-id')
     )
@@ -284,7 +284,7 @@ def build_task_context(user, task):
 
 
 def rename_task_process(user, task, new_name):
-    if task.user_id != user.id:
+    if task.process.user.id != user.id:
         return
 
     task.process.name = new_name
@@ -294,14 +294,14 @@ def rename_task_process(user, task, new_name):
 def get_available_fasta_jobs(user):
     """Return completed base assembly jobs that are not already annotated."""
     completed_assembly_tasks = ConversionTask.objects.filter(
-        user=user,
+        process__user=user,
         status=ConversionTask.TaskStatus.COMPLETED,
         task_type__in=(ConversionTask.TaskType.ASSEMBLY_ILLUMINA, ConversionTask.TaskType.ASSEMBLY_ONT),
         external_job_id__isnull=False,
     ).exclude(external_job_id='').order_by('-updated_at', '-id')
 
     already_annotated_ids = ConversionTask.objects.filter(
-        user=user,
+        process__user=user,
         task_type=ConversionTask.TaskType.ANNOTATION,
         status__in=(ConversionTask.TaskStatus.PENDING, ConversionTask.TaskStatus.RUNNING, ConversionTask.TaskStatus.COMPLETED),
         previous_task__isnull=False,
@@ -318,7 +318,7 @@ def get_available_fasta_jobs(user):
 
 def has_annotation_for_previous(user, previous_task):
     return ConversionTask.objects.filter(
-        user=user,
+        process__user=user,
         task_type=ConversionTask.TaskType.ANNOTATION,
         status__in=(ConversionTask.TaskStatus.PENDING, ConversionTask.TaskStatus.RUNNING, ConversionTask.TaskStatus.COMPLETED),
         previous_task=previous_task,
