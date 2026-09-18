@@ -133,28 +133,12 @@ class ConversionTask(models.Model):
     input_files = models.ManyToManyField(File, related_name='input_conversion_tasks', blank=True)
     output_files = models.ManyToManyField(File, related_name='output_conversion_tasks', blank=True)
     task_type = models.CharField(max_length=50, choices=TaskType.choices)
-    previous_task = models.ForeignKey(
-        'self',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='derived_tasks',
-    )
 
     # Model-level validation
     def clean(self):
         # Check that external_job_id is not null when status is not 'pending'
-        if not self.external_job_id and self.status != self.TaskStatus.PENDING and self.status != self.TaskStatus.FAILED and self.task_type != self.TaskType.FROM_JSON:
+        if not self.external_job_id and self.status != self.TaskStatus.PENDING and self.status != self.TaskStatus.FAILED and self.task_type not in [self.TaskType.FROM_JSON, self.TaskType.PREDICTION]:
             raise ValidationError({'external_job_id': 'external_job_id can be null only when status is "pending" or "failed".'})
-
-        if self.previous_task and self.task_type != self.TaskType.ANNOTATION:
-            raise ValidationError({'previous_task': 'Only annotation tasks can have a previous_task.'})
-
-        if self.previous_task and self.previous_task.task_type not in {self.TaskType.ASSEMBLY_ILLUMINA, self.TaskType.ASSEMBLY_ONT}:
-            raise ValidationError({'previous_task': 'previous_task must be assembly_illumina or assembly_ont.'})
-
-        if self.previous_task and self.process.user_id and self.previous_task.process.user_id != self.process.user_id:
-            raise ValidationError({'previous_task': 'previous_task must belong to the same user.'})
 
     # Ensure model validation runs on save
     def save(self, *args, **kwargs):

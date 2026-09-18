@@ -459,21 +459,21 @@ def poll_annotation_from_assembly_start(self, job_id, user_id, new_task_id=None,
         status=ConversionTask.TaskStatus.COMPLETED,
     ).filter(process__user_id=user_id)
 
-    previous_task = previous_job_qs.first()
-    if not previous_task:
+    source_task = previous_job_qs.first()
+    if not source_task:
         logger.error(f"Previous assembly job not found for annotation task with job ID: {job_id}")
         _fail_pending_annotation("The previous assembly job could not be found. Make sure it completed successfully before starting annotation.")
         return
 
-    if not previous_task.output_files.exists():
+    if not source_task.output_files.exists():
         _fail_pending_annotation("The assembled FASTA result is not available in the system. Try again later.")
         return
 
     try:
-        with previous_task.output_files.filter(file_type=File.FileType.FASTA).first().file.open("rb") as f:
+        with source_task.output_files.filter(file_type=File.FileType.FASTA).first().file.open("rb") as f:
             fasta_bytes = f.read()
     except Exception as e:
-        logger.error(f"Failed to read assembled FASTA for previous task {previous_task.id}: {e}")
+        logger.error(f"Failed to read assembled FASTA for previous task {source_task.id}: {e}")
         _fail_pending_annotation("The assembled FASTA result could not be read. Try again later.")
         return
 

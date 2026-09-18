@@ -44,21 +44,21 @@ def _annotation_context(request, active_tab='fasta', **extra):
 
 def _start_annotation_from_source_job(request, source_job_id):
     available_jobs = get_available_fasta_jobs(request.user)
-    previous_task = next((task for task in available_jobs if task.external_job_id == source_job_id), None)
+    source_task = next((task for task in available_jobs if task.external_job_id == source_job_id), None)
     
-    if not previous_task:
+    if not source_task:
         messages.error(request, 'Selected FASTA is not available for annotation.')
         return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
 
-    if has_annotation_for_previous(request.user, previous_task):
+    if has_annotation_for_previous(source_task):
         messages.error(request, 'This FASTA output already has an annotation task.')
         return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
 
-    if previous_task.process.user != request.user:
+    if source_task.process.user != request.user:
         messages.error(request, 'You do not have permission to annotate this FASTA output.')
         return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
     
-    if previous_task.status != ConversionTask.TaskStatus.COMPLETED:
+    if source_task.status != ConversionTask.TaskStatus.COMPLETED:
         messages.error(request, 'Selected FASTA output is not ready for annotation.')
         return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
 
@@ -66,10 +66,9 @@ def _start_annotation_from_source_job(request, source_job_id):
         external_job_id=None,
         status=ConversionTask.TaskStatus.PENDING,
         task_type=ConversionTask.TaskType.ANNOTATION,
-        previous_task=previous_task,
-        process=previous_task.process,
+        process=source_task.process,
     )
-    task.input_files.set(previous_task.output_files.all())
+    task.input_files.set(source_task.output_files.all())
 
     poll_annotation_from_assembly_start.delay(
         job_id=source_job_id,
@@ -100,7 +99,6 @@ def _start_annotation_from_uploaded_fasta(request, fasta):
         external_job_id=None,
         status=ConversionTask.TaskStatus.PENDING,
         task_type=ConversionTask.TaskType.ANNOTATION,
-        previous_task=None,
         process=process
     )
 
@@ -225,24 +223,24 @@ def annotation_from_assembly_task(request, job_id):
 
     print(f"Starting annotation task from assembly job with ID: {job_id}")
 
-    previous_task = _get_current_user_tasks(request).filter(
+    source_task = _get_current_user_tasks(request).filter(
         external_job_id=job_id,
         status=ConversionTask.TaskStatus.COMPLETED,
         task_type__in=(ConversionTask.TaskType.ASSEMBLY_ILLUMINA, ConversionTask.TaskType.ASSEMBLY_ONT),
     ).first()
-    if not previous_task:
+    if not source_task:
         messages.error(request, 'Assembly job not found or not available for annotation.')
         return redirect('conversion:annotation_ui')
 
-    if has_annotation_for_previous(request.user, previous_task):
+    if has_annotation_for_previous(source_task):
         messages.warning(request, 'This assembly result already has an annotation task.')
         return redirect('conversion:annotation_ui')
     
-    if previous_task.process.user != request.user:
+    if source_task.process.user != request.user:
         messages.error(request, 'You do not have permission to annotate this assembly result.')
         return redirect('conversion:annotation_ui')
     
-    if previous_task.status != ConversionTask.TaskStatus.COMPLETED:
+    if source_task.status != ConversionTask.TaskStatus.COMPLETED:
         messages.error(request, 'Selected assembly job is not ready for annotation.')
         return redirect('conversion:annotation_ui')
 
@@ -250,10 +248,9 @@ def annotation_from_assembly_task(request, job_id):
         external_job_id=None,
         status=ConversionTask.TaskStatus.PENDING,
         task_type=ConversionTask.TaskType.ANNOTATION,
-        previous_task=previous_task,
-        process=previous_task.process,
+        process=source_task.process,
     )
-    task.input_files.set(previous_task.output_files.all())
+    task.input_files.set(source_task.output_files.all())
 
     poll_annotation_from_assembly_start.delay(
         user_id=request.user.id,
@@ -277,15 +274,10 @@ def parse_feature_file(request):
             messages.error(request, 'Select a JSON file.')
             return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='json'))
 
-        file = upload_file(
-            feature_file,
-            user=request.user,
-            file_type=File.FileType.JSON,
-        )
+        file = upload_file(feature_file, user=request.user, file_type=File.FileType.JSON)
 
         process = ProcessGroup.objects.create(name=os.path.basename(file.file.name), user=request.user)
         task = ConversionTask.objects.create(
-            external_job_id=None,
             status=ConversionTask.TaskStatus.PENDING,
             task_type=ConversionTask.TaskType.FROM_JSON,
             process=process,
@@ -306,22 +298,17 @@ def parse_feature_file(request):
 
             messages.error(request, 'Error decoding JSON file.')
 
-            return render(
-                request,
-                'conversion/annotation.html',
-                _annotation_context(request, active_tab='json')
-            )
+            return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='json'))
 
         try:
-            with file.file.open('rb') as stored_file:
-                file_upload = parse_file("bakta_json", data, stored_file, user=request.user,
+            file_upload = parse_file("bakta_json", data, file, user=request.user,
                     options={"complete_version": complete_version}
                 )
 
         except Exception as e:
             task.status = ConversionTask.TaskStatus.FAILED
             task.save(update_fields=['status', 'updated_at'])
-            messages.error(request, f'Error parsing features: {e}')
+            messages.error(request, f'Error parsing features. Try again later.')
             return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='json'))
 
         task.status = ConversionTask.TaskStatus.COMPLETED
