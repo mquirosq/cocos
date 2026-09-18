@@ -6,8 +6,10 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
+from app.utils.pagination import get_pagination_page_range
 from .models import ConversionTask, File, ProcessGroup
 from .parsers import parse_file
 from .services import (
@@ -339,6 +341,11 @@ def task_list_view(request):
     
     return render(request, 'conversion/task_list.html', {
         'page_obj': page_obj,
+        'pagination_page_range': get_pagination_page_range(paginator, page_obj.number),
+        'pagination_url': reverse('conversion:task_list'),
+        'pagination_query': '',
+        'pagination_label': 'Processes',
+        'pagination_link_attribute': 'data-process-page',
     })
 
 @login_required

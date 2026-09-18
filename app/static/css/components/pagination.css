@@ -1,0 +1,72 @@
+/* Shared pagination */
+.pagination-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pagination-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.9rem;
+  height: 1.9rem;
+  padding: 0 0.25rem;
+  border: 0;
+  background: transparent;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 180ms ease;
+}
+
+.pagination-link::after {
+  content: '';
+  position: absolute;
+  left: 0.55rem;
+  right: 0.55rem;
+  bottom: 0.18rem;
+  height: 2px;
+  background-color: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 180ms ease;
+}
+
+.pagination-link:hover::after,
+.pagination-link.is-active::after {
+  transform: scaleX(1);
+}
+
+.pagination-link:hover,
+.pagination-link.is-active {
+  color: var(--color-base-content);
+}
+
+.pagination-link.is-active {
+  font-weight: 700;
+}
+
+.pagination-arrow {
+  font-size: 0.9rem;
+}
+
+.pagination-arrow.is-disabled {
+  color: var(--color-base-content);
+  cursor: not-allowed;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.pagination-arrow.is-disabled::after {
+  display: none;
+}
+
+.pagination-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.9rem;
+  height: 1.9rem;
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+}

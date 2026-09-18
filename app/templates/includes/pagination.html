@@ -1,0 +1,46 @@
+{% if page_obj.paginator.num_pages > 1 %}
+  <div class="mt-5 flex justify-center">
+    <div class="pagination-nav" role="navigation" aria-label="{{ pagination_label }} pagination">
+      {% if page_obj.has_previous %}
+        <a
+          href="{{ pagination_url }}{% if pagination_query %}?{{ pagination_query }}&amp;{% else %}?{% endif %}page={{ page_obj.previous_page_number }}"
+          {{ pagination_link_attribute }}
+          class="pagination-link pagination-arrow"
+          aria-label="Previous page">
+          <i class="bi bi-chevron-left" aria-hidden="true"></i>
+        </a>
+      {% else %}
+        <span class="pagination-link pagination-arrow is-disabled" aria-disabled="true">
+          <i class="bi bi-chevron-left" aria-hidden="true"></i>
+        </span>
+      {% endif %}
+
+      {% for num in pagination_page_range %}
+        {% if num == page_obj.paginator.ELLIPSIS %}
+          <span class="pagination-ellipsis" aria-hidden="true">&hellip;</span>
+        {% else %}
+          <a
+            href="{{ pagination_url }}{% if pagination_query %}?{{ pagination_query }}&amp;{% else %}?{% endif %}page={{ num }}"
+            {{ pagination_link_attribute }}
+            class="pagination-link {% if page_obj.number == num %}is-active{% endif %}">
+            {{ num }}
+          </a>
+        {% endif %}
+      {% endfor %}
+
+      {% if page_obj.has_next %}
+        <a
+          href="{{ pagination_url }}{% if pagination_query %}?{{ pagination_query }}&amp;{% else %}?{% endif %}page={{ page_obj.next_page_number }}"
+          {{ pagination_link_attribute }}
+          class="pagination-link pagination-arrow"
+          aria-label="Next page">
+          <i class="bi bi-chevron-right" aria-hidden="true"></i>
+        </a>
+      {% else %}
+        <span class="pagination-link pagination-arrow is-disabled" aria-disabled="true">
+          <i class="bi bi-chevron-right" aria-hidden="true"></i>
+        </span>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}

@@ -3,6 +3,7 @@
 
 {% block override_style %}
 <link rel="stylesheet" href="{% static 'css/conversion/processes.css' %}">
+<link rel="stylesheet" href="{% static 'css/components/pagination.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -106,20 +107,8 @@
       </div>
     {% endfor %}
 
-    {% if page_obj.paginator.num_pages > 1 %}
-      <div class="mt-6 flex justify-center">
-        <div class="pagination-nav" role="navigation" aria-label="Processes pagination">
-          {% for num in page_obj.paginator.page_range %}
-            <a
-              href="?page={{ num }}"
-              data-process-page
-              class="pagination-link {% if page_obj.number == num %}is-active{% endif %}">
-              {{ num }}
-            </a>
-          {% endfor %}
-        </div>
-      </div>
-    {% endif %}
+    {% include 'includes/pagination.html' with pagination_url=pagination_url pagination_query=pagination_query pagination_label=pagination_label pagination_link_attribute=pagination_link_attribute %}
   </div>
 </div>
+<script src="{% static 'js/conversion/task_list.js' %}"></script>
 {% endblock %}

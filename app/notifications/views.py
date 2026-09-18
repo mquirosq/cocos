@@ -1,8 +1,10 @@
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
+from app.utils.pagination import get_pagination_page_range
 from notifications.models import TaskNotification
 
 
@@ -26,6 +28,11 @@ def notifications_view(request):
 
     context = {
         'notifications': page_obj.object_list,
+        'pagination_page_range': get_pagination_page_range(paginator, page_obj.number),
+        'pagination_url': reverse('notifications:list'),
+        'pagination_query': f'status={status_filter}',
+        'pagination_label': 'Notifications',
+        'pagination_link_attribute': 'data-notification-page',
         'status_filter': status_filter,
         'page_obj': page_obj,
         'has_unread_notifications': base_notifications.filter(is_read=False).exists(),

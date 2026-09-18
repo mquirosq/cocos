@@ -59,25 +59,12 @@
       {% endfor %}
     </div>
 
-    {% if page_obj.paginator.num_pages > 1 %}
-      <div class="mt-5 flex justify-center">
-        <div class="pagination-nav" role="navigation" aria-label="Notifications pagination">
-          {% for num in page_obj.paginator.page_range %}
-            <a
-              href="{% url 'notifications:list' %}?status={{ status_filter }}&page={{ num }}"
-              data-notification-page
-              class="pagination-link {% if page_obj.number == num %}is-active{% endif %}">
-              {{ num }}
-            </a>
-          {% endfor %}
-        </div>
-      </div>
-    {% endif %}
+    {% include 'includes/pagination.html' with pagination_url=pagination_url pagination_query=pagination_query pagination_label=pagination_label pagination_link_attribute=pagination_link_attribute %}
   {% else %}
     <div class="card bg-base-100 border border-base-300 shadow-sm">
       <div class="card-body">
-        <h4 class="card-title">No notifications yet!</h4>
-        <p class="opacity-75">Start a conversion to see notifications here.</p>
+        <h4 class="card-title">You are up to date!</h4>
+        <p class="opacity-75">No new notifications to display.</p>
       </div>
     </div>
   {% endif %}
