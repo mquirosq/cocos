@@ -1,7 +1,7 @@
 from celery import shared_task
 
 from conversion.models import File
-from .service import get_prediction_matrix
+from .prediction import get_prediction_matrix
 
 @shared_task(bind=True)
 def predict(self, model_names: list[str], antibiotics: list[str], file_id: int) -> dict:

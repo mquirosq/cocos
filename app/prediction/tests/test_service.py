@@ -23,7 +23,7 @@ class GetPredictionTests(TestCase):
         fake_cls, fake_adapter = make_mock_adapter(predict_return_value=0.73)
         mock_get_model_adapter_class.return_value = fake_cls
 
-        result = get_prediction("base_bakta_50", "amikacin", file_upload=sentinel.upload)
+        result = get_prediction("base_bakta_50", "amikacin", file=sentinel.upload)
 
         self.assertEqual(result, 0.73)
 
@@ -32,7 +32,7 @@ class GetPredictionTests(TestCase):
         fake_cls, _ = make_mock_adapter()
         mock_get_model_adapter_class.return_value = fake_cls
 
-        get_prediction("base_bakta_50", "amikacin", file_upload=sentinel.upload)
+        get_prediction("base_bakta_50", "amikacin", file=sentinel.upload)
 
         fake_cls.assert_called_once_with(antibiotic="amikacin")
 
@@ -44,7 +44,7 @@ class GetPredictionTests(TestCase):
         fake_adapter.load.side_effect = lambda: call_order.append("load")
         fake_adapter.predict.side_effect = lambda _: call_order.append("predict")
 
-        get_prediction("base_bakta_50", "amikacin", file_upload=sentinel.upload)
+        get_prediction("base_bakta_50", "amikacin", file=sentinel.upload)
 
         self.assertEqual(call_order, ["load", "predict"])
 
@@ -53,7 +53,7 @@ class GetPredictionTests(TestCase):
         fake_cls, fake_adapter = make_mock_adapter()
         mock_get_model_adapter_class.return_value = fake_cls
 
-        get_prediction("base_bakta_50", "amikacin", file_upload=sentinel.upload)
+        get_prediction("base_bakta_50", "amikacin", file=sentinel.upload)
 
         fake_adapter.predict.assert_called_once_with(sentinel.upload)
 
@@ -62,19 +62,19 @@ class GetPredictionTests(TestCase):
         fake_cls, _ = make_mock_adapter()
         mock_get_model_adapter_class.return_value = fake_cls
 
-        get_prediction("base_bakta_50", "amikacin", file_upload=sentinel.upload)
+        get_prediction("base_bakta_50", "amikacin", file=sentinel.upload)
 
         mock_get_model_adapter_class.assert_called_once_with("base_bakta_50")
 
     @patch(GET_MODEL_ADAPTER, return_value=None)
     def test_raises_value_error_when_model_not_in_registry(self, _):
         with self.assertRaisesRegex(ValueError, "not found in registry"):
-            get_prediction("does_not_exist", "amikacin", file_upload=None)
+            get_prediction("does_not_exist", "amikacin", file=None)
 
     @patch(GET_MODEL_ADAPTER, return_value=None)
     def test_error_message_includes_model_name(self, _):
         with self.assertRaisesRegex(ValueError, "does_not_exist"):
-            get_prediction("does_not_exist", "amikacin", file_upload=None)
+            get_prediction("does_not_exist", "amikacin", file=None)
 
 
 class GetPredictionMatrixTests(TestCase):
@@ -84,7 +84,7 @@ class GetPredictionMatrixTests(TestCase):
         fake_cls, fake_adapter = make_mock_adapter(predict_return_value=0.5)
         mock_get_model_adapter_class.return_value = fake_cls
 
-        result = get_prediction_matrix(["model_a"], ["amikacin"], file_upload=sentinel.upload)
+        result = get_prediction_matrix(["model_a"], ["amikacin"], file=sentinel.upload)
 
         self.assertIn("amikacin", result)
         self.assertIn("model_a", result["amikacin"])
@@ -97,7 +97,7 @@ class GetPredictionMatrixTests(TestCase):
         result = get_prediction_matrix(
             ["model_a", "model_b"],
             ["amikacin", "amoxicillin"],
-            file_upload=sentinel.upload,
+            file=sentinel.upload,
         )
 
         self.assertEqual(set(result.keys()), {"amikacin", "amoxicillin"})
@@ -109,7 +109,7 @@ class GetPredictionMatrixTests(TestCase):
         fake_cls, fake_adapter = make_mock_adapter(predict_return_value=0.9)
         mock_get_model_adapter_class.return_value = fake_cls
 
-        result = get_prediction_matrix(["model_a"], ["amikacin"], file_upload=sentinel.upload)
+        result = get_prediction_matrix(["model_a"], ["amikacin"], file=sentinel.upload)
 
         self.assertEqual(result["amikacin"]["model_a"], 0.9)
 
@@ -117,7 +117,7 @@ class GetPredictionMatrixTests(TestCase):
     def test_failed_prediction_stored_as_no_result(self, mock_get_model_adapter_class):
         mock_get_model_adapter_class.return_value = None  # triggers ValueError
 
-        result = get_prediction_matrix(["bad_model"], ["amikacin"], file_upload=sentinel.upload)
+        result = get_prediction_matrix(["bad_model"], ["amikacin"], file=sentinel.upload)
 
         self.assertEqual(result["amikacin"]["bad_model"], "NO_RESULT")
 
@@ -133,7 +133,7 @@ class GetPredictionMatrixTests(TestCase):
         result = get_prediction_matrix(
             ["good_model", "bad_model"],
             ["amikacin"],
-            file_upload=sentinel.upload,
+            file=sentinel.upload,
         )
 
         self.assertEqual(result["amikacin"]["good_model"], 0.8)
@@ -141,10 +141,10 @@ class GetPredictionMatrixTests(TestCase):
 
     @patch(GET_MODEL_ADAPTER)
     def test_empty_inputs_return_empty_dict(self, mock_get_model_adapter_class):
-        result = get_prediction_matrix([], [], file_upload=sentinel.upload)
+        result = get_prediction_matrix([], [], file=sentinel.upload)
         self.assertEqual(result, {})
 
     @patch(GET_MODEL_ADAPTER)
     def test_empty_models_list_returns_empty_rows(self, mock_get_model_adapter_class):
-        result = get_prediction_matrix([], ["amikacin"], file_upload=sentinel.upload)
+        result = get_prediction_matrix([], ["amikacin"], file=sentinel.upload)
         self.assertEqual(result, {"amikacin": {}})

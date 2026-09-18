@@ -3,49 +3,20 @@ import csv
 
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.contrib.humanize.templatetags.humanize import naturaltime
-from django.db import models
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
-from conversion.models import File, ConversionTask
-from .registry import list_registered_models, get_model_supported_antibiotics, list_all_antibiotics
-from .tasks import predict
-from conversion.presentation import format_source_job_label
-
-def _get_user_json_uploads(user):
-    return File.objects.filter(
-        user=user,
-        file_type=File.FileType.JSON,
-    ).order_by('-created_at')
+from .service import get_prediction_input_options, start_prediction, prepare_prediction_csv
+from .registry import list_registered_models, list_all_antibiotics
 
 @login_required
 def prediction_view(request):
-    json_uploads = _get_user_json_uploads(request.user)
-
-    input_file_options = []
-    for upload in json_uploads:
-        task = ConversionTask.objects.filter(
-                models.Q(input_files=upload) |
-                models.Q(output_files=upload)
-            ).order_by('-created_at').first()
-        if task:
-            label = format_source_job_label(task)
-            input_file_options.append({
-                'id': str(upload.pk),
-                'label': label
-            })
-
-    available_models = list_registered_models()
-    available_antibiotics = list_all_antibiotics()
-
     return render(request, 'prediction/prediction.html', {
-        'input_file_options': input_file_options,
-        'available_models': available_models,
-        'available_antibiotics': available_antibiotics,
+        'input_file_options': get_prediction_input_options(request.user),
+        'available_models': list_registered_models(),
+        'available_antibiotics': list_all_antibiotics(),
     })
-
 
 @login_required
 @require_POST
@@ -54,40 +25,16 @@ def prediction_matrix_view(request):
     antibiotics = request.POST.getlist('antibiotics')
     file_id = request.POST.get('file_id', '').strip() or None
 
-    if not model_names:
-        messages.error(request, 'Select at least one model.')
-        return JsonResponse({'error': 'Select at least one model.'}, status=400)
-    if not antibiotics:
-        messages.error(request, 'Select at least one antibiotic.')
-        return JsonResponse({'error': 'Select at least one antibiotic.'}, status=400)
-
-    file = None
-    if file_id:
-        try:
-            file = File.objects.get(
-                pk=int(file_id),
-                user=request.user,
-                file_type=File.FileType.JSON,
-            )
-        except (ValueError, File.DoesNotExist):
-            messages.error(request, 'Selected file not found.')
-            return JsonResponse({'error': 'Selected file not found.'}, status=400)
-
-    # Validate all requested antibiotics are supported by all requested models
-    valid_antibiotics = [
-        antibiotic for antibiotic in antibiotics
-        if any(antibiotic in get_model_supported_antibiotics(m) for m in model_names)
-    ]
-    if not valid_antibiotics:
-        messages.error(request, 'No valid antibiotic/model combinations found.')
-        return JsonResponse({'error': 'No valid antibiotic/model combinations found.'}, status=400)
-
     try:
-        matrix = predict.delay(
+        matrix = start_prediction(
+            user=request.user,
             model_names=model_names,
-            antibiotics=valid_antibiotics,
-            file_id=file.id if file else None,
+            antibiotics=antibiotics,
+            file_id=file_id,
         )
+    except ValueError as e:
+        messages.error(request, str(e))
+        return JsonResponse({'error': str(e)}, status=400)
     except Exception as e:
         messages.error(request, str(e))
         return JsonResponse({'error': str(e)}, status=500)
@@ -98,63 +45,21 @@ def prediction_matrix_view(request):
 @require_POST
 def prediction_csv_from_matrix_view(request):
     try:
-        body = json.loads(request.body)
+        matrix = json.loads(request.body)
+        models, rows = prepare_prediction_csv(matrix)
     except json.JSONDecodeError:
         messages.error(request, 'Invalid JSON.')
         return JsonResponse({'error': 'Invalid JSON.'}, status=400)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return JsonResponse({'error': str(e)}, status=400)
 
-    matrix = body
-    if not isinstance(matrix, dict):
-        messages.error(request, 'Invalid matrix payload.')
-        return JsonResponse({'error': 'Invalid matrix payload.'}, status=400)
-
-    models = matrix.get('models')
-    antibiotics = matrix.get('antibiotics')
-    data = matrix.get('data')
-
-    if not (isinstance(models, list) and isinstance(antibiotics, list) and isinstance(data, list)):
-        messages.error(request, 'Invalid matrix structure.')
-        return JsonResponse({'error': 'Invalid matrix structure.'}, status=400)
-
-    if len(antibiotics) != len(data):
-        messages.error(request, 'Matrix data size mismatch.')
-        return JsonResponse({'error': 'Matrix data size mismatch.'}, status=400)
-
-    for row in data:
-        if not isinstance(row, list) or len(row) != len(models):
-            messages.error(request, 'Matrix rows must match models length.')
-            return JsonResponse({'error': 'Matrix rows must match models length.'}, status=400)
-
-    # Build CSV response
     response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="predictions.csv"'
+    response['Content-Disposition'] = ('attachment; filename="predictions.csv"')
 
     writer = csv.writer(response)
     writer.writerow(['Antibiotic'] + models + ['Average'])
 
-    for i, antibiotic in enumerate(antibiotics):
-        vals = data[i]
-        try:
-            numeric_vals = []
-            for v in vals:
-                if v is not None:
-                    try:
-                        numeric_vals.append(float(v))
-                    except (ValueError, TypeError):
-                        pass
-            avg = round(sum(numeric_vals) / len(numeric_vals), 4) if numeric_vals else ''
-        except Exception:
-            avg = ''
-        
-        row_vals = []
-        for v in vals:
-            if v is not None:
-                try:
-                    row_vals.append(round(float(v), 4))
-                except (ValueError, TypeError):
-                    row_vals.append('')
-            else:
-                row_vals.append('')
-        writer.writerow([antibiotic] + row_vals + [avg])
+    writer.writerows(rows)
 
     return response
