@@ -17,7 +17,7 @@ class ModelInterface:
     file_upload is expected to be an identifier for a bakta-annotated file in the database (FileUpload instance))
     """
 
-    def features(self, file_upload) -> list:
+    def features(self, file) -> list:
         """
         Return the features needed by the model (e.g. gene identifiers).
         """
@@ -29,7 +29,7 @@ class ModelInterface:
         """
         raise NotImplementedError()
 
-    def predict(self, file_upload) -> float:
+    def predict(self, file) -> float:
         """
         Predict the probability of resistance for a given json bakta file.
         """ 

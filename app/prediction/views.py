@@ -61,10 +61,10 @@ def prediction_matrix_view(request):
         messages.error(request, 'Select at least one antibiotic.')
         return JsonResponse({'error': 'Select at least one antibiotic.'}, status=400)
 
-    file_upload = None
+    file = None
     if file_id:
         try:
-            file_upload = File.objects.get(
+            file = File.objects.get(
                 pk=int(file_id),
                 user=request.user,
                 file_type=File.FileType.JSON,
@@ -86,7 +86,7 @@ def prediction_matrix_view(request):
         matrix = predict.delay(
             model_names=model_names,
             antibiotics=valid_antibiotics,
-            file_upload_id=file_upload.id if file_upload else None,
+            file_id=file.id if file else None,
         )
     except Exception as e:
         messages.error(request, str(e))
