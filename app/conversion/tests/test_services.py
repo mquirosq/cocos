@@ -2,7 +2,7 @@ from unittest.mock import patch
 from types import SimpleNamespace
 from django.test import TestCase
 
-from conversion import services
+from conversion.services import services
 
 class ServiceTests(TestCase):
     def test_is_auto_annotated_assembly(self):

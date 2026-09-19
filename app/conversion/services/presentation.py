@@ -1,6 +1,6 @@
 from django.contrib.humanize.templatetags.humanize import naturaltime
 
-from .models import ConversionTask
+from ..models import ConversionTask
 
 STATUS_BADGE_CLASSES = {
     ConversionTask.TaskStatus.PENDING: 'badge-soft badge-warning',

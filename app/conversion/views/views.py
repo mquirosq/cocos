@@ -10,9 +10,9 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from app.utils.pagination import get_pagination_page_range
-from .models import ConversionTask, File, ProcessGroup
-from .parsers import parse_file
-from .services import (
+from ..models import ConversionTask, File, ProcessGroup
+from ..parsers import parse_file
+from ..services.services import (
     build_process_rows,
     build_task_context,
     get_available_fasta_jobs,
@@ -22,13 +22,13 @@ from .services import (
     rename_task_process,
     get_fasta_upload_for_task,
 )
-from .presentation import status_badge_class, pipeline_label
-from .tasks import (
+from ..services.services import status_badge_class, pipeline_label
+from ..tasks import (
     poll_annotation_from_assembly_start,
     poll_annotation_start,
     poll_assembly_start,
 )
-from .utils import upload_file
+from ..utils import upload_file
 
 def _get_current_user_tasks(request):
     """Return tasks filtered by authenticated user."""

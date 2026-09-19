@@ -1,7 +1,7 @@
 from django.db import models
 
 from conversion.models import File, ConversionTask
-from conversion.presentation import format_source_job_label
+from conversion.services.presentation import format_source_job_label
 from conversion.task_types import ANNOTATED_TYPES
 
 from .registry import get_model_supported_antibiotics

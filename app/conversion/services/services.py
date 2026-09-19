@@ -1,7 +1,7 @@
 import os
-from .models import ConversionTask, File
+from ..models import ConversionTask, File
 from .presentation import format_source_job_label, pipeline_label, status_badge_class
-from .task_types import ASSEMBLY_TYPES, ANNOTATED_TYPES, ASSEMBLY_AND_ANNOTATION_TYPES
+from ..task_types import ASSEMBLY_TYPES, ANNOTATED_TYPES, ASSEMBLY_AND_ANNOTATION_TYPES
 
 FASTA_EXTENSIONS = {'.fa', '.fasta', '.fna', '.ffn', '.faa', '.frn'}
 
