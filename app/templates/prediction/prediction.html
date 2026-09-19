@@ -27,6 +27,8 @@
             <multi-select placeholder="Select antibiotics…" id="antibiotics-select" class="multiselect w-full">
               {% for antibiotic in available_antibiotics %}
                 <ms-option value="{{ antibiotic }}">{{ antibiotic }}</ms-option>
+              {% empty %}
+                <option value="" disabled>No available antibiotics</option>
               {% endfor %}
             </multi-select>
           </div>
@@ -40,6 +42,8 @@
             <multi-select placeholder="Select models…" id="models-select" class="multiselect w-full">
               {% for model in available_models %}
                 <ms-option value="{{ model }}">{{ model }}</ms-option>
+              {% empty %}
+                <option value="" disabled>No available models</option>
               {% endfor %}
             </multi-select>
           </div>
@@ -50,7 +54,9 @@
           <select id="file_id_batch" class="select select-bordered w-full source-job-select">
               <option value="">Select a processed file</option>
               {% for upload in input_file_options %}
-              <option value="{{ upload.id }}">{{ upload.label }}</option>
+                <option value="{{ upload.id }}">{{ upload.label }}</option>
+              {% empty %}
+                <option value="" disabled>No available processes for prediction</option>
               {% endfor %}
             </select>
         </fieldset>
