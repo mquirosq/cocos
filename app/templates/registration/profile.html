@@ -21,22 +21,79 @@
       <form method="post" novalidate>
         {% csrf_token %}
 
-        <div class="mb-3">
+
+        <div class="mb-3 rounded-xl border border-base-300 bg-base-100/70 px-4 py-3">
+          <h2>Email preferences</h2>
+          <hr class="border-base-300 mb-2">
+          
+          <div class="mb-3">
           <label for="id_email" class="label-text font-semibold">Email</label>
           {{ form.email }}
           {% if form.email.errors %}
             <div class="text-error text-sm mt-1">{{ form.email.errors|striptags }}</div>
           {% endif %}
-        </div>
+          </div>
 
-        <div class="mb-3 rounded-xl border border-base-300 bg-base-100/70 px-4 py-3">
           <label for="id_email_notifications_enabled" class="flex items-center justify-between gap-3 cursor-pointer">
             <span class="font-semibold">Email notifications</span>
             {{ form.email_notifications_enabled }}
           </label>
           <p class="text-sm opacity-70 mt-2 mb-0">When enabled, you will receive notifications by email.</p>
         </div>
+        
+        <div class="mb-4 rounded-xl border border-base-300 bg-base-100/70 p-4">
+          <h2>Change password</h2>
+          <hr class="border-base-300 mb-2">
 
+          <div class="mb-3">
+            <label for="id_current_password" class="label-text font-semibold">Current password</label>
+            <div class="password-input-wrapper">
+              {{ form.current_password }}
+              <label class="swap swap-rotate password-toggle" title="Toggle password visibility">
+                <input type="checkbox" id="currentPasswordVisibility" data-target="id_current_password" />
+                <i class="swap-on bi bi-eye-slash-fill text-lg"></i>
+                <i class="swap-off bi bi-eye-fill text-lg"></i>
+              </label>
+            </div>
+            {% if form.current_password.errors %}
+              <div class="text-error text-sm mt-1">{{ form.current_password.errors|striptags }}</div>
+            {% endif %}
+          </div>
+
+          <div class="mb-3">
+            <label for="id_new_password1" class="label-text font-semibold">New password</label>
+            <div class="password-input-wrapper">
+              {{ form.new_password1 }}
+              <label class="swap swap-rotate password-toggle" title="Toggle password visibility">
+                <input type="checkbox" id="newPasswordVisibility" data-target="id_new_password1" />
+                <i class="swap-on bi bi-eye-slash-fill text-lg"></i>
+                <i class="swap-off bi bi-eye-fill text-lg"></i>
+              </label>
+            </div>
+            {% if form.new_password1.errors %}
+              <div class="text-error text-sm mt-1">{{ form.new_password1.errors|striptags }}</div>
+            {% endif %}
+          </div>
+
+          <div class="mb-0">
+            <label for="id_new_password2" class="label-text font-semibold">Confirm new password</label>
+            <div class="password-input-wrapper">
+              {{ form.new_password2 }}
+              <label class="swap swap-rotate password-toggle" title="Toggle password visibility">
+                <input type="checkbox" id="confirmPasswordVisibility" data-target="id_new_password2" />
+                <i class="swap-on bi bi-eye-slash-fill text-lg"></i>
+                <i class="swap-off bi bi-eye-fill text-lg"></i>
+              </label>
+            </div>
+            {% if form.new_password2.errors %}
+              <div class="text-error text-sm mt-1">{{ form.new_password2.errors|striptags }}</div>
+            {% endif %}
+          </div>
+        </div>
+        
+        {% if form.non_field_errors %}
+          <div class="text-error text-sm mb-3">{{ form.non_field_errors|striptags }}</div>
+        {% endif %}
         <div class="auth-actions">
           <a href="{% url 'home' %}" class="text-sm">Back to home</a>
           <button class="btn btn-primary" type="submit">Save changes</button>
@@ -45,4 +102,15 @@
     </div>
   </div>
 </section>
+
+<script>
+  document.querySelectorAll('.password-toggle input').forEach((checkbox) => {
+    const input = document.getElementById(checkbox.dataset.target);
+    if (!input) return;
+
+    checkbox.addEventListener('change', (e) => {
+      input.type = e.target.checked ? 'text' : 'password';
+    });
+  });
+</script>
 {% endblock %}
