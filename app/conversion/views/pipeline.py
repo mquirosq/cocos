@@ -8,7 +8,7 @@ from django.views.decorators.http import require_POST
 
 from ..models import ConversionTask, File, ProcessGroup
 from ..parsers import parse_file
-from ..services.status import get_available_fasta_jobs, has_annotation_for_previous
+from ..services.pipeline import get_available_fasta_jobs, has_annotation_for_previous
 from ..tasks import (
     poll_annotation_from_assembly_start,
     poll_annotation_start,
