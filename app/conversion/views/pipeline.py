@@ -8,11 +8,8 @@ from django.views.decorators.http import require_POST
 
 from ..models import ConversionTask, File, ProcessGroup
 from ..parsers import parse_file
-from ..services.pipeline import  get_assembly_tasks_can_be_annotated, start_annotation_from_assembly_task, start_annotation_from_uploaded_fasta
+from ..services.pipeline import  get_assembly_tasks_can_be_annotated, start_annotation_from_assembly_task, start_annotation_from_uploaded_fasta, start_assembly
 from ..utils import upload_file
-from ..tasks import (
-    poll_assembly_start,
-)
 
 def _annotation_context(request, active_tab='fasta', **extra):
     context = {
@@ -37,7 +34,7 @@ def annotation_ui(request):
 
 @require_POST
 @login_required
-def assembly_task(request):
+def start_assembly_task(request):
     """
     Allow users to upload a FASTQ file via a simple web form to start an external assembly task.
     On submission, create a ConversionTask and trigger polling of its status.
@@ -45,61 +42,25 @@ def assembly_task(request):
 
     assembly_type = request.POST.get('assembly_type')
     annotate = request.POST.get('annotate') == 'on'
+    complete_version = request.POST.get('complete') == 'on'
 
     fastq = request.FILES.get('fastq_file')
-    if not fastq:
-        messages.error(request, 'No FASTQ file uploaded.')
-        return redirect('conversion:assembly_ui')
-
     fastq_2 = request.FILES.get('fastq_file_2')
 
-    if assembly_type != 'illumina' and fastq_2:
-        messages.error(
-            request,
-            'Second FASTQ file is only valid for Illumina assembly.'
+    try:
+        start_assembly(
+            user=request.user,
+            assembly_type=assembly_type,
+            fastq=fastq,
+            fastq_2=fastq_2,
+            annotate=annotate,
+            complete_version=complete_version,
         )
+    except ValueError as e:
+        messages.error(request, str(e))
         return redirect('conversion:assembly_ui')
 
-    file_1 = upload_file(
-        fastq,
-        user=request.user,
-        file_type=File.FileType.FASTQ,
-    )
-
-    file_2 = None
-    if fastq_2:
-        file_2 = upload_file(
-            fastq_2,
-            user=request.user,
-            file_type=File.FileType.FASTQ,
-        )
-
-    process = ProcessGroup.objects.create(name=os.path.basename(fastq.name), user=request.user)
-    task = ConversionTask.objects.create(
-        external_job_id=None,
-        status=ConversionTask.TaskStatus.PENDING,
-        task_type=f"assembly_{assembly_type}{'_annotated' if annotate else ''}",
-        process = process,
-    )
-
-    task.input_files.add(file_1)
-
-    if file_2:
-        task.input_files.add(file_2)
-
-    poll_assembly_start.delay(
-        assembly_type=assembly_type,
-        file_id_1=file_1.id,
-        file_id_2=file_2.id if file_2 else None,
-        annotate=annotate,
-        task_id=task.id,
-        complete_version=request.POST.get('complete') == 'on',
-    )
-
-    message = (
-        f"Assembly task started for file {fastq.name}. "
-        "You will be notified when it's complete."
-    )
+    message = (f"Assembly task started for file {fastq.name}. You will be notified when it's complete.")
     messages.info(request, message)
 
     return redirect('conversion:assembly_ui')

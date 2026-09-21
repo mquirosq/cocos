@@ -5,7 +5,7 @@ app_name = "conversion"
 
 urlpatterns = [
     path("assembly/", pipeline.assembly_ui, name="assembly_ui"),
-    path("assembly/run/", pipeline.assembly_task, name="assembly_run"),
+    path("assembly/run/", pipeline.start_assembly_task, name="assembly_run"),
     path("annotation/", pipeline.annotation_ui, name="annotation_ui"),
     path("annotation/from-fasta/", pipeline.start_annotation_task, name="start_annotation_task"),
     path("annotation/from-json/", pipeline.parse_feature_file, name="annotation_from_json"),

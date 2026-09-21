@@ -228,203 +228,96 @@ def poll_annotation_start(self, task_id, complete_version=False):
         )
         return
 
-@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
-def poll_assembly_start(self, assembly_type="", file_id_1=None, file_id_2=None, annotate=False, task_id=None, user_id=None, complete_version=False,):
-    logger.info(f"Trying to start assembly task ({assembly_type}) for uploaded FASTQ")
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=MAX_TRIES)
+def poll_assembly_start(self, task_id=None, assembly_type=None, annotate=False, complete_version=False,):
+    logger.info(f"Trying to start assembly task (task_id={task_id}, assembly_type={assembly_type}, annotate={annotate}, complete_version={complete_version})")
 
-    task = ConversionTask.objects.filter(id=task_id).first() if task_id else None
-    effective_user = task.process.user if task else None
-
-    assembly_task_type = ("assembly" + ("_" + assembly_type) + ("_annotated" if annotate else ""))
-
-    if assembly_type not in ["illumina", "ont"]:
-        logger.error(f"Invalid assembly type: {assembly_type}")
-        notify_user_conversion_failed(
-            effective_user,
-            task=task,
-            message="Invalid assembly type",
-        )
+    try:
+        task = ConversionTask.objects.select_related(
+            'process__user'
+        ).get(id=task_id)
+    except ConversionTask.DoesNotExist:
+        logger.error(f"Task not found when starting assembly: {task_id}")
         return
 
-    # Retrieve uploaded files
-    try:
-        file_1 = File.objects.get(pk=file_id_1)
-    except File.DoesNotExist:
-        logger.error(f"Input FASTQ file {file_id_1} does not exist")
-        if task:
-            task.status = ConversionTask.TaskStatus.FAILED
-            task.save(update_fields=["status"])
-        notify_user_conversion_failed(
-            effective_user,
-            task=task,
-            message="Failed to find FASTQ file",
-        )
+    # Get the input FASTQ files
+    file_1 = task.input_files.filter(
+        file_type=File.FileType.FASTQ
+    ).first()
+
+    if not file_1:
+        _fail_task(task, "No FASTQ input was found for the assembly task.")
         return
 
     try:
         with file_1.file.open("rb") as f:
             fastq_bytes = f.read()
-    except Exception as e:
-        logger.error(
-            f"Failed to read fastq file {file_1.file.name}: {str(e)}"
-        )
-        if task:
-            task.status = ConversionTask.TaskStatus.FAILED
-            task.save(update_fields=["status"])
-        notify_user_conversion_failed(
-            effective_user,
-            task=task,
-            message="Failed to read fastq file",
-        )
+    except Exception:
+        _fail_task(task, "Failed to read FASTQ file.")
         return
 
-    # Illumina
+    fastq_2_bytes = None
+
     if assembly_type == "illumina":
-        if not file_id_2:
-            logger.error(
-                f"Illumina assembly requires second FASTQ "
-                f"but file_id_2 is missing for task {task_id}"
-            )
-            if task:
-                task.status = ConversionTask.TaskStatus.FAILED
-                task.save(update_fields=["status"])
-            notify_user_conversion_failed(
-                effective_user,
-                task=task,
-                message="Missing second FASTQ for Illumina",
-            )
+        file_2 = task.input_files.filter(file_type=File.FileType.FASTQ).exclude(id=file_1.id).first()
+
+        if not file_2:
+            _fail_task(task, "Missing second FASTQ for Illumina assembly.")
             return
 
         try:
-            file_2 = File.objects.get(pk=file_id_2)
-        except File.DoesNotExist:
-            logger.error(f"Second input FASTQ file {file_id_2} does not exist")
-            if task:
-                task.status = ConversionTask.TaskStatus.FAILED
-                task.save(update_fields=["status"])
-            notify_user_conversion_failed(
-                effective_user,
-                task=task,
-                message="Failed to find second FASTQ file",
-            )
+            with file_2.file.open("rb") as f:
+                fastq_2_bytes = f.read()
+        except Exception:
+            _fail_task(task, "Failed to read second FASTQ file.")
             return
 
-        try:
-            with file_2.file.open("rb") as f2:
-                fastq_2_bytes = f2.read()
-        except Exception as e:
-            logger.error(
-                f"Failed to read second fastq file "
-                f"{file_2.file.name}: {str(e)}"
-            )
-            if task:
-                task.status = ConversionTask.TaskStatus.FAILED
-                task.save(update_fields=["status"])
-            notify_user_conversion_failed(
-                effective_user,
-                task=task,
-                message="Failed to read second fastq file",
-            )
+    # Start assembly
+    try:
+        if assembly_type == "illumina":
+            external_resp = sequence_illumina(fastq_bytes, fastq_2_bytes, annotate=annotate)
+
+        elif assembly_type == "ont":
+            external_resp = sequence_ont(fastq_bytes, annotate=annotate)
+
+        else:
+            _fail_task(task, f"Invalid assembly type: {assembly_type}")
             return
 
-        try:
-            external_resp = sequence_illumina(
-                fastq_bytes,
-                fastq_2_bytes,
-                annotate=annotate,
-            )
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout,) as e:
-            logger.warning(
-                f"Connection error starting Illumina assembly "
-                f"for task {task_id}: {str(e)}"
-            )
-            raise
-
-    # ONT
-    elif assembly_type == "ont":
-        try:
-            external_resp = sequence_ont(
-                fastq_bytes,
-                annotate=annotate,
-            )
-        except (
-            requests.exceptions.ConnectionError,
-            requests.exceptions.Timeout,
-        ) as e:
-            logger.warning(
-                f"Connection error starting ONT assembly "
-                f"for task {task_id}: {str(e)}"
-            )
-            raise
+    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        logger.warning(f"Connection error starting assembly for task {task_id}")
+        raise
 
     # Check response and update task
     if external_resp.get("status") in {"running", "pending"}:
-        logger.info(
-            f"Assembly started with job ID: "
-            f"{external_resp.get('job_id')} for task {task_id}"
-        )
+        job_id = external_resp.get("job_id")
 
-        if task:
-            if user_id is None:
-                user_id = task.process.user.id
+        logger.info(f"Assembly started with job ID: {job_id} for task {task_id}")
 
-            should_notify_started = task.status != ConversionTask.TaskStatus.RUNNING
+        should_notify_started = task.status != ConversionTask.TaskStatus.RUNNING
 
-            task.external_job_id = external_resp["job_id"]
-            task.status = ConversionTask.TaskStatus.RUNNING
-            task.save()
+        task.external_job_id = job_id
+        task.status = ConversionTask.TaskStatus.RUNNING
+        task.save(update_fields=["external_job_id", "status"])
 
-            if should_notify_started:
-                notify_user_conversion_started(task.process.user, task)
-                _ensure_in_app_notification(
-                    task,
-                    TaskNotification.EVENT_STARTED,
-                    f"Your {assembly_type.upper()} assembly task "
-                    "has started processing.",
-                )
-
-        else:
-            process = ProcessGroup.objects.create(name=file_1.file.name)
-
-            task = ConversionTask.objects.create(
-                external_job_id=external_resp["job_id"],
-                status=ConversionTask.TaskStatus.RUNNING,
-                task_type=assembly_task_type,
-                user_id=user_id,
-                process=process,
-            )
-
-            task.input_files.add(file_1)
-
-            if assembly_type == "illumina":
-                task.input_files.add(file_2)
-
+        if should_notify_started:
             notify_user_conversion_started(task.process.user, task)
             _ensure_in_app_notification(
                 task,
                 TaskNotification.EVENT_STARTED,
-                f"Your {assembly_type.upper()} assembly task "
-                "has started processing.",
+                f"Your {assembly_type.upper()} assembly task has started processing.",
             )
 
-        poll_conversion_status.delay(
-            task.id,
-            complete_version=complete_version,
-        )
+        poll_conversion_status.delay(task.id, complete_version=complete_version)
         return
 
-    logger.info(
-        f"Server busy response received for assembly task {task_id}, "
-        "will retry later"
-    )
+    logger.info(f"Server busy response received for assembly task {task_id}, will retry later")
 
     try:
         self.retry(countdown=60)
     except MaxRetriesExceededError:
-        logger.error(
-            f"Max retries exhausted starting assembly for task {task_id}"
-        )
-        notify_user_server_busy(effective_user, task=task)
+        logger.error(f"Max retries exhausted starting assembly for task {task_id}")
+        notify_user_server_busy(task.process.user, task=task)
         _ensure_in_app_notification(
             task,
             TaskNotification.EVENT_WARNING,

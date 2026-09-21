@@ -10,6 +10,11 @@ from ..tasks import (
 )
 from ..utils import upload_file
 
+ASSEMBLY_TYPES = {
+    'illumina': ConversionTask.TaskType.ASSEMBLY_ILLUMINA,
+    'ont': ConversionTask.TaskType.ASSEMBLY_ONT,
+}
+
 def get_assembly_tasks_can_be_annotated(user):
     """Return completed assembly jobs whose FASTA has not been annotated."""
 
@@ -57,6 +62,46 @@ def _has_annotation_for_previous(previous_task):
     if not previous_task:
         return False
     return previous_task.process.conversion_tasks.filter(task_type__in=ANNOTATED_TYPES).exists()
+
+# Assembly
+def start_assembly(user, assembly_type, fastq, fastq_2=None, annotate=False, complete_version=False):
+
+    if assembly_type not in ASSEMBLY_TYPES:
+        raise ValueError("Invalid assembly type.")
+
+    if not fastq:
+        raise ValueError("No FASTQ file uploaded.")
+
+    if assembly_type == "illumina" and not fastq_2:
+        raise ValueError("Illumina assembly requires a second FASTQ file.")
+
+    if assembly_type == "ont" and fastq_2:
+        raise ValueError("Second FASTQ file is only valid for Illumina assembly.")
+
+    file_1 = upload_file(fastq, user=user, file_type=File.FileType.FASTQ)
+    file_2 = upload_file(fastq_2, user=user, file_type=File.FileType.FASTQ) if fastq_2 else None
+
+    process = ProcessGroup.objects.create(name=os.path.basename(fastq.name), user=user)
+    task = ConversionTask.objects.create(
+        external_job_id=None,
+        status=ConversionTask.TaskStatus.PENDING,
+        task_type=f"assembly_{assembly_type}{'_annotated' if annotate else ''}",
+        process = process,
+    )
+
+    task.input_files.add(file_1)
+    if file_2:
+        task.input_files.add(file_2)
+
+    poll_assembly_start.delay(
+        task_id=task.id,
+        assembly_type=assembly_type,
+        annotate=annotate,
+        complete_version=complete_version,
+    )
+
+    return task
+
 
 # Annotation
 def start_annotation_from_assembly_task(user, source_job_id, complete_version):
