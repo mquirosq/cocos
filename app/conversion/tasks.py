@@ -41,10 +41,7 @@ def _persist_annotation_json_output(task, complete_version=False):
         or task.output_files.filter(file_type=File.FileType.JSON).exists()):
         return
     
-    filename_stem = get_result_filename_stem(
-        "annotation",
-        task.external_job_id,
-    )
+    filename_stem = get_result_filename_stem("annotation", task.external_job_id)
     filename = f"{filename_stem}.json"
 
     json_result = download_bakta_json_result(task.external_job_id)
@@ -172,63 +169,6 @@ def poll_conversion_status(self, task_id, complete_version=False):
         return
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=MAX_TRIES)
-def poll_annotation_start(self, task_id, complete_version=False):
-    logger.info(f"Trying to start annotation task (task_id={task_id})")
-    try:
-        task = ConversionTask.objects.get(id=task_id)
-    except ConversionTask.DoesNotExist:
-        logger.error(f"Task not found when starting annotation: {task_id}")
-        _fail_task(None, "Task not found when starting annotation")
-        return
-
-    fasta_file = task.input_files.filter(file_type=File.FileType.FASTA).first()
-
-    if not fasta_file:
-        logger.error(f"No FASTA input found for annotation task {task_id}")
-        task.status = ConversionTask.TaskStatus.FAILED
-        task.save(update_fields=['status'])
-
-        _fail_task(task, "No FASTA input was found for the annotation task.")
-        return
-
-    with fasta_file.file.open('rb') as f:
-        fasta_bytes = f.read()
-
-    try:
-        external_resp = annotate_from_fasta(fasta_bytes)
-    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
-        logger.warning(f"Connection error starting annotation for task {task_id}: {str(e)}")
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error starting annotation for task {task_id}: {str(e)}")
-        raise
-
-    if external_resp.get("status") == "running" or external_resp.get("status") == "annotation_pending":
-        logger.info(f"Annotation started with job ID: {external_resp.get('job_id')} for task {task_id}")
-        should_notify_started = task.status != ConversionTask.TaskStatus.RUNNING
-        task.external_job_id = external_resp["job_id"]
-        task.status = ConversionTask.TaskStatus.RUNNING
-        task.save()
-        if should_notify_started:
-            notify_user_conversion_started(task.process.user, task)
-            _ensure_in_app_notification(task, TaskNotification.EVENT_STARTED, "Your annotation task has started processing on the bio service.")
-        poll_conversion_status.delay(task.id, complete_version=complete_version)
-        return
-
-    logger.info(f"Server busy response received for task {task_id}, will retry later")
-    try:
-        self.retry(countdown=60)  # Retry after 60 seconds
-    except MaxRetriesExceededError: # When retries are exhausted
-        logger.error(f"Max retries exhausted starting annotation for task {task_id}")
-        notify_user_server_busy(task.process.user if task else None, task=task)
-        _ensure_in_app_notification(
-            task,
-            TaskNotification.EVENT_WARNING,
-            "The conversion server is busy. Please retry later.",
-        )
-        return
-
-@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=MAX_TRIES)
 def poll_assembly_start(self, task_id=None, assembly_type=None, annotate=False, complete_version=False,):
     logger.info(f"Trying to start assembly task (task_id={task_id}, assembly_type={assembly_type}, annotate={annotate}, complete_version={complete_version})")
 
@@ -322,5 +262,62 @@ def poll_assembly_start(self, task_id=None, assembly_type=None, annotate=False, 
             task,
             TaskNotification.EVENT_WARNING,
             "The bioservice server is busy. Please retry later.",
+        )
+        return
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=MAX_TRIES)
+def poll_annotation_start(self, task_id, complete_version=False):
+    logger.info(f"Trying to start annotation task (task_id={task_id})")
+    try:
+        task = ConversionTask.objects.get(id=task_id)
+    except ConversionTask.DoesNotExist:
+        logger.error(f"Task not found when starting annotation: {task_id}")
+        _fail_task(None, "Task not found when starting annotation")
+        return
+
+    fasta_file = task.input_files.filter(file_type=File.FileType.FASTA).first()
+
+    if not fasta_file:
+        logger.error(f"No FASTA input found for annotation task {task_id}")
+        task.status = ConversionTask.TaskStatus.FAILED
+        task.save(update_fields=['status'])
+
+        _fail_task(task, "No FASTA input was found for the annotation task.")
+        return
+
+    with fasta_file.file.open('rb') as f:
+        fasta_bytes = f.read()
+
+    try:
+        external_resp = annotate_from_fasta(fasta_bytes)
+    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+        logger.warning(f"Connection error starting annotation for task {task_id}: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error starting annotation for task {task_id}: {str(e)}")
+        raise
+
+    if external_resp.get("status") == "running" or external_resp.get("status") == "annotation_pending":
+        logger.info(f"Annotation started with job ID: {external_resp.get('job_id')} for task {task_id}")
+        should_notify_started = task.status != ConversionTask.TaskStatus.RUNNING
+        task.external_job_id = external_resp["job_id"]
+        task.status = ConversionTask.TaskStatus.RUNNING
+        task.save()
+        if should_notify_started:
+            notify_user_conversion_started(task.process.user, task)
+            _ensure_in_app_notification(task, TaskNotification.EVENT_STARTED, "Your annotation task has started processing on the bio service.")
+        poll_conversion_status.delay(task.id, complete_version=complete_version)
+        return
+
+    logger.info(f"Server busy response received for task {task_id}, will retry later")
+    try:
+        self.retry(countdown=60)  # Retry after 60 seconds
+    except MaxRetriesExceededError: # When retries are exhausted
+        logger.error(f"Max retries exhausted starting annotation for task {task_id}")
+        notify_user_server_busy(task.process.user if task else None, task=task)
+        _ensure_in_app_notification(
+            task,
+            TaskNotification.EVENT_WARNING,
+            "The conversion server is busy. Please retry later.",
         )
         return

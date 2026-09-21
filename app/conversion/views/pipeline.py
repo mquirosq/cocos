@@ -25,13 +25,6 @@ def assembly_ui(request):
     """Render Assembly workflow page (FASTQ to FASTA)."""
     return render(request, 'conversion/assembly.html')
 
-
-@login_required
-def annotation_ui(request):
-    """Render Annotation workflow page with FASTA and JSON tabs."""
-    return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
-
-
 @require_POST
 @login_required
 def start_assembly_task(request):
@@ -65,6 +58,11 @@ def start_assembly_task(request):
 
     return redirect('conversion:assembly_ui')
 
+
+@login_required
+def annotation_ui(request):
+    """Render Annotation workflow page with FASTA and JSON tabs."""
+    return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
 
 @require_POST
 @login_required
