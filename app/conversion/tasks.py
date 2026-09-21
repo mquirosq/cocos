@@ -159,12 +159,7 @@ def poll_conversion_status(self, task_id, complete_version=False):
         return
 
     if status == "failed":
-        notify_user_conversion_failed(task.process.user, task)
-        _ensure_in_app_notification(
-            task,
-            TaskNotification.EVENT_FAILED,
-            "The conversion task failed. Please review logs and retry.",
-        )
+        _fail_task(task, "External job failed")
         return
 
     try:
