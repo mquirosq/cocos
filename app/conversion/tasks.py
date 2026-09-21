@@ -87,6 +87,34 @@ def _ensure_in_app_notification(task, event_type, message):
         channels=[TaskNotification.CHANNEL_IN_APP],
     )
 
+def _fail_task(task, message, user=None):
+    """Mark a task as failed and notify the user."""
+    if not task:
+        notify_user_conversion_failed(user, task=None, message=message)
+        return
+
+    if task.task_type in ASSEMBLY_TYPES:
+        logger.error(
+            f"Assembly task {task.id} failed: {message}"
+        )
+    elif task.task_type in ANNOTATED_TYPES:
+        logger.error(
+            f"Annotation task {task.id} failed: {message}"
+        )
+    else:
+        logger.error(
+            f"Task {task.id} failed: {message}"
+        )
+
+    task.status = ConversionTask.TaskStatus.FAILED
+    task.save(update_fields=["status"])
+
+    notify_user_conversion_failed(
+        task.process.user,
+        task=task,
+        message=message,
+    )
+
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=10, max_retries=MAX_TRIES)
 def poll_conversion_status(self, task_id, complete_version=False):
     try:
@@ -102,16 +130,9 @@ def poll_conversion_status(self, task_id, complete_version=False):
 
     if code == 404:
         logger.warning(f"External job not found: {task.external_job_id}")
-        task.status = ConversionTask.TaskStatus.FAILED
-        task.save()
-        notify_user_conversion_failed(task.process.user, task)
-        _ensure_in_app_notification(
-            task,
-            TaskNotification.EVENT_FAILED,
-            "The conversion failed because the external job was not found on the bio service.",
-        )
+        _fail_task(task, "External job not found")
         return
-    
+        
     if status != task.status:
         logger.info(f"Task {task.external_job_id}: status changed from {task.status} to {status}")
         if status == "annotated" or status == "assembled":
@@ -130,17 +151,14 @@ def poll_conversion_status(self, task_id, complete_version=False):
                     self.retry(countdown=60)
                 except MaxRetriesExceededError:
                     logger.error(f"Max retries exceeded while persisting FASTA for task: {task.external_job_id}")
-                    task.status = ConversionTask.TaskStatus.FAILED
-                    task.save()
-                    notify_user_conversion_failed(task.process.user, task)
+                    _fail_task(task, "Max retries exceeded while persisting FASTA")
                 return
         if task.task_type in ANNOTATED_TYPES:
             try:
                 _persist_annotation_json_output(task, complete_version=complete_version)
             except Exception as e:
                 logger.error(f"Unable to auto-parse annotation JSON for task {task.external_job_id}: {str(e)}")
-                notify_user_conversion_warning(task.process.user, task, "Annotation succeeded, but automatic result upload failed. Try uploading the Bakta JSON manually from your downloads.",
-                )
+                notify_user_conversion_warning(task.process.user, task, "Annotation succeeded, but automatic result upload failed. Try uploading the Bakta JSON manually from your downloads.")
         notify_user_conversion_complete(task.process.user, task)
         _ensure_in_app_notification(
             task,
@@ -164,14 +182,7 @@ def poll_conversion_status(self, task_id, complete_version=False):
     
     except MaxRetriesExceededError: # When retries are exhausted
         logger.error(f"Max retries exceeded for task: {task.external_job_id}")
-        task.status = ConversionTask.TaskStatus.FAILED
-        task.save()
-        notify_user_conversion_failed(task.process.user, task)
-        _ensure_in_app_notification(
-            task,
-            TaskNotification.EVENT_FAILED,
-            "The conversion task did not complete within the expected timeframe. The bio service may be experiencing issues. Please try again later.",
-        )
+        _fail_task(task, "Max retries exceeded while polling status")
         return
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=MAX_TRIES)
@@ -181,7 +192,7 @@ def poll_annotation_start(self, task_id, complete_version=False):
         task = ConversionTask.objects.get(id=task_id)
     except ConversionTask.DoesNotExist:
         logger.error(f"Task not found when starting annotation: {task_id}")
-        notify_user_conversion_failed(None, message="Task not found when starting annotation", task=None)
+        _fail_task(None, "Task not found when starting annotation", user=None)
         return
 
     fasta_file = task.input_files.filter(file_type=File.FileType.FASTA).first()
@@ -191,7 +202,7 @@ def poll_annotation_start(self, task_id, complete_version=False):
         task.status = ConversionTask.TaskStatus.FAILED
         task.save(update_fields=['status'])
 
-        notify_user_conversion_failed(task.process.user, task=task, message="No FASTA input was found for the annotation task.",)
+        _fail_task(task, "No FASTA input was found for the annotation task.")
         return
 
     with fasta_file.file.open('rb') as f:
