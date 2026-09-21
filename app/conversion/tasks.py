@@ -321,3 +321,51 @@ def poll_annotation_start(self, task_id, complete_version=False):
             "The conversion server is busy. Please retry later.",
         )
         return
+
+        
+@shared_task(bind=True)
+def process_json(self, task_id, complete_version=False):
+    logger.info(f"Starting JSON processing for task {task_id}")
+
+    task = ConversionTask.objects.filter(id=task_id).first()
+
+    if not task:
+        logger.error(f"Task {task_id} not found when processing JSON")
+        return
+
+    json_file = task.input_files.filter(file_type=File.FileType.JSON).first()
+
+    if not json_file:
+        _fail_task(task, "No JSON input file was found.")
+        return
+
+    task.status = ConversionTask.TaskStatus.RUNNING
+    task.save(update_fields=["status"])
+
+    try:
+        with json_file.file.open("rb") as stored_file:
+            data = json.load(stored_file)
+
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        _fail_task(task, "Error decoding JSON file.")
+        return
+
+    except Exception:
+        _fail_task(task, "Error reading JSON file.")
+        return
+
+    try:
+        file_upload = parse_file("bakta_json", data, json_file, user=task.process.user,
+            options={"complete_version": complete_version},
+        )
+
+    except Exception:
+        _fail_task(task, "Error parsing features. Try again later.")
+        return
+
+    task.status = ConversionTask.TaskStatus.COMPLETED
+    task.save(update_fields=["status"])
+
+    logger.info(f"JSON processing completed for task {task_id}")
+
+    return file_upload.id

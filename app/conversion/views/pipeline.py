@@ -6,10 +6,13 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
-from ..models import ConversionTask, File, ProcessGroup
-from ..parsers import parse_file
-from ..services.pipeline import  get_assembly_tasks_can_be_annotated, start_annotation_from_assembly_task, start_annotation_from_uploaded_fasta, start_assembly
-from ..utils import upload_file
+from ..services.pipeline import (
+    get_assembly_tasks_can_be_annotated, 
+    start_annotation_from_assembly_task, 
+    start_annotation_from_uploaded_fasta, 
+    start_assembly, 
+    start_json_processing
+)
 
 def _annotation_context(request, active_tab='fasta', **extra):
     context = {
@@ -93,66 +96,23 @@ def start_annotation_task(request):
 
 @login_required
 def parse_feature_file(request):
-    """Handle Bakta JSON parsing from Annotation tab."""
+    """Start Bakta JSON processing from the Annotation tab."""
 
-    if request.method == 'POST':
-        feature_file = request.FILES.get('feature_file')
+    feature_file = request.FILES.get('feature_file')
+    complete_version = request.POST.get('complete') == 'on'
 
-        if not feature_file:
-            messages.error(request, 'Select a JSON file.')
-            return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='json'))
-
-        file = upload_file(feature_file, user=request.user, file_type=File.FileType.JSON)
-
-        process = ProcessGroup.objects.create(name=os.path.basename(file.file.name), user=request.user)
-        task = ConversionTask.objects.create(
-            status=ConversionTask.TaskStatus.PENDING,
-            task_type=ConversionTask.TaskType.FROM_JSON,
-            process=process,
+    try:
+        task = start_json_processing(
+            user=request.user,
+            feature_file=feature_file,
+            complete_version=complete_version,
         )
 
-        task.input_files.add(file)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='json'))
 
-        complete_version = request.POST.get('complete') == 'on'
+    messages.info(request, f"JSON processing started for {feature_file.name}. You will be notified when it is complete.")
 
-        # Read the file
-        try:
-            with file.file.open('rb') as stored_file:
-                data = json.load(stored_file)
-
-        except Exception:
-            task.status = ConversionTask.TaskStatus.FAILED
-            task.save(update_fields=['status', 'updated_at'])
-
-            messages.error(request, 'Error decoding JSON file.')
-
-            return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='json'))
-
-        try:
-            file_upload = parse_file("bakta_json", data, file, user=request.user,
-                    options={"complete_version": complete_version}
-                )
-
-        except Exception as e:
-            task.status = ConversionTask.TaskStatus.FAILED
-            task.save(update_fields=['status', 'updated_at'])
-            messages.error(request, f'Error parsing features. Try again later.')
-            return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='json'))
-
-        task.status = ConversionTask.TaskStatus.COMPLETED
-        task.save(update_fields=['status', 'updated_at'])
-
-        messages.success(request, 'File parsed successfully!')
-
-        return render(
-            request,
-            'conversion/annotation.html',
-            _annotation_context(
-                request,
-                active_tab='json',
-                file_upload=file_upload
-            )
-        )
-
-    return redirect('conversion:annotation_ui')
+    return redirect('conversion:task_status', task_id=task.id)
 

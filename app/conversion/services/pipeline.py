@@ -7,6 +7,7 @@ from ..task_types import ANNOTATED_TYPES
 from ..tasks import (
     poll_annotation_start,
     poll_assembly_start,
+    process_json,
 )
 from ..utils import upload_file
 
@@ -155,5 +156,25 @@ def start_annotation_from_uploaded_fasta(user, fasta, complete_version):
     task.input_files.add(file)
 
     poll_annotation_start.delay(task_id=task.id, complete_version=complete_version)
+
+    return task
+
+# JSON Parsing
+def start_json_processing(user, feature_file, complete_version=False):
+    if not feature_file:
+        raise ValueError('Select a JSON file.')
+
+    file = upload_file(feature_file, user=user, file_type=File.FileType.JSON)
+
+    process = ProcessGroup.objects.create(name=os.path.basename(file.file.name), user=user)
+    task = ConversionTask.objects.create(
+        status=ConversionTask.TaskStatus.PENDING,
+        task_type=ConversionTask.TaskType.FROM_JSON,
+        process=process,
+    )
+
+    task.input_files.add(file)
+
+    process_json.delay(task_id=task.id, complete_version=complete_version)
 
     return task
