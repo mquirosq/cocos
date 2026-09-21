@@ -10,19 +10,11 @@ from notifications.models import TaskNotification
 from celery.exceptions import MaxRetriesExceededError
 from .utils import get_result_filename_stem, upload_file
 from .parsers import parse_file
-from .task_types import ASSEMBLY_TYPES, ANNOTATED_TYPES, ASSEMBLY_AND_ANNOTATION_TYPES
+from .task_types import ASSEMBLY_TYPES, ANNOTATED_TYPES
 
 logger = logging.getLogger(__name__)
 
 MAX_TRIES = 100
-
-class BioServiceConnectionError(Exception):
-    """Raised when unable to reach bio service (network/timeout issues)"""
-    pass
-
-class BioServiceBusyError(Exception):
-    """Raised when bio service responds with 503 (server busy)"""
-    pass
 
 def _persist_assembly_fasta_output(task):
     """Download and persist the assembled FASTA for an assembly task."""
@@ -183,7 +175,7 @@ def poll_conversion_status(self, task_id, complete_version=False):
         return
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=MAX_TRIES)
-def poll_annotation_start(self, fasta_bytes, task_id, user_id=None, complete_version=False):
+def poll_annotation_start(self, task_id, complete_version=False):
     logger.info(f"Trying to start annotation task (task_id={task_id})")
     try:
         task = ConversionTask.objects.get(id=task_id)
@@ -191,7 +183,20 @@ def poll_annotation_start(self, fasta_bytes, task_id, user_id=None, complete_ver
         logger.error(f"Task not found when starting annotation: {task_id}")
         notify_user_conversion_failed(None, message="Task not found when starting annotation", task=None)
         return
-    
+
+    fasta_file = task.input_files.filter(file_type=File.FileType.FASTA).first()
+
+    if not fasta_file:
+        logger.error(f"No FASTA input found for annotation task {task_id}")
+        task.status = ConversionTask.TaskStatus.FAILED
+        task.save(update_fields=['status'])
+
+        notify_user_conversion_failed(task.process.user, task=task, message="No FASTA input was found for the annotation task.",)
+        return
+
+    with fasta_file.file.open('rb') as f:
+        fasta_bytes = f.read()
+
     try:
         external_resp = annotate_from_fasta(fasta_bytes)
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
@@ -203,8 +208,6 @@ def poll_annotation_start(self, fasta_bytes, task_id, user_id=None, complete_ver
 
     if external_resp.get("status") == "running" or external_resp.get("status") == "annotation_pending":
         logger.info(f"Annotation started with job ID: {external_resp.get('job_id')} for task {task_id}")
-        if user_id is None:
-            user_id = task.process.user.id
         should_notify_started = task.status != ConversionTask.TaskStatus.RUNNING
         task.external_job_id = external_resp["job_id"]
         task.status = ConversionTask.TaskStatus.RUNNING
@@ -431,59 +434,3 @@ def poll_assembly_start(self, assembly_type="", file_id_1=None, file_id_2=None, 
             "The bioservice server is busy. Please retry later.",
         )
         return
-    
-@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=1, max_retries=100)
-def poll_annotation_from_assembly_start(self, job_id, user_id, new_task_id=None, complete_version=False):
-    logger.info(f"Trying to start annotation task for assembly job {job_id} (new_task_id={new_task_id})")
-
-    pending_task = ConversionTask.objects.filter(id=new_task_id).first() if new_task_id else None
-    pending_user = pending_task.process.user if pending_task else None
-
-    def _fail_pending_annotation(message):
-        logger.error(f"Annotation task {new_task_id} failed: {message}")
-        notify_user_conversion_failed(
-            pending_user,
-            task=pending_task,
-            message=message,
-        )
-        if pending_task:
-            pending_task.status = ConversionTask.TaskStatus.FAILED
-            pending_task.save(update_fields=['status'])
-
-    previous_job_qs = ConversionTask.objects.filter(
-        external_job_id=job_id,
-        task_type__in=[
-            ConversionTask.TaskType.ASSEMBLY_ILLUMINA,
-            ConversionTask.TaskType.ASSEMBLY_ONT,
-        ],
-        status=ConversionTask.TaskStatus.COMPLETED,
-    ).filter(process__user_id=user_id)
-
-    source_task = previous_job_qs.first()
-    if not source_task:
-        logger.error(f"Previous assembly job not found for annotation task with job ID: {job_id}")
-        _fail_pending_annotation("The previous assembly job could not be found. Make sure it completed successfully before starting annotation.")
-        return
-
-    if not source_task.output_files.exists():
-        _fail_pending_annotation("The assembled FASTA result is not available in the system. Try again later.")
-        return
-
-    try:
-        with source_task.output_files.filter(file_type=File.FileType.FASTA).first().file.open("rb") as f:
-            fasta_bytes = f.read()
-    except Exception as e:
-        logger.error(f"Failed to read assembled FASTA for previous task {source_task.id}: {e}")
-        _fail_pending_annotation("The assembled FASTA result could not be read. Try again later.")
-        return
-
-    if not fasta_bytes:
-        _fail_pending_annotation("The assembled FASTA result is empty. Try again later.")
-        return
-
-    poll_annotation_start.delay(
-        fasta_bytes=fasta_bytes,
-        task_id=new_task_id,
-        user_id=user_id,
-        complete_version=complete_version,
-    )

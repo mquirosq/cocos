@@ -8,94 +8,20 @@ from django.views.decorators.http import require_POST
 
 from ..models import ConversionTask, File, ProcessGroup
 from ..parsers import parse_file
-from ..services.pipeline import get_available_fasta_jobs, has_annotation_for_previous
+from ..services.pipeline import  get_assembly_tasks_can_be_annotated, start_annotation_from_assembly_task, start_annotation_from_uploaded_fasta
+from ..utils import upload_file
 from ..tasks import (
-    poll_annotation_from_assembly_start,
-    poll_annotation_start,
     poll_assembly_start,
 )
-from ..utils import upload_file, get_current_user_tasks
 
 def _annotation_context(request, active_tab='fasta', **extra):
     context = {
         'active_tab': active_tab,
-        'available_fasta_jobs': get_available_fasta_jobs(request.user),
+        'available_fasta_jobs': get_assembly_tasks_can_be_annotated(request.user),
     }
     context.update(extra)
     return context
 
-
-def _start_annotation_from_source_job(request, source_job_id):
-    available_jobs = get_available_fasta_jobs(request.user)
-    source_task = next((task for task in available_jobs if task.external_job_id == source_job_id), None)
-    
-    if not source_task:
-        messages.error(request, 'Selected FASTA is not available for annotation.')
-        return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
-
-    if has_annotation_for_previous(source_task):
-        messages.error(request, 'This FASTA output already has an annotation task.')
-        return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
-
-    if source_task.process.user != request.user:
-        messages.error(request, 'You do not have permission to annotate this FASTA output.')
-        return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
-    
-    if source_task.status != ConversionTask.TaskStatus.COMPLETED:
-        messages.error(request, 'Selected FASTA output is not ready for annotation.')
-        return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
-
-    task = ConversionTask.objects.create(
-        external_job_id=None,
-        status=ConversionTask.TaskStatus.PENDING,
-        task_type=ConversionTask.TaskType.ANNOTATION,
-        process=source_task.process,
-    )
-    task.input_files.set(source_task.output_files.all())
-
-    poll_annotation_from_assembly_start.delay(
-        job_id=source_job_id,
-        user_id=request.user.id,
-        new_task_id=task.id,
-        complete_version=request.POST.get('complete') == 'on',
-    )
-
-    message = f"Annotation task started from previous assembly job {source_job_id}. You will be notified when it's complete."
-    messages.info(request, message)
-    return redirect('conversion:task_status', task_id=task.id)
-
-
-def _start_annotation_from_uploaded_fasta(request, fasta):
-    if not fasta:
-        messages.error(request, 'Select a previous FASTA output or upload a FASTA file.')
-        return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
-
-    fasta_bytes = fasta.read()
-    file = upload_file(
-        fasta,
-        user=request.user,
-        file_type=File.FileType.FASTA
-    )
-
-    process = ProcessGroup.objects.create(name=os.path.basename(file.file.name), user=request.user)
-    task = ConversionTask.objects.create(
-        external_job_id=None,
-        status=ConversionTask.TaskStatus.PENDING,
-        task_type=ConversionTask.TaskType.ANNOTATION,
-        process=process
-    )
-
-    task.input_files.add(file)
-
-    poll_annotation_start.delay(
-        fasta_bytes=fasta_bytes,
-        task_id=task.id,   
-        complete_version=request.POST.get('complete') == 'on',
-    )
-
-    message = f"Annotation task started for file {fasta.name}. You will be notified when it's complete."
-    messages.info(request, message)
-    return redirect('conversion:task_status', task_id=task.id)
 
 @login_required
 def assembly_ui(request):
@@ -117,11 +43,24 @@ def annotation_task(request):
     """
     source_job_id = (request.POST.get('source_job_id') or '').strip()
     fasta = request.FILES.get('fasta_file')
+    complete_version = request.POST.get('complete') == 'on'
 
-    if source_job_id:
-        return _start_annotation_from_source_job(request, source_job_id)
-    else:
-        return _start_annotation_from_uploaded_fasta(request, fasta)
+    try:
+        if source_job_id:
+            task = start_annotation_from_assembly_task(request.user, source_job_id, complete_version,)
+            message = (f'Annotation task started from previous assembly job {source_job_id}. You will be notified when it is complete.')
+        else:
+            task = start_annotation_from_uploaded_fasta(request.user, fasta, complete_version)
+            message = (f'Annotation task started for file {fasta.name}. You will be notified when it is complete.')
+
+    except ValueError as e:
+        messages.error(request, str(e))
+        return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
+
+    messages.info(request, message)
+
+    return redirect('conversion:task_status', task_id=task.id)
+
 
 @require_POST
 @login_required
@@ -204,46 +143,17 @@ def annotation_from_assembly_task(request, job_id):
         messages.error(request, 'No assembly job id was provided for annotation.')
         return redirect('conversion:annotation_ui')
 
-    print(f"Starting annotation task from assembly job with ID: {job_id}")
+    complete_version = request.POST.get('complete') == 'on'
+    try:
+        task = start_annotation_from_assembly_task(request.user, job_id, complete_version)
+        message = f"Annotation task started for assembly job {job_id}. You will be notified when it's complete."
 
-    source_task = get_current_user_tasks(request).filter(
-        external_job_id=job_id,
-        status=ConversionTask.TaskStatus.COMPLETED,
-        task_type__in=(ConversionTask.TaskType.ASSEMBLY_ILLUMINA, ConversionTask.TaskType.ASSEMBLY_ONT),
-    ).first()
-    if not source_task:
-        messages.error(request, 'Assembly job not found or not available for annotation.')
-        return redirect('conversion:annotation_ui')
+    except ValueError as e:
+        messages.error(request, str(e))
+        return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
 
-    if has_annotation_for_previous(source_task):
-        messages.warning(request, 'This assembly result already has an annotation task.')
-        return redirect('conversion:annotation_ui')
-    
-    if source_task.process.user != request.user:
-        messages.error(request, 'You do not have permission to annotate this assembly result.')
-        return redirect('conversion:annotation_ui')
-    
-    if source_task.status != ConversionTask.TaskStatus.COMPLETED:
-        messages.error(request, 'Selected assembly job is not ready for annotation.')
-        return redirect('conversion:annotation_ui')
-
-    task = ConversionTask.objects.create(
-        external_job_id=None,
-        status=ConversionTask.TaskStatus.PENDING,
-        task_type=ConversionTask.TaskType.ANNOTATION,
-        process=source_task.process,
-    )
-    task.input_files.set(source_task.output_files.all())
-
-    poll_annotation_from_assembly_start.delay(
-        user_id=request.user.id,
-        job_id=job_id,
-        new_task_id=task.id,
-        complete_version=request.POST.get('complete') == 'on',
-    )
-
-    message = f"Annotation task started for assembly job {job_id}. You will be notified when it's complete."
     messages.info(request, message)
+
     return redirect('conversion:task_status', task_id=task.id)
 
 @login_required

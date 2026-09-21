@@ -11,7 +11,6 @@ from conversion.tasks import (
     _ensure_in_app_notification,
     _persist_annotation_json_output,
     _persist_assembly_fasta_output,
-    poll_annotation_from_assembly_start,
     poll_annotation_start,
     poll_assembly_start,
     poll_conversion_status,
@@ -507,76 +506,3 @@ class PollAssemblyStartTests(TestCase):
                             user_id=self.user.id, complete_version=True)
         task = ConversionTask.objects.get(external_job_id="seq-cv")
         mock_poll.delay.assert_called_once_with(task.id, complete_version=True)
-
-
-class PollAnnotationFromAssemblyStartTests(TestCase):
-    def setUp(self):
-        self.user = make_user()
-
-    def _prev(self, job_id="seq-1"):
-        return ConversionTask.objects.create(
-            external_job_id=job_id, status="completed",
-            input_path="/tmp/reads.fastq.gz", task_type="assembly_ont", user=self.user,
-        )
-
-    def _pending(self):
-        return ConversionTask.objects.create(
-            external_job_id=None, status="pending",
-            input_path="/tmp/reads.fastq.gz", task_type="annotation", user=self.user,
-        )
-
-    def _upload_fasta(self, task, content=FASTA):
-        u = File.objects.create(user=self.user)
-        u.file.save(f"assembly_{task.external_job_id}.fasta", ContentFile(content), save=True)
-
-    @patch("conversion.tasks.poll_annotation_start.delay")
-    def test_happy_path(self, mock_delay):
-        prev, pending = self._prev("seq-ok"), self._pending()
-        self._upload_fasta(prev)
-        poll_annotation_from_assembly_start(job_id=prev.external_job_id,
-                                            user_id=self.user.id, new_task_id=pending.id)
-        mock_delay.assert_called_once_with(fasta_bytes=FASTA, task_id=pending.id,
-                                           user_id=self.user.id, complete_version=False)
-
-    @patch("conversion.tasks.poll_annotation_start.delay")
-    def test_complete_version_forwarded(self, mock_delay):
-        prev, pending = self._prev("seq-cv"), self._pending()
-        self._upload_fasta(prev)
-        poll_annotation_from_assembly_start(job_id=prev.external_job_id,
-                                            user_id=self.user.id, new_task_id=pending.id,
-                                            complete_version=True)
-        self.assertTrue(mock_delay.call_args[1].get("complete_version"))
-
-    @patch("conversion.tasks.notify_user_conversion_failed")
-    @patch("conversion.tasks.poll_annotation_start.delay")
-    def test_failure_paths(self, mock_delay, mock_notify):
-        cases = [
-            ("missing previous task", "no-such-job", False, False),
-            ("no fasta file",         "seq-no-file",  True,  False),
-            ("empty fasta",           "seq-empty",    True,  True),
-        ]
-        for label, job_id, create_prev, upload_empty in cases:
-            with self.subTest(label=label):
-                pending = self._pending()
-                if create_prev:
-                    prev = self._prev(job_id)
-                    if upload_empty:
-                        self._upload_fasta(prev, content=b"")
-                poll_annotation_from_assembly_start(job_id=job_id, user_id=self.user.id,
-                                                    new_task_id=pending.id)
-                mock_notify.assert_called_once()
-                mock_delay.assert_not_called()
-                mock_notify.reset_mock()
-
-    @patch("conversion.tasks.notify_user_conversion_failed")
-    @patch("conversion.tasks.poll_annotation_start.delay")
-    def test_user_mismatch_cannot_access_other_users_assembly(self, mock_delay, mock_notify):
-        other = make_user(username="other")
-        prev = ConversionTask.objects.create(
-            external_job_id="seq-other", status="completed",
-            input_path="/tmp/reads.fastq.gz", task_type="assembly_ont", user=other,
-        )
-        poll_annotation_from_assembly_start(job_id=prev.external_job_id,
-                                            user_id=self.user.id, new_task_id=self._pending().id)
-        mock_notify.assert_called_once()
-        mock_delay.assert_not_called()

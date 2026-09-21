@@ -192,7 +192,7 @@ class ConversionTaskViewsTests(TestCase):
         self.assertEqual(assembly.process_name, 'New Name')
         self.assertEqual(annotation.process_name, 'New Name')
 
-    @patch('conversion.views.poll_annotation_from_assembly_start.delay')
+    @patch('conversion.views.poll_annotation_start.delay')
     def test_annotation_from_job_redirects_to_task_status(self, mock_delay):
         assembly = ConversionTask.objects.create(
             external_job_id='seq-annotate',
