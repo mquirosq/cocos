@@ -34,33 +34,6 @@ def annotation_ui(request):
     """Render Annotation workflow page with FASTA and JSON tabs."""
     return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
 
-@require_POST
-@login_required
-def annotation_task(request):
-    """
-    Allow users to upload a FASTA file via a simple web form to start an external annotation task.
-    On submission, create an AnnotationTask and trigger polling of its status.
-    """
-    source_job_id = (request.POST.get('source_job_id') or '').strip()
-    fasta = request.FILES.get('fasta_file')
-    complete_version = request.POST.get('complete') == 'on'
-
-    try:
-        if source_job_id:
-            task = start_annotation_from_assembly_task(request.user, source_job_id, complete_version,)
-            message = (f'Annotation task started from previous assembly job {source_job_id}. You will be notified when it is complete.')
-        else:
-            task = start_annotation_from_uploaded_fasta(request.user, fasta, complete_version)
-            message = (f'Annotation task started for file {fasta.name}. You will be notified when it is complete.')
-
-    except ValueError as e:
-        messages.error(request, str(e))
-        return render(request, 'conversion/annotation.html', _annotation_context(request, active_tab='fasta'))
-
-    messages.info(request, message)
-
-    return redirect('conversion:task_status', task_id=task.id)
-
 
 @require_POST
 @login_required
@@ -134,19 +107,22 @@ def assembly_task(request):
 
 @require_POST
 @login_required
-def annotation_from_assembly_task(request, job_id):
+def start_annotation_task(request):
     """
-    Start an annotation task based on the result of a previous assembly task.
-    Expects a job_id from the assembly task to be provided in the POST data.
+    Allow users to upload a FASTA file via a simple web form to start an external annotation task.
+    On submission, create an AnnotationTask and trigger polling of its status.
     """
-    if not job_id:
-        messages.error(request, 'No assembly job id was provided for annotation.')
-        return redirect('conversion:annotation_ui')
-
+    source_job_id = (request.POST.get('source_job_id') or '').strip()
+    fasta = request.FILES.get('fasta_file')
     complete_version = request.POST.get('complete') == 'on'
+
     try:
-        task = start_annotation_from_assembly_task(request.user, job_id, complete_version)
-        message = f"Annotation task started for assembly job {job_id}. You will be notified when it's complete."
+        if source_job_id:
+            task = start_annotation_from_assembly_task(request.user, source_job_id, complete_version,)
+            message = (f'Annotation task started from previous assembly job {source_job_id}. You will be notified when it is complete.')
+        else:
+            task = start_annotation_from_uploaded_fasta(request.user, fasta, complete_version)
+            message = (f'Annotation task started for file {fasta.name}. You will be notified when it is complete.')
 
     except ValueError as e:
         messages.error(request, str(e))

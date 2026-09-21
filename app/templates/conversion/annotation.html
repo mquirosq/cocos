@@ -33,7 +33,7 @@
         <h2 class="card-title">FASTA to Bakta JSON to DB</h2>
         <p class="text-sm opacity-70">Choose a FASTA from your completed Assembly jobs or upload a local FASTA file.</p>
 
-        <form id="annotation-fasta-form" method="post" enctype="multipart/form-data" action="{% url 'conversion:annotation_from_fasta' %}" class="space-y-4">
+        <form id="annotation-fasta-form" method="post" enctype="multipart/form-data" action="{% url 'conversion:start_annotation_task' %}" class="space-y-4">
           {% csrf_token %}
           <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4 assembly-interactive">
             <legend class="fieldset-legend text-base font-semibold">FASTA input</legend>
