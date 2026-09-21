@@ -87,24 +87,15 @@ def _ensure_in_app_notification(task, event_type, message):
         channels=[TaskNotification.CHANNEL_IN_APP],
     )
 
-def _fail_task(task, message, user=None):
+def _fail_task(task, message):
     """Mark a task as failed and notify the user."""
     if not task:
-        notify_user_conversion_failed(user, task=None, message=message)
+        notify_user_conversion_failed(None, task=None, message=message)
         return
 
-    if task.task_type in ASSEMBLY_TYPES:
-        logger.error(
-            f"Assembly task {task.id} failed: {message}"
-        )
-    elif task.task_type in ANNOTATED_TYPES:
-        logger.error(
-            f"Annotation task {task.id} failed: {message}"
-        )
-    else:
-        logger.error(
-            f"Task {task.id} failed: {message}"
-        )
+    logger.error(
+        f"Task {task.id} ({task.task_type}) failed: {message}"
+    )
 
     task.status = ConversionTask.TaskStatus.FAILED
     task.save(update_fields=["status"])
@@ -192,7 +183,7 @@ def poll_annotation_start(self, task_id, complete_version=False):
         task = ConversionTask.objects.get(id=task_id)
     except ConversionTask.DoesNotExist:
         logger.error(f"Task not found when starting annotation: {task_id}")
-        _fail_task(None, "Task not found when starting annotation", user=None)
+        _fail_task(None, "Task not found when starting annotation")
         return
 
     fasta_file = task.input_files.filter(file_type=File.FileType.FASTA).first()
