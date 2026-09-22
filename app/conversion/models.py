@@ -117,7 +117,7 @@ class ConversionTask(models.Model):
 
     class TaskType(models.TextChoices):
         ANNOTATION = 'annotation', 'Annotation'
-        FROM_JSON = 'from_json', 'From JSON'
+        FROM_JSON = 'from_json', 'JSON Processing'
         ASSEMBLY_ONT = 'assembly_ont', 'ONT Assembly'
         ASSEMBLY_ILLUMINA = 'assembly_illumina', 'Illumina Assembly'
         ASSEMBLY_ONT_ANNOTATED = 'assembly_ont_annotated', 'ONT Assembly with Annotation'
