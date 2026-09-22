@@ -333,6 +333,8 @@ def process_json(self, task_id, complete_version=False):
         logger.error(f"Task {task_id} not found when processing JSON")
         return
 
+    notify_user_conversion_started(user=task.process.user, task=task)
+
     json_file = task.input_files.filter(file_type=File.FileType.JSON).first()
 
     if not json_file:
@@ -365,6 +367,7 @@ def process_json(self, task_id, complete_version=False):
 
     task.status = ConversionTask.TaskStatus.COMPLETED
     task.save(update_fields=["status"])
+    notify_user_conversion_complete(user=task.process.user, task=task)
 
     logger.info(f"JSON processing completed for task {task_id}")
 
