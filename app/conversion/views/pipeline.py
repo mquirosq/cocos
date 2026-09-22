@@ -44,7 +44,7 @@ def start_assembly_task(request):
     fastq_2 = request.FILES.get('fastq_file_2')
 
     try:
-        start_assembly(
+        task = start_assembly(
             user=request.user,
             assembly_type=assembly_type,
             fastq=fastq,
@@ -59,7 +59,7 @@ def start_assembly_task(request):
     message = (f"Assembly task started for file {fastq.name}. You will be notified when it's complete.")
     messages.info(request, message)
 
-    return redirect('conversion:assembly_ui')
+    return redirect('conversion:task_status', task_id=task.id)
 
 
 @login_required
