@@ -1,7 +1,7 @@
 from django.db import models
 
 from conversion.models import File, ConversionTask
-from conversion.services.presentation import format_source_job_label
+from conversion.services.presentation import format_process_label
 from conversion.task_types import ANNOTATED_TYPES
 
 from .registry import get_model_supported_antibiotics
@@ -26,7 +26,7 @@ def get_prediction_input_options(user):
 
         options.append({
                         'id': str(json_file.id) if json_file else None,
-                        'label': format_source_job_label(task),
+                        'label': format_process_label(task),
                     })
 
     return options

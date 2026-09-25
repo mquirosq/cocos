@@ -19,7 +19,7 @@ PIPELINE_LABELS = {
     ConversionTask.TaskType.PREDICTION: 'Prediction',
 }
 
-def format_source_job_label(task):
+def format_process_label(task):
     """Format a user-friendly label with process name and relative time."""
     label = task.process.name if task and task.process else "Unnamed Process"
     timestamp = (task.updated_at or task.created_at) if task else None

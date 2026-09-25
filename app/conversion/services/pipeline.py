@@ -2,7 +2,7 @@ import os
 
 from django.db.models import Prefetch
 from ..models import ConversionTask, File, ProcessGroup
-from .presentation import format_source_job_label
+from .presentation import format_process_label
 from ..task_types import ANNOTATED_TYPES
 from ..tasks import (
     poll_annotation_start,
@@ -53,7 +53,7 @@ def get_assembly_tasks_can_be_annotated(user):
         output_file = task.fasta_outputs[0] if task.fasta_outputs else None
 
         task.source_filename = (os.path.basename(output_file.file.name) if output_file else 'Assembly output')
-        task.source_label = format_source_job_label(task)
+        task.source_label = format_process_label(task)
 
     return list(assembly_tasks)
 
