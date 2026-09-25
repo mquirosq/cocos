@@ -96,7 +96,6 @@ def task_status_view(request, task_id):
     return render(request, 'conversion/task_status.html', {
         'task': task,
         'process_name': context['process_name'],
-        'pipeline_type': pipeline_label(task.task_type),
         'pipeline_badges': pipeline_badges,
         'assembly_task': assembly_task,
         'latest_step': latest_step,
