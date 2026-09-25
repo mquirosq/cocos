@@ -21,16 +21,16 @@ from ..utils import get_current_user_tasks
 
 
 @login_required
-def task_list_view(request):
-    """Render process task rows for assembly, annotation, and JSON."""
+def process_list_view(request):
+    """Render process rows for conversion tasks."""
     rows = build_process_rows(request.user)
     paginator = Paginator(rows, 3)
     page_obj = paginator.get_page(request.GET.get('page', 1))
     
-    return render(request, 'conversion/task_list.html', {
+    return render(request, 'conversion/process_list.html', {
         'page_obj': page_obj,
         'pagination_page_range': get_pagination_page_range(paginator, page_obj.number),
-        'pagination_url': reverse('conversion:task_list'),
+        'pagination_url': reverse('conversion:process_list'),
         'pagination_query': '',
         'pagination_label': 'Processes',
         'pagination_link_attribute': 'data-process-page',
@@ -42,11 +42,11 @@ def process_status_view(request, process_id):
 
     if not process:
         messages.error(request, 'Process not found.')
-        return redirect('conversion:task_list')
+        return redirect('conversion:process_list')
 
     if process.user != request.user:
         messages.error(request, 'You do not have permission to view this process.')
-        return redirect('conversion:task_list')
+        return redirect('conversion:process_list')
 
     context = build_process_status_context(process)
 

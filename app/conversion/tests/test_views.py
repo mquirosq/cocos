@@ -126,7 +126,7 @@ class ConversionTaskViewsTests(TestCase):
         self.user = User.objects.create_user(username='view-user', password='pass1234')
         self.client.login(username='view-user', password='pass1234')
 
-    def test_task_list_view_returns_grouped_rows(self):
+    def test_process_list_view_returns_grouped_rows(self):
         assembly = ConversionTask.objects.create(
             external_job_id='seq-1',
             status='completed',
@@ -153,7 +153,7 @@ class ConversionTaskViewsTests(TestCase):
             user=self.user,
         )
 
-        response = self.client.get(reverse('conversion:task_list'))
+        response = self.client.get(reverse('conversion:process_list'))
 
         self.assertEqual(response.status_code, 200)
         rows = list(response.context['page_obj'].object_list)
