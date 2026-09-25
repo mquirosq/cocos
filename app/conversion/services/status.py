@@ -2,11 +2,15 @@ import os
 from django.db.models import Max, Prefetch
 
 from ..models import ConversionTask, File, ProcessGroup
-from .presentation import pipeline_label, status_badge_class, get_process_stage_class, format_process_label, build_process_steps
+from .presentation import pipeline_label, status_badge_class, build_process_steps
 from ..task_types import ASSEMBLY_TYPES, ANNOTATED_TYPES, ASSEMBLY_AND_ANNOTATION_TYPES
 
 def get_processes_of_user_prefetch_tasks_and_files(user):
-    """Return a queryset of ProcessGroup objects for the given user, with prefetching of related ConversionTask objects and related File objects."""
+    """
+    Return a queryset of ProcessGroup objects for the given user, 
+    with prefetching of related ConversionTask objects and related File objects.
+    The queryset is ordered by the last updated time of the tasks in descending order.
+    """
     return (
         ProcessGroup.objects.filter(user=user)
         .annotate(last_updated=Max('conversion_tasks__updated_at'))
@@ -130,6 +134,8 @@ def build_assembly_row(process, assembly_tasks, annotations):
     can_retry_annotation = (latest_annotation.status == ConversionTask.TaskStatus.FAILED if latest_annotation else False) and not auto_annotated
     has_fasta = assembly_completed and get_prefetched_file(assembly_task.prefetched_output_files, File.FileType.FASTA) is not None
     has_json = (latest_annotation.status == ConversionTask.TaskStatus.COMPLETED if latest_annotation else False) or has_auto_json
+
+    stage_class = stage_class = ("process-stage-max" if has_json else "process-stage-mid" if annotation_started else "process-stage-light")
     
     return {
         'kind': 'assembly',
@@ -150,12 +156,16 @@ def build_assembly_row(process, assembly_tasks, annotations):
         'has_json': has_json,
         'is_auto_annotated': auto_annotated,
         'steps': build_process_steps(assembly_task=assembly_task, annotation=latest_annotation, is_auto_annotated=auto_annotated),
+        'stage_class': stage_class,
     }
 
 def build_annotation_row(process, annotations):
     latest = annotations[0]
     latest_uploaded_fasta = get_prefetched_file(latest.prefetched_input_files, File.FileType.FASTA)
     latest_uploaded_json = get_prefetched_file(latest.prefetched_output_files, File.FileType.JSON)
+
+    stage_class = ("process-stage-max" if latest.status == ConversionTask.TaskStatus.COMPLETED else "process-stage-mid")
+
     return {
         'kind': 'annotation',
         'process_name': process.name,
@@ -170,11 +180,15 @@ def build_annotation_row(process, annotations):
         'has_fasta': bool(latest_uploaded_fasta),
         'has_json': bool(latest_uploaded_json),
         'steps': build_process_steps(annotation=latest),
+        'stage_class': stage_class,
     }
 
 def build_json_row(process, json_tasks):
     latest = json_tasks[0]
     json_upload = get_prefetched_file(latest.prefetched_input_files, File.FileType.JSON)
+
+    stage_class = ("process-stage-max" if latest.status == ConversionTask.TaskStatus.COMPLETED else "process-stage-dark")
+
     return {
         'kind': 'json',
         'process_name': process.name,
@@ -189,6 +203,7 @@ def build_json_row(process, json_tasks):
         'has_fasta': False,
         'has_json': bool(json_upload),
         'steps': build_process_steps(json_task=latest),
+        'stage_class': stage_class,
     }
 
 

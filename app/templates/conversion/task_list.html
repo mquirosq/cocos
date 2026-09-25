@@ -15,7 +15,7 @@
 
   <div class="process-list">
     {% for row in page_obj %}
-      <article class="process-row process-row-{{ row.kind }} {% if row.kind == 'assembly' and row.has_json %}process-stage-max{% elif row.kind == 'json' and row.status == 'completed' %}process-stage-max{% elif row.kind == 'annotation' and row.status == 'completed' %}process-stage-max{% elif row.kind == 'json' %}process-stage-dark{% elif row.kind == 'annotation' or row.annotation_started %}process-stage-mid{% else %}process-stage-light{% endif %} card bg-base-100 border border-base-300 shadow-sm">
+      <article class="process-row process-row-{{ row.kind }} {{ row.stage_class }} card bg-base-100 border border-base-300 shadow-sm">
         <div class="card-body">
           <div class="process-row-grid">
             
