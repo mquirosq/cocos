@@ -74,6 +74,10 @@ def get_fasta_upload_for_task(task):
 
 
 def build_process_rows(user):
+    """
+    Build a list of process rows for the given user, each containing relevant 
+    information about the process and its tasks reasy for the task list view.
+    """
     processes = get_processes_of_user_prefetch_tasks_and_files(user)
     rows = []
 
@@ -103,6 +107,8 @@ def build_process_rows(user):
     return rows
 
 def _build_assembly_row(process, assembly_tasks, annotations):
+    """Build a process row for an assembly task."""
+
     assembly_task = assembly_tasks[0]
     latest_annotation = annotations[0] if annotations else None
     
@@ -158,6 +164,8 @@ def _build_assembly_row(process, assembly_tasks, annotations):
     }
 
 def _build_annotation_row(process, annotations):
+    """Build a process row for an annotation task."""
+
     latest = annotations[0]
     latest_uploaded_fasta = get_prefetched_file(latest.prefetched_input_files, File.FileType.FASTA)
     latest_uploaded_json = get_prefetched_file(latest.prefetched_output_files, File.FileType.JSON)
@@ -182,6 +190,8 @@ def _build_annotation_row(process, annotations):
     }
 
 def _build_json_row(process, json_tasks):
+    """Build a process row for a JSON task."""
+    
     latest = json_tasks[0]
     json_upload = get_prefetched_file(latest.prefetched_input_files, File.FileType.JSON)
 
