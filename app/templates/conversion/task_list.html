@@ -87,7 +87,7 @@
               </div>
 
               <div class="mt-3 flex flex-wrap justify-end gap-2">
-                {% if row.kind == 'assembly' and row.can_annotate and not row.is_auto_annotated %}
+                {% if row.can_annotate %}
                   <form method="post" action="{% url 'conversion:start_annotation_task' %}">
                     {% csrf_token %}
                     <input type="hidden" name="source_job_id" value="{{ row.task.external_job_id }}">
@@ -95,7 +95,7 @@
                         Annotate
                     </button>
                 </form>
-                {% elif row.kind == 'assembly' and row.can_retry_annotation and not row.is_auto_annotated %}
+                {% elif row.can_retry_annotation %}
                   <form method="post" action="{% url 'conversion:start_annotation_task' %}">
                     {% csrf_token %}
                     <input type="hidden" name="source_job_id" value="{{ row.task.external_job_id }}">
