@@ -25,6 +25,10 @@ COPY app /app
 
 COPY --from=frontend /frontend/static /app/static/
 
+# Guardar el CSS fuera de /app para que el volumen no lo oculte. Odio TailWind
+RUN mkdir -p /opt/frontend && \
+    cp /app/static/css/tailwind.css /opt/frontend/tailwind.css
+
 
 # Non-root user for security
 RUN addgroup --system app && adduser --system --ingroup app app

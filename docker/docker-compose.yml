@@ -30,9 +30,12 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+    # El horror con el css es necesario para que el volumen montado de la carpeta local no se coma el tailwind.css que se genera en la build. Odio TailWind (<- comentario de TailWind añadido por autocompletado)
     command: >
-      sh -c "python manage.py migrate --noinput &&
-             python manage.py runserver 0.0.0.0:8000"
+      sh -c "mkdir -p /app/static/css &&
+            cp /opt/frontend/tailwind.css /app/static/css/tailwind.css &&
+            python manage.py migrate --noinput &&
+            python manage.py runserver 0.0.0.0:8000"
     volumes:
       - ../app:/app
     # Ejecutar con UID 1000 - No arrancar como root
