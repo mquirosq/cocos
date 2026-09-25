@@ -215,16 +215,16 @@ def _build_json_row(process, json_tasks):
     }
 
 
-def build_process_status_context(user, task):
-    process = task.process
+def build_process_status_context(user, process):
+    task = process.conversion_tasks.order_by('-updated_at', '-id').first()
+
     if task.task_type in ASSEMBLY_TYPES:
         assembly_task = task
         annotations = list(
             ConversionTask.objects.filter(process=process, task_type=ConversionTask.TaskType.ANNOTATION).order_by('-updated_at', '-id')
         )
         latest_annotation = annotations[0] if annotations else None
-        return {
-            'root_task': assembly_task,
+        context = {
             'assembly_task': assembly_task,
             'latest_annotation_attempt': latest_annotation,
             'latest_completed_annotation_attempt': find_latest_completed_annotation(annotations),
@@ -233,16 +233,14 @@ def build_process_status_context(user, task):
             'has_annotation_attempts': bool(annotations),
             'has_json_attempts': False,
             'process_name': assembly_task.process.name,
-            'pipeline_type': pipeline_label(assembly_task.task_type),
         }
 
-    if task.task_type == ConversionTask.TaskType.ANNOTATION and process.conversion_tasks.filter(task_type__in=ASSEMBLY_TYPES).exists():
+    elif task.task_type == ConversionTask.TaskType.ANNOTATION and process.conversion_tasks.filter(task_type__in=ASSEMBLY_TYPES).exists():
         process_tasks = task.process.conversion_tasks.all()
         assembly_task = process_tasks.filter(task_type__in=ASSEMBLY_TYPES).first()
         annotations = process_tasks.filter(task_type=ConversionTask.TaskType.ANNOTATION).order_by('-updated_at', '-id')
         latest_annotation = annotations[0] if annotations else None
-        return {
-            'root_task': assembly_task,
+        context = {
             'assembly_task': assembly_task,
             'latest_annotation_attempt': latest_annotation,
             'latest_completed_annotation_attempt': find_latest_completed_annotation(annotations),
@@ -251,10 +249,9 @@ def build_process_status_context(user, task):
             'has_annotation_attempts': bool(annotations),
             'has_json_attempts': False,
             'process_name': assembly_task.process.name,
-            'pipeline_type': pipeline_label(assembly_task.task_type),
         }
 
-    if task.task_type == ConversionTask.TaskType.ANNOTATION:
+    elif task.task_type == ConversionTask.TaskType.ANNOTATION:
         annotations = list(
             ConversionTask.objects.filter(
                 process=task.process,
@@ -262,8 +259,7 @@ def build_process_status_context(user, task):
             ).order_by('-updated_at', '-id')
         )
         latest_annotation = annotations[0] if annotations else None
-        return {
-            'root_task': task,
+        context = {
             'assembly_task': None,
             'latest_annotation_attempt': latest_annotation,
             'latest_completed_annotation_attempt': find_latest_completed_annotation(annotations),
@@ -272,30 +268,92 @@ def build_process_status_context(user, task):
             'has_annotation_attempts': bool(annotations),
             'has_json_attempts': False,
             'process_name': task.process.name,
-            'pipeline_type': 'Annotation',
+        }
+    else:
+        json_attempts = list(
+            ConversionTask.objects.filter(
+                process__user=user,
+                task_type=ConversionTask.TaskType.FROM_JSON,
+                process__name=task.process.name,
+                input_files=task.input_files.first(),
+            ).order_by('-updated_at', '-id')
+        )
+        latest_json = json_attempts[0] if json_attempts else None
+        context = {
+            'assembly_task': None,
+            'latest_annotation_attempt': None,
+            'latest_completed_annotation_attempt': None,
+            'latest_annotation_with_uploaded_fasta': None,
+            'latest_json_attempt': latest_json,
+            'has_annotation_attempts': False,
+            'has_json_attempts': bool(json_attempts),
+            'process_name': task.process.name,
         }
 
-    json_attempts = list(
-        ConversionTask.objects.filter(
-            process__user=user,
-            task_type=ConversionTask.TaskType.FROM_JSON,
-            process__name=task.process.name,
-            input_files=task.input_files.first(),
-        ).order_by('-updated_at', '-id')
+    assembly_task = context['assembly_task']
+    auto_annotated = is_auto_annotated_assembly(assembly_task)
+    latest_annotation = context['latest_annotation_attempt']
+    latest_json = context['latest_json_attempt']
+    latest_completed = context['latest_completed_annotation_attempt']
+    latest_step = latest_annotation or latest_json
+    latest_step_label = (
+        'Annotation' if latest_annotation else ('From JSON' if latest_json else None)
     )
-    latest_json = json_attempts[0] if json_attempts else None
+        
+        
+    has_completed_assembly = bool(assembly_task and assembly_task.status == ConversionTask.TaskStatus.COMPLETED)
+    can_annotate = has_completed_assembly and not context['has_annotation_attempts'] and not auto_annotated
+    can_retry = has_completed_assembly and latest_annotation and latest_annotation.status == ConversionTask.TaskStatus.FAILED and not auto_annotated
+        
+    # FASTA download
+    fasta_download_task_id = (
+        assembly_task.id if has_completed_assembly else
+        (context['latest_annotation_with_uploaded_fasta'].id if context['latest_annotation_with_uploaded_fasta'] else None)
+    )
+        
+    # JSON download
+    json_download_task_id = (
+        latest_completed.id if latest_completed else
+        (latest_json.id if latest_json and latest_json.status == ConversionTask.TaskStatus.COMPLETED and get_json_upload_for_task(latest_json) else None)
+        if not latest_completed else None
+    )
+    if not json_download_task_id and auto_annotated and has_completed_assembly:
+        json_download_task_id = assembly_task.id
+        
+    process_kind = (
+        'assembly' if assembly_task else
+        ('json' if context['has_json_attempts'] else 'annotation')
+    )
+        
+    pipeline_badges = []
+    if assembly_task:
+        pipeline_badges.append(pipeline_label(assembly_task.task_type))
+    if latest_annotation:
+        pipeline_badges.append('Annotation')
+    elif latest_json:
+        pipeline_badges.append('From JSON')
+        
+    latest_task = latest_step if latest_step else (assembly_task if assembly_task else task)
+    latest_task_status = latest_task.status if latest_task else task.status
+        
     return {
-        'root_task': task,
-        'assembly_task': None,
-        'latest_annotation_attempt': None,
-        'latest_completed_annotation_attempt': None,
-        'latest_annotation_with_uploaded_fasta': None,
-        'latest_json_attempt': latest_json,
-        'has_annotation_attempts': False,
-        'has_json_attempts': bool(json_attempts),
-        'process_name': task.process.name,
-        'pipeline_type': 'From JSON',
-    }
+        'task': task,
+        'process_name': context['process_name'],
+        'pipeline_badges': pipeline_badges,
+        'assembly_task': assembly_task,
+        'latest_step': latest_step,
+        'latest_step_label': latest_step_label,
+        'assembly_input_filename': os.path.basename(assembly_task.input_files.first().file.name) if assembly_task else None,
+        'fasta_download_task_id': fasta_download_task_id,
+        'json_download_task_id': json_download_task_id,
+        'can_annotate': can_annotate,
+        'can_retry_annotation': can_retry,
+        'status_badge': status_badge_class(latest_task_status),
+        'latest_task_status': latest_task_status,
+        'assembly_status_badge': status_badge_class(assembly_task.status) if assembly_task else None,
+        'latest_step_status_badge': status_badge_class(latest_step.status) if latest_step else None,
+        'auto_annotated_assembly': auto_annotated,
+        'process_kind': process_kind,    }
 
 
 def rename_task_process(user, task, new_name):

@@ -13,12 +13,10 @@ from ..models import ConversionTask, ProcessGroup
 from ..services.status import (
     build_process_rows,
     build_process_status_context,
-    get_json_upload_for_task,
-    is_auto_annotated_assembly,
-    rename_task_process,
     get_fasta_upload_for_task,
+    get_json_upload_for_task,
+    rename_task_process,
 )
-from ..services.status import status_badge_class, pipeline_label
 from ..utils import get_current_user_tasks
 
 
@@ -41,81 +39,19 @@ def task_list_view(request):
 @login_required
 def process_status_view(request, process_id):
     process = ProcessGroup.objects.filter(id=process_id).first()
-    task = process.conversion_tasks.first() if process else None
 
-    if task.process.user != request.user:
-        messages.error(request, 'You do not have permission to view this task.')
+    if not process:
+        messages.error(request, 'Process not found.')
         return redirect('conversion:task_list')
 
-    if not task:
-        messages.error(request, 'Task not found.')
+    if process.user != request.user:
+        messages.error(request, 'You do not have permission to view this process.')
         return redirect('conversion:task_list')
 
-    context = build_process_status_context(request.user, task)
-    assembly_task = context['assembly_task']
-    auto_annotated = is_auto_annotated_assembly(assembly_task)
-    latest_annotation = context['latest_annotation_attempt']
-    latest_json = context['latest_json_attempt']
-    latest_completed = context['latest_completed_annotation_attempt']
-    latest_step = latest_annotation or latest_json
-    latest_step_label = (
-        'Annotation' if latest_annotation else ('From JSON' if latest_json else None)
-    )
+    context = build_process_status_context(request.user, process)
 
+    return render(request, 'conversion/process_status.html', context)
 
-    has_completed_assembly = bool(assembly_task and assembly_task.status == ConversionTask.TaskStatus.COMPLETED)
-    can_annotate = has_completed_assembly and not context['has_annotation_attempts'] and not auto_annotated
-    can_retry = has_completed_assembly and latest_annotation and latest_annotation.status == ConversionTask.TaskStatus.FAILED and not auto_annotated
-
-    # FASTA download
-    fasta_download_task_id = (
-        assembly_task.id if has_completed_assembly else
-        (context['latest_annotation_with_uploaded_fasta'].id if context['latest_annotation_with_uploaded_fasta'] else None)
-    )
-
-    # JSON download
-    json_download_task_id = (
-        latest_completed.id if latest_completed else
-        (latest_json.id if latest_json and latest_json.status == ConversionTask.TaskStatus.COMPLETED and get_json_upload_for_task(latest_json) else None)
-        if not latest_completed else None
-    )
-    if not json_download_task_id and auto_annotated and has_completed_assembly:
-        json_download_task_id = assembly_task.id
-
-    process_kind = (
-        'assembly' if assembly_task else
-        ('json' if context['has_json_attempts'] else 'annotation')
-    )
-
-    pipeline_badges = []
-    if assembly_task:
-        pipeline_badges.append(pipeline_label(assembly_task.task_type))
-    if latest_annotation:
-        pipeline_badges.append('Annotation')
-    elif latest_json:
-        pipeline_badges.append('From JSON')
-
-    latest_task = latest_step if latest_step else (assembly_task if assembly_task else task)
-    latest_task_status = latest_task.status if latest_task else task.status
-
-    return render(request, 'conversion/process_status.html', {
-        'task': task,
-        'process_name': context['process_name'],
-        'pipeline_badges': pipeline_badges,
-        'assembly_task': assembly_task,
-        'latest_step': latest_step,
-        'latest_step_label': latest_step_label,
-        'assembly_input_filename': os.path.basename(assembly_task.input_files.first().file.name) if assembly_task else None,
-        'fasta_download_task_id': fasta_download_task_id,
-        'json_download_task_id': json_download_task_id,
-        'can_annotate': can_annotate,
-        'can_retry_annotation': can_retry,
-        'status_badge': status_badge_class(latest_task_status),
-        'latest_task_status': latest_task_status,
-        'assembly_status_badge': status_badge_class(assembly_task.status) if assembly_task else None,
-        'latest_step_status_badge': status_badge_class(latest_step.status) if latest_step else None,
-        'auto_annotated_assembly': auto_annotated,
-        'process_kind': process_kind,    })
 
 @login_required
 def download_json_view(request, task_id):
