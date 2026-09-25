@@ -226,53 +226,24 @@ def build_process_status_context(process):
         .order_by('-updated_at', '-id')
     )
 
-    assembly_tasks = [task for task in process_tasks if task.task_type in ASSEMBLY_TYPES]
-    annotation_tasks = [task for task in process_tasks if task.task_type == ConversionTask.TaskType.ANNOTATION]
-    json_tasks = [task for task in process_tasks if task.task_type == ConversionTask.TaskType.FROM_JSON]
+    latest_task = process_tasks[0]
+    first_task = process_tasks[-1]
 
-    assembly_task = assembly_tasks[0] if assembly_tasks else None
-    latest_annotation = annotation_tasks[0] if annotation_tasks else None
-    latest_annotation_has_json = bool(get_prefetched_file(latest_annotation.prefetched_output_files, File.FileType.JSON) if latest_annotation else None)
-
-    latest_json = json_tasks[0] if json_tasks else None
+    assembly_task = next((task for task in process_tasks if task.task_type in ASSEMBLY_TYPES), None)
+    latest_annotation = next((task for task in process_tasks if task.task_type == ConversionTask.TaskType.ANNOTATION), None)
+    latest_json = next((task for task in process_tasks if task.task_type == ConversionTask.TaskType.FROM_JSON), None)
 
     is_auto_annotated = is_auto_annotated_assembly(assembly_task)
 
-    has_completed_assembly = (assembly_task is not None and assembly_task.status == ConversionTask.TaskStatus.COMPLETED)
+    has_completed_assembly = (assembly_task and assembly_task.status == ConversionTask.TaskStatus.COMPLETED)
 
-    can_annotate = (has_completed_assembly and not annotation_tasks and not is_auto_annotated)
+    can_annotate = (has_completed_assembly and latest_annotation is None and not is_auto_annotated)
 
     can_retry_annotation = (has_completed_assembly and latest_annotation is not None
         and latest_annotation.status == ConversionTask.TaskStatus.FAILED and not is_auto_annotated)
 
-    # FASTA download
-    if has_completed_assembly:
-        fasta_download_task_id = assembly_task.id
-    elif annotation_tasks:
-        fasta_download_task_id = latest_annotation.id
-    else:
-        fasta_download_task_id = None
-
-    # JSON download
-    if latest_annotation_has_json:
-        json_download_task_id = latest_annotation.id
-    elif is_auto_annotated and has_completed_assembly:
-        json_download_task_id = assembly_task.id
-    elif (
-        latest_json
-        and latest_json.status == ConversionTask.TaskStatus.COMPLETED
-        and get_prefetched_file(
-            latest_json.prefetched_output_files,
-            File.FileType.JSON,
-        )
-    ):
-        json_download_task_id = latest_json.id
-
-    else:
-        json_download_task_id = None
-
-    process_kind = ('assembly' if assembly_task else 'json' if json_tasks else 'annotation')
-
+    process_kind = ('assembly' if assembly_task else 'json' if latest_json else 'annotation')
+    
     pipeline_badges = []
     if assembly_task:
         pipeline_badges.append(pipeline_label(assembly_task.task_type))
@@ -280,29 +251,46 @@ def build_process_status_context(process):
         pipeline_badges.append(pipeline_label(latest_annotation.task_type))
     if latest_json:
         pipeline_badges.append(pipeline_label(latest_json.task_type))
-
-    latest_task = process_tasks[0]
-    latest_task_status = latest_task.status if latest_task else None
-
+    
     timeline = [_build_timeline_entry(task) for task in reversed(process_tasks)]
 
-    status_badge = status_badge_class(latest_task_status) if latest_task_status else None
-
     return {
-        'first_task': process_tasks[-1], # TODO: Should be removed when the views are refactored to use process_id instead of task_id
+        'first_task': first_task, # TODO: Remove when viewsuse process_id instead of task_id
         'process_name': process.name,
         'process_kind': process_kind,
         'pipeline_badges': pipeline_badges,
-        'latest_task_status': latest_task_status,
-        'status_badge': status_badge,
-        'last_updated': process_tasks[0].updated_at,
-        'created_at': process_tasks[-1].created_at,
-        'fasta_download_task_id': fasta_download_task_id,
-        'json_download_task_id': json_download_task_id,
+        'latest_task_status': latest_task.status,
+        'status_badge': status_badge_class(latest_task.status),
+        'last_updated': latest_task.updated_at,
+        'created_at': first_task.created_at,
+        'fasta_download_task_id': _get_fasta_download_task_id(assembly_task, latest_annotation),
+        'json_download_task_id': _get_json_download_task_id(assembly_task, latest_annotation, latest_json, is_auto_annotated),
         'can_annotate': can_annotate,
         'can_retry_annotation': can_retry_annotation,
         'timeline': timeline,
     }
+
+def _get_fasta_download_task_id(assembly_task, latest_annotation):
+    if assembly_task and assembly_task.status == ConversionTask.TaskStatus.COMPLETED:
+        return assembly_task.id
+
+    if latest_annotation:
+        return latest_annotation.id
+
+    return None
+
+def _get_json_download_task_id(assembly_task, latest_annotation, latest_json, is_auto_annotated):
+    if latest_annotation and get_prefetched_file(latest_annotation.prefetched_output_files, File.FileType.JSON):
+        return latest_annotation.id
+
+    if is_auto_annotated and assembly_task and assembly_task.status == ConversionTask.TaskStatus.COMPLETED:
+        return assembly_task.id
+
+    if latest_json and latest_json.status == ConversionTask.TaskStatus.COMPLETED:
+        if get_prefetched_file(latest_json.prefetched_output_files, File.FileType.JSON):
+            return latest_json.id
+
+    return None
 
 def _build_timeline_entry(task):
     """Build a timeline entry representing a conversion task."""
