@@ -40,8 +40,9 @@
               </ul>
 
               <div class="process-meta mt-4 grid gap-2 text-sm sm:grid-cols-2">
-                  <p class="whitespace-nowrap sm:col-span-2">
-                      <span class="font-semibold">Input:</span> {{ row.input_filename }}
+                    <p class="process-input-line sm:col-span-2">
+                      <span class="font-semibold shrink-0">Input:</span>
+                      <span class="process-input-filename" title="{{ row.input_filename }}">{{ row.input_filename }}</span>
                   </p>
               </div>
             </section>
