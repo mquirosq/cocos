@@ -220,6 +220,7 @@ def build_process_status_context(process):
     return {
         'first_task': first_task, # TODO: Remove when viewsuse process_id instead of task_id
         'process_name': process.name,
+        'process_id': process.id,
         'process_kind': process_kind,
         'pipeline_badges': pipeline_badges,
         'latest_task_status': latest_task.status,
@@ -274,12 +275,9 @@ def _build_timeline_entry(task):
     }
 
 
-def rename_task_process(user, task, new_name):
-    if task.process.user.id != user.id:
-        return
-
-    task.process.name = new_name
-    task.process.save(update_fields=["name"])
+def rename_process(process, new_name):
+    process.name = new_name
+    process.save(update_fields=["name"])
 
 
 def get_fasta_upload_for_task(task):

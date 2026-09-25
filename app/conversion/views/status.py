@@ -15,7 +15,7 @@ from ..services.status import (
     build_process_status_context,
     get_fasta_upload_for_task,
     get_json_upload_for_task,
-    rename_task_process,
+    rename_process,
 )
 from ..utils import get_current_user_tasks
 
@@ -113,13 +113,17 @@ def download_fasta_view(request, task_id):
     
 @require_POST
 @login_required
-def rename_process_view(request, task_id):
-    task = get_object_or_404(get_current_user_tasks(request), id=task_id)
+def rename_process_view(request, process_id):
+    process = get_object_or_404(ProcessGroup, id=process_id)
     new_name = (request.POST.get('process_name') or '').strip()
     if not new_name:
         messages.error(request, 'Process name cannot be empty.')
-        return redirect('conversion:process_status', process_id=task.process.id)
+        return redirect('conversion:process_status', process_id=process.id)
 
-    rename_task_process(request.user, task, new_name)
+    if process.user != request.user:
+        messages.error(request, 'You do not have permission to rename this process.')
+        return redirect('conversion:process_status', process_id=process.id)
+
+    rename_process(process, new_name)
     messages.success(request, 'Process name updated.')
-    return redirect('conversion:process_status', process_id=task.process.id)
+    return redirect('conversion:process_status', process_id=process.id)

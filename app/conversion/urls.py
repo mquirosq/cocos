@@ -11,7 +11,7 @@ urlpatterns = [
     path("annotation/from-json/", pipeline.parse_feature_file, name="annotation_from_json"),
     path('tasks/', status.task_list_view, name='task_list'),
     path('processes/<int:process_id>/', status.process_status_view, name='process_status'),
-    path('tasks/<int:task_id>/rename/', status.rename_process_view, name='rename_process'),
+    path('processes/<int:process_id>/rename/', status.rename_process_view, name='rename_process'),
     path('tasks/<int:task_id>/download/', status.download_json_view, name='download_json'),
     path('tasks/<int:task_id>/download-fasta/', status.download_fasta_view, name='download_fasta'),
 ]

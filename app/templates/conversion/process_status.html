@@ -21,7 +21,7 @@
         <span class="badge process-status-badge {{ status_badge }}">{{ latest_task_status|capfirst }}</span>
       </div>
 
-      <form method="post" action="{% url 'conversion:rename_process' first_task.id %}" class="mt-4 max-w-2xl process-name-form">
+      <form method="post" action="{% url 'conversion:rename_process' process_id=process_id %}" class="mt-4 max-w-2xl process-name-form">
         {% csrf_token %}
         <label class="label py-1"><span class="label-text font-semibold">Process name</span></label>
         <div class="process-name-row">
