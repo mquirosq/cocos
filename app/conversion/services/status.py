@@ -200,7 +200,7 @@ def _build_json_row(process, json_tasks):
     return {
         'kind': 'json',
         'process_name': process.name,
-        'pipeline_type': 'From JSON',
+        'pipeline_type': pipeline_label(latest.task_type),
         'status': latest.status,
         'status_badge': status_badge_class(latest.status),
         'input_filename': os.path.basename(json_upload.file.name),
