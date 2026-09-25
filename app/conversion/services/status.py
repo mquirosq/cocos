@@ -218,7 +218,6 @@ def build_process_status_context(process):
     timeline = [_build_timeline_entry(task) for task in reversed(process_tasks)]
 
     return {
-        'first_task': first_task, # TODO: Remove when viewsuse process_id instead of task_id
         'process_name': process.name,
         'process_id': process.id,
         'process_kind': process_kind,
