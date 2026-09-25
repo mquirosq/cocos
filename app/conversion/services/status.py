@@ -191,7 +191,7 @@ def _build_annotation_row(process, annotations):
 
 def _build_json_row(process, json_tasks):
     """Build a process row for a JSON task."""
-    
+
     latest = json_tasks[0]
     json_upload = get_prefetched_file(latest.prefetched_input_files, File.FileType.JSON)
 
@@ -215,7 +215,7 @@ def _build_json_row(process, json_tasks):
     }
 
 
-def build_task_context(user, task):
+def build_process_status_context(user, task):
     process = task.process
     if task.task_type in ASSEMBLY_TYPES:
         assembly_task = task

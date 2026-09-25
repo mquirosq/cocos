@@ -35,7 +35,7 @@
 
       <div class="mt-3 text-sm text-base-content/70">
         <p>Created {{ task.created_at|timesince }} ago</p>
-        <p title="{{ task.updated_at|date:'d-m-Y H:i:s' }}">Last update: {{ task.updated_at|date:'d-m-Y H:i' }}</p>
+        <p>Last update: {{ task.updated_at|date:'d-m-Y H:i' }}</p>
       </div>
 
       <div class="mt-4">

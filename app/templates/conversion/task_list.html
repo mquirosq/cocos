@@ -91,7 +91,7 @@
                 </form>
                 {% endif %}
 
-                <a href="{% url 'conversion:task_status' row.task.id %}" class="btn btn-sm process-details-btn">
+                <a href="{% url 'conversion:process_status' row.task.process.id %}" class="btn btn-sm process-details-btn">
                   <i class="bi bi-arrow-right-circle"></i>
                   Details
                 </a>

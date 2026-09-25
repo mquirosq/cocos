@@ -28,7 +28,7 @@ class ConversionViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Annotation', response.content)
         
-    def test_task_status_view(self):
+    def test_process_status_view(self):
         task = ConversionTask.objects.create(
             external_job_id='seq-1',
             status='completed',
@@ -37,7 +37,7 @@ class ConversionViewsTests(TestCase):
             task_type='assembly_ont',
             user=self.user,
         )
-        response = self.client.get(reverse('conversion:task_status', args=[task.id]))
+        response = self.client.get(reverse('conversion:process_status', args=[task.process.id]))
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'ATCC Process', response.content)
 
@@ -193,7 +193,7 @@ class ConversionTaskViewsTests(TestCase):
         self.assertEqual(annotation.process_name, 'New Name')
 
     @patch('conversion.views.poll_annotation_start.delay')
-    def test_annotation_from_job_redirects_to_task_status(self, mock_delay):
+    def test_annotation_from_job_redirects_to_process_status(self, mock_delay):
         assembly = ConversionTask.objects.create(
             external_job_id='seq-annotate',
             status='completed',
@@ -211,5 +211,5 @@ class ConversionTaskViewsTests(TestCase):
         self.assertEqual(response.status_code, 302)
         created_task = ConversionTask.objects.filter(user=self.user, task_type='annotation', previous_task=assembly).first()
         self.assertIsNotNone(created_task)
-        self.assertEqual(response['Location'], reverse('conversion:task_status', args=[created_task.id]))
+        self.assertEqual(response['Location'], reverse('conversion:process_status', args=[created_task.id]))
         mock_delay.assert_called_once()

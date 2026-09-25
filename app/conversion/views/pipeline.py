@@ -59,7 +59,7 @@ def start_assembly_task(request):
     message = (f"Assembly task started for file {fastq.name}. You will be notified when it's complete.")
     messages.info(request, message)
 
-    return redirect('conversion:task_status', task_id=task.id)
+    return redirect('conversion:process_status', process_id=task.process.id)
 
 
 @login_required
@@ -92,7 +92,7 @@ def start_annotation_task(request):
 
     messages.info(request, message)
 
-    return redirect('conversion:task_status', task_id=task.id)
+    return redirect('conversion:process_status', process_id=task.process.id)
 
 @login_required
 def parse_feature_file(request):
@@ -114,5 +114,5 @@ def parse_feature_file(request):
 
     messages.info(request, f"JSON processing started for {feature_file.name}. You will be notified when it is complete.")
 
-    return redirect('conversion:task_status', task_id=task.id)
+    return redirect('conversion:process_status', process_id=task.process.id)
 

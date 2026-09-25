@@ -9,10 +9,10 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from app.utils.pagination import get_pagination_page_range
-from ..models import ConversionTask
+from ..models import ConversionTask, ProcessGroup
 from ..services.status import (
     build_process_rows,
-    build_task_context,
+    build_process_status_context,
     get_json_upload_for_task,
     is_auto_annotated_assembly,
     rename_task_process,
@@ -39,14 +39,19 @@ def task_list_view(request):
     })
 
 @login_required
-def task_status_view(request, task_id):
-    task = get_object_or_404(get_current_user_tasks(request), id=task_id)
+def process_status_view(request, process_id):
+    process = ProcessGroup.objects.filter(id=process_id).first()
+    task = process.conversion_tasks.first() if process else None
 
     if task.process.user != request.user:
         messages.error(request, 'You do not have permission to view this task.')
         return redirect('conversion:task_list')
 
-    context = build_task_context(request.user, task)
+    if not task:
+        messages.error(request, 'Task not found.')
+        return redirect('conversion:task_list')
+
+    context = build_process_status_context(request.user, task)
     assembly_task = context['assembly_task']
     auto_annotated = is_auto_annotated_assembly(assembly_task)
     latest_annotation = context['latest_annotation_attempt']
@@ -93,7 +98,7 @@ def task_status_view(request, task_id):
     latest_task = latest_step if latest_step else (assembly_task if assembly_task else task)
     latest_task_status = latest_task.status if latest_task else task.status
 
-    return render(request, 'conversion/task_status.html', {
+    return render(request, 'conversion/process_status.html', {
         'task': task,
         'process_name': context['process_name'],
         'pipeline_badges': pipeline_badges,
@@ -117,13 +122,13 @@ def download_json_view(request, task_id):
     task = get_object_or_404(get_current_user_tasks(request), id=task_id)
 
     if task.status != ConversionTask.TaskStatus.COMPLETED:
-        return redirect('conversion:task_status', task_id=task.id)
+        return redirect('conversion:process_status', process_id=task.process.id)
 
     upload = get_json_upload_for_task(task)
 
     if not upload:
         messages.error(request, 'JSON file is not available for download.')
-        return redirect('conversion:task_status', task_id=task.id)
+        return redirect('conversion:process_status', process_id=task.process.id)
 
     try:
         file = upload.file.open('rb')
@@ -139,20 +144,20 @@ def download_json_view(request, task_id):
 
     except Exception:
         messages.error(request,'Could not read the JSON file. Please try again later.')
-        return redirect('conversion:task_status', task_id=task.id)
+        return redirect('conversion:process_status', process_id=task.process.id)
 
 @login_required
 def download_fasta_view(request, task_id):
     task = get_object_or_404(get_current_user_tasks(request), id=task_id)
 
     if task.status != ConversionTask.TaskStatus.COMPLETED:
-        return redirect('conversion:task_status', task_id=task.id)
+        return redirect('conversion:process_status', process_id=task.process.id)
 
     upload = get_fasta_upload_for_task(task)
 
     if not upload:
         messages.error(request, 'FASTA file is not available for download.')
-        return redirect('conversion:task_status', task_id=task.id)
+        return redirect('conversion:process_status', process_id=task.process.id)
 
     try:
         file = upload.file.open('rb')
@@ -168,7 +173,7 @@ def download_fasta_view(request, task_id):
 
     except Exception:
         messages.error(request, 'Could not read the FASTA file. Please try again later.')
-        return redirect('conversion:task_status', task_id=task.id)
+        return redirect('conversion:process_status', process_id=task.process.id)
     
 @require_POST
 @login_required
@@ -177,8 +182,8 @@ def rename_process_view(request, task_id):
     new_name = (request.POST.get('process_name') or '').strip()
     if not new_name:
         messages.error(request, 'Process name cannot be empty.')
-        return redirect('conversion:task_status', task_id=task.id)
+        return redirect('conversion:process_status', process_id=task.process.id)
 
     rename_task_process(request.user, task, new_name)
     messages.success(request, 'Process name updated.')
-    return redirect('conversion:task_status', task_id=task.id)
+    return redirect('conversion:process_status', process_id=task.process.id)

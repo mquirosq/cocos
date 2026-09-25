@@ -36,7 +36,7 @@
               <small class="opacity-70">{{ notification.created_at }}</small>
               {% if notification.task %}
                 <div class="mt-2">
-                  <a href="{% url 'conversion:task_status' notification.task.id %}" class="notification-task-link">
+                  <a href="{% url 'conversion:process_status' notification.task.process.id %}" class="notification-task-link">
                     <i class="bi bi-eye-fill" aria-hidden="true"></i>
                     View related task
                   </a>
