@@ -280,7 +280,7 @@ def rename_process(process, new_name):
 
 
 def get_fasta_upload_for_task(task):
-    """Return the absolute path to the FASTA file for a task, or None if not found."""
+    """Return FASTA file object for a task, or None if not found."""
     if task.task_type == ConversionTask.TaskType.ANNOTATION:
         return task.input_files.first()
 
