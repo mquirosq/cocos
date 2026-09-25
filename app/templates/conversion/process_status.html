@@ -79,29 +79,26 @@
     </div>
   </div>
 
-  <div class="card bg-base-100 border border-base-300 shadow-sm process-timeline-card process-timeline-card-{{ process_kind }}">
+ <div class="card bg-base-100 border border-base-300 shadow-sm process-timeline-card process-timeline-card-{{ process_kind }}">
     <div class="card-body">
       <h2 class="card-title text-xl">Timeline</h2>
-
-      {% if assembly_task %}
-        <div class="rounded-box border border-base-300 bg-base-200 p-4 mb-3">
+      {% for entry in timeline %}
+        <div class="rounded-box border border-base-300 p-4 {% if not forloop.last %}mb-3{% endif %}">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <p class="font-semibold">{% if auto_annotated_assembly %}Assembly & Annotation{% else %}Assembly{% endif %}</p>
-            <span class="badge process-status-badge {{ assembly_status_badge }}">{{ assembly_task.status|capfirst }}</span>
+            <p class="font-semibold">{{ entry.label }}</p>
+            <span class="badge process-status-badge {{ entry.status_badge }}">
+              {{ entry.status|capfirst }}
+            </span>
           </div>
-          <p class="text-sm text-base-content/70 mt-1">{{ assembly_task.updated_at|date:'d-m-Y H:i' }} · {{ assembly_input_filename }}</p>
-        </div>
-      {% endif %}
 
-      {% if latest_step %}
-        <div class="rounded-box border border-base-300 p-4">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <p class="font-semibold">{{ latest_step_label }}</p>
-            <span class="badge process-status-badge {{ latest_step_status_badge }}">{{ latest_step.status|capfirst }}</span>
-          </div>
-          <p class="text-sm text-base-content/70 mt-1">{{ latest_step.updated_at|date:'d-m-Y H:i' }}</p>
+          <p class="text-sm text-base-content/70 mt-1">
+            {{ entry.updated_at|date:'d-m-Y H:i' }}
+            {% if entry.input_filename %}
+              · {{ entry.input_filename }}
+            {% endif %}
+          </p>
         </div>
-      {% endif %}
+      {% endfor %}
     </div>
   </div>
 

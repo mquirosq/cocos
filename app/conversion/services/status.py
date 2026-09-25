@@ -335,6 +335,10 @@ def build_process_status_context(user, process):
         
     latest_task = latest_step if latest_step else (assembly_task if assembly_task else task)
     latest_task_status = latest_task.status if latest_task else task.status
+
+    timeline = []
+    for task in process.conversion_tasks.order_by('created_at', 'id'):
+        timeline.append(_build_timeline_entry(task))
         
     return {
         'task': task,
@@ -353,7 +357,27 @@ def build_process_status_context(user, process):
         'assembly_status_badge': status_badge_class(assembly_task.status) if assembly_task else None,
         'latest_step_status_badge': status_badge_class(latest_step.status) if latest_step else None,
         'auto_annotated_assembly': auto_annotated,
-        'process_kind': process_kind,    }
+        'process_kind': process_kind,
+        'timeline': timeline,
+    }
+
+def _build_timeline_entry(task):
+    """Build a timeline entry representing a conversion task."""
+
+    input_filename = None
+
+    for file in task.input_files.all():
+        if file.file_type in (File.FileType.FASTQ, File.FileType.FASTA, File.FileType.JSON):
+            input_filename = os.path.basename(file.file.name)
+            break
+
+    return {
+        'label': pipeline_label(task.task_type),
+        'status': task.status,
+        'status_badge': status_badge_class(task.status),
+        'updated_at': task.updated_at,
+        'input_filename': input_filename,
+    }
 
 
 def rename_task_process(user, task, new_name):
