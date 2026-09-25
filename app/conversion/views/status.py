@@ -27,8 +27,7 @@ def task_list_view(request):
     """Render process task rows for assembly, annotation, and JSON."""
     rows = build_process_rows(request.user)
     paginator = Paginator(rows, 3)
-    page_number = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page_number)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
     
     return render(request, 'conversion/task_list.html', {
         'page_obj': page_obj,

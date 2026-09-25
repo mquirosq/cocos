@@ -17,10 +17,6 @@ class ServiceTests(TestCase):
                 t = SimpleNamespace(task_type=task_type, task_type_original=task_type)
                 self.assertEqual(status.is_auto_annotated_assembly(t), expected)
 
-    def test_annotation_process_key(self):
-        t = SimpleNamespace(process_name='foo', input_path='bar')
-        self.assertEqual(status.annotation_process_key(t), 'foo::bar')
-
     def test_find_latest_completed_annotation(self):
         a1 = SimpleNamespace(id=1, status='pending')
         a2 = SimpleNamespace(id=2, status='completed')

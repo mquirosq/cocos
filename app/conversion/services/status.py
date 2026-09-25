@@ -1,16 +1,33 @@
-from ..models import ConversionTask, File
-from .presentation import pipeline_label, status_badge_class
+import os
+from django.db.models import Max, Prefetch
+
+from ..models import ConversionTask, File, ProcessGroup
+from .presentation import pipeline_label, status_badge_class, get_process_stage_class, format_process_label, build_process_steps
 from ..task_types import ASSEMBLY_TYPES, ANNOTATED_TYPES, ASSEMBLY_AND_ANNOTATION_TYPES
 
-FASTA_EXTENSIONS = {'.fa', '.fasta', '.fna', '.ffn', '.faa', '.frn'}
-
-def annotation_process_key(task):
-    return f"{task.process.name}::{task.input_files.first().file.name if hasattr(task.input_files.first(), 'file') else 'Unnamed Input'}"
-
+def get_processes_of_user_prefetch_tasks_and_files(user):
+    """Return a queryset of ProcessGroup objects for the given user, with prefetching of related ConversionTask objects and related File objects."""
+    return (
+        ProcessGroup.objects.filter(user=user)
+        .annotate(last_updated=Max('conversion_tasks__updated_at'))
+        .prefetch_related(
+            Prefetch('conversion_tasks',
+                queryset=(
+                    ConversionTask.objects
+                    .prefetch_related(
+                        Prefetch('input_files', to_attr='prefetched_input_files'),
+                        Prefetch('output_files', to_attr='prefetched_output_files'),
+                    )
+                    .order_by('-updated_at', '-id')
+                ),
+                to_attr='list_tasks',
+            )
+        )
+        .order_by('-last_updated', '-id')
+    )
 
 def is_auto_annotated_assembly(task):
-        return bool(task and task.task_type in ASSEMBLY_AND_ANNOTATION_TYPES)
-
+    return bool(task and task.task_type in ASSEMBLY_AND_ANNOTATION_TYPES)
 
 def find_latest_completed_annotation(annotations):
     for annotation in annotations:
@@ -18,24 +35,15 @@ def find_latest_completed_annotation(annotations):
             return annotation
     return None
 
-
-def get_effective_annotation(annotations):
-    """Return annotation to show in list cards.
-
-    Prefer a completed annotation when available; otherwise show the newest attempt.
-    """
-    completed_annotation = find_latest_completed_annotation(annotations)
-    if completed_annotation:
-        return completed_annotation
-    return annotations[0] if annotations else None
-
-
 def find_annotation_with_uploaded_fasta(annotation_attempts):
     """Return the first annotation attempt that has a valid uploaded FASTA path."""
     for attempt in annotation_attempts:
         if attempt.input_files.exists() and attempt.input_files.first() and attempt.input_files.first().file_type == File.FileType.FASTA:
             return attempt
     return None
+
+def get_prefetched_file(files, file_type):
+    return next((file for file in files if file.file_type == file_type), None)
 
 def get_json_upload_for_task(task):
     """Return the JSON File object for a task, or None if not found."""
@@ -62,133 +70,123 @@ def get_fasta_upload_for_task(task):
 
 
 def build_process_rows(user):
-    tasks = list(ConversionTask.objects.filter(process__user=user).select_related('process').order_by('-updated_at', '-id'))
-    assembly_tasks = [task for task in tasks if task.task_type in ASSEMBLY_TYPES]
-    assembly_by_id = {task.id: task for task in assembly_tasks}
-
-    annotations_by_parent = {}
-    standalone_annotations = {}
-    json_tasks = {}
-
-    for task in tasks:
-        process_tasks = task.process.conversion_tasks.all()
-        if task.task_type == ConversionTask.TaskType.ANNOTATION and process_tasks.filter(
-            task_type__in=[
-                ConversionTask.TaskType.ASSEMBLY_ONT,
-                ConversionTask.TaskType.ASSEMBLY_ILLUMINA,
-            ]).exists() and task.id in assembly_by_id:
-            annotations_by_parent.setdefault(assembly_by_id[task.id], []).append(task)
-        elif task.task_type == ConversionTask.TaskType.ANNOTATION and not process_tasks.filter(task_type__in=[
-                ConversionTask.TaskType.ASSEMBLY_ONT,
-                ConversionTask.TaskType.ASSEMBLY_ILLUMINA,
-            ]).exists():
-            standalone_annotations.setdefault(annotation_process_key(task), []).append(task)
-        elif task.task_type == ConversionTask.TaskType.FROM_JSON:
-            json_tasks.setdefault(annotation_process_key(task), []).append(task)
-
+    processes = get_processes_of_user_prefetch_tasks_and_files(user)
     rows = []
 
-    for assembly_task in assembly_tasks:
-        annotations = sorted(annotations_by_parent.get(assembly_task.id, []), key=lambda item: (item.updated_at, item.id), reverse=True)
-        latest_annotation = annotations[0] if annotations else None
-        latest_completed_annotation = find_latest_completed_annotation(annotations)
-        effective_annotation = get_effective_annotation(annotations)
-        auto_annotated = is_auto_annotated_assembly(assembly_task)
-        first_annotation = min(annotations, key=lambda item: (item.created_at, item.id)) if annotations else None
-        most_recent = latest_annotation.updated_at if latest_annotation and latest_annotation.updated_at > assembly_task.updated_at else assembly_task.updated_at
-        annotation_started = bool(first_annotation) or auto_annotated
+    for process in processes:
+        tasks = process.list_tasks
 
-        if auto_annotated:
-            top_pipeline = pipeline_label(assembly_task.task_type)
-            top_status = assembly_task.status
-        elif annotation_started and effective_annotation:
-            top_pipeline = 'Annotation'
-            top_status = effective_annotation.status
-        else:
-            top_pipeline = pipeline_label(assembly_task.task_type)
-            top_status = assembly_task.status
+        assembly_tasks = [task for task in tasks if task.task_type in ASSEMBLY_TYPES]
 
-        has_auto_json = bool(auto_annotated and assembly_task.status == ConversionTask.TaskStatus.COMPLETED and assembly_task.external_job_id)
+        annotations = [task for task in tasks if task.task_type == ConversionTask.TaskType.ANNOTATION]
 
-        rows.append({
-            'kind': 'assembly',
-            'process_name': assembly_task.process.name,
-            'pipeline_type': pipeline_label(assembly_task.task_type),
-            'assembly_type_label': pipeline_label(assembly_task.task_type),
-            'status': assembly_task.status,
-            'status_badge': status_badge_class(assembly_task.status),
-            'top_pipeline': top_pipeline,
-            'top_status': top_status,
-            'top_status_badge': status_badge_class(top_status),
-            'assembly_status': assembly_task.status,
-            'assembly_status_badge': status_badge_class(assembly_task.status),
-            'input_filename': (assembly_task.input_files.first().file.name if hasattr(assembly_task.input_files.first(), 'file') else None),
-            'updated_at': most_recent,
-            'task': assembly_task,
-            'detail_task_id': assembly_task.id,
-            'annotation_display': effective_annotation,
-            'annotation_started': annotation_started,
-            'annotation_started_at': first_annotation.created_at if first_annotation else None,
-            'annotation_progress_status': effective_annotation.status if effective_annotation else 'not_started',
-            'has_more_attempts': len(annotations) > 1,
-            'extra_attempts_count': max(len(annotations) - 1, 0),
-            'can_annotate': assembly_task.status == ConversionTask.TaskStatus.COMPLETED and not annotations and not auto_annotated,
-            'can_retry_annotation': assembly_task.status == ConversionTask.TaskStatus.COMPLETED and not latest_completed_annotation and bool(latest_annotation and latest_annotation.status == ConversionTask.TaskStatus.FAILED) and not auto_annotated,
-            'has_fasta': assembly_task.status == ConversionTask.TaskStatus.COMPLETED,
-            'has_json': bool(latest_completed_annotation) or has_auto_json,
-            'annotation_status_badge': status_badge_class(effective_annotation.status) if effective_annotation else None,
-            'is_auto_annotated': auto_annotated,
-        })
+        json_tasks = [task for task in tasks if task.task_type == ConversionTask.TaskType.FROM_JSON]
 
-    for _, attempts in standalone_annotations.items():
-        sorted_attempts = sorted(attempts, key=lambda item: (item.updated_at, item.id), reverse=True)
-        latest = sorted_attempts[0]
-        latest_uploaded_fasta = latest.input_files.first() if latest.input_files.exists() and latest.input_files.first().file_type == File.FileType.FASTA else None
-        rows.append({
-            'kind': 'annotation',
-            'process_name': latest.process.name,
-            'pipeline_type': 'Annotation',
-            'status': latest.status,
-            'status_badge': status_badge_class(latest.status),
-            'input_filename': (latest.input_files.first().file.name if hasattr(latest.input_files.first(), 'file') else None),
-            'updated_at': latest.updated_at,
-            'task': latest,
-            'detail_task_id': latest.id,
-            'annotation_display': latest,
-            'has_more_attempts': len(sorted_attempts) > 1,
-            'extra_attempts_count': max(len(sorted_attempts) - 1, 0),
-            'can_annotate': False,
-            'can_retry_annotation': False,
-            'has_fasta': bool(latest_uploaded_fasta),
-            'has_json': bool(latest.status == ConversionTask.TaskStatus.COMPLETED and latest.external_job_id),
-            'annotation_status_badge': status_badge_class(latest.status),
-        })
+        if assembly_tasks:
+            rows.append(build_assembly_row(process, assembly_tasks, annotations))
+            
+        elif annotations:
+            rows.append(build_annotation_row(process, annotations))
+                
+        elif json_tasks:
+            rows.append(build_json_row(process, json_tasks))
 
-    for _, attempts in json_tasks.items():
-        sorted_attempts = sorted(attempts, key=lambda item: (item.updated_at, item.id), reverse=True)
-        latest = sorted_attempts[0]
-        rows.append({
-            'kind': 'json',
-            'process_name': latest.process.name,
-            'pipeline_type': 'From JSON',
-            'status': latest.status,
-            'status_badge': status_badge_class(latest.status),
-            'input_filename': (latest.input_files.first().file.name if hasattr(latest.input_files.first(), 'file') else None),
-            'updated_at': latest.updated_at,
-            'task': latest,
-            'detail_task_id': latest.id,
-            'annotation_display': None,
-            'has_more_attempts': len(sorted_attempts) > 1,
-            'extra_attempts_count': max(len(sorted_attempts) - 1, 0),
-            'can_annotate': False,
-            'can_retry_annotation': False,
-            'has_fasta': False,
-            'has_json': bool(latest.status == ConversionTask.TaskStatus.COMPLETED and get_json_upload_for_task(latest)),
-            'annotation_status_badge': None,
-        })
+    rows.sort(
+        key=lambda row: (row['updated_at'], row['task'].id),
+        reverse=True,
+    )
 
-    rows.sort(key=lambda row: (row['updated_at'], row['detail_task_id']), reverse=True)
     return rows
+
+def build_assembly_row(process, assembly_tasks, annotations):
+    assembly_task = assembly_tasks[0]
+    latest_annotation = annotations[0] if annotations else None
+    
+    auto_annotated = is_auto_annotated_assembly(assembly_task)
+    annotation_started = bool(latest_annotation) or auto_annotated
+    
+    if latest_annotation:
+        top_pipeline = 'Annotation'
+        top_status = latest_annotation.status
+    else:
+        top_pipeline = pipeline_label(assembly_task.task_type)
+        top_status = assembly_task.status
+    
+    most_recent = latest_annotation.updated_at if latest_annotation else assembly_task.updated_at
+    
+    assembly_completed = assembly_task.status == ConversionTask.TaskStatus.COMPLETED
+    
+    has_auto_json = auto_annotated and assembly_completed
+    
+    input_filenames = [
+        os.path.basename(file.file.name)
+        for file in assembly_task.prefetched_input_files
+        if file.file_type == File.FileType.FASTQ
+    ]
+    
+    input_filename = ", ".join(input_filenames)
+    
+    can_annotate = assembly_completed and not annotations and not auto_annotated
+    can_retry_annotation = (latest_annotation.status == ConversionTask.TaskStatus.FAILED if latest_annotation else False) and not auto_annotated
+    has_fasta = assembly_completed and get_prefetched_file(assembly_task.prefetched_output_files, File.FileType.FASTA) is not None
+    has_json = (latest_annotation.status == ConversionTask.TaskStatus.COMPLETED if latest_annotation else False) or has_auto_json
+    
+    return {
+        'kind': 'assembly',
+        'process_name': process.name,
+        'pipeline_type': pipeline_label(assembly_task.task_type),
+        'status': assembly_task.status,
+        'status_badge': status_badge_class(assembly_task.status),
+        'top_pipeline': top_pipeline,
+        'top_status': top_status,
+        'top_status_badge': status_badge_class(top_status),
+        'input_filename': input_filename,
+        'updated_at': most_recent,
+        'task': assembly_task,
+        'annotation_started': annotation_started,
+        'can_annotate': can_annotate,
+        'can_retry_annotation': can_retry_annotation,
+        'has_fasta': has_fasta,
+        'has_json': has_json,
+        'is_auto_annotated': auto_annotated,
+    }
+
+def build_annotation_row(process, annotations):
+    latest = annotations[0]
+    latest_uploaded_fasta = get_prefetched_file(latest.prefetched_input_files, File.FileType.FASTA)
+    latest_uploaded_json = get_prefetched_file(latest.prefetched_output_files, File.FileType.JSON)
+    return {
+        'kind': 'annotation',
+        'process_name': process.name,
+        'pipeline_type': pipeline_label(latest.task_type),
+        'status': latest.status,
+        'status_badge': status_badge_class(latest.status),
+        'input_filename': os.path.basename(latest_uploaded_fasta.file.name),
+        'updated_at': latest.updated_at,
+        'task': latest,
+        'can_annotate': False,
+        'can_retry_annotation': False,
+        'has_fasta': bool(latest_uploaded_fasta),
+        'has_json': bool(latest_uploaded_json)
+    }
+
+def build_json_row(process, json_tasks):
+    latest = json_tasks[0]
+    json_upload = get_prefetched_file(latest.prefetched_input_files, File.FileType.JSON)
+    return {
+        'kind': 'json',
+        'process_name': process.name,
+        'pipeline_type': 'From JSON',
+        'status': latest.status,
+        'status_badge': status_badge_class(latest.status),
+        'input_filename': os.path.basename(json_upload.file.name),
+        'updated_at': latest.updated_at,
+        'task': latest,
+        'can_annotate': False,
+        'can_retry_annotation': False,
+        'has_fasta': False,
+        'has_json': bool(json_upload),
+    }
 
 
 def build_task_context(user, task):
