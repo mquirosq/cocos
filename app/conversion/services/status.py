@@ -87,13 +87,13 @@ def build_process_rows(user):
         json_tasks = [task for task in tasks if task.task_type == ConversionTask.TaskType.FROM_JSON]
 
         if assembly_tasks:
-            rows.append(build_assembly_row(process, assembly_tasks, annotations))
+            rows.append(_build_assembly_row(process, assembly_tasks, annotations))
             
         elif annotations:
-            rows.append(build_annotation_row(process, annotations))
+            rows.append(_build_annotation_row(process, annotations))
                 
         elif json_tasks:
-            rows.append(build_json_row(process, json_tasks))
+            rows.append(_build_json_row(process, json_tasks))
 
     rows.sort(
         key=lambda row: (row['updated_at'], row['task'].id),
@@ -102,7 +102,7 @@ def build_process_rows(user):
 
     return rows
 
-def build_assembly_row(process, assembly_tasks, annotations):
+def _build_assembly_row(process, assembly_tasks, annotations):
     assembly_task = assembly_tasks[0]
     latest_annotation = annotations[0] if annotations else None
     
@@ -157,7 +157,7 @@ def build_assembly_row(process, assembly_tasks, annotations):
         'stage_class': stage_class,
     }
 
-def build_annotation_row(process, annotations):
+def _build_annotation_row(process, annotations):
     latest = annotations[0]
     latest_uploaded_fasta = get_prefetched_file(latest.prefetched_input_files, File.FileType.FASTA)
     latest_uploaded_json = get_prefetched_file(latest.prefetched_output_files, File.FileType.JSON)
@@ -181,7 +181,7 @@ def build_annotation_row(process, annotations):
         'stage_class': stage_class,
     }
 
-def build_json_row(process, json_tasks):
+def _build_json_row(process, json_tasks):
     latest = json_tasks[0]
     json_upload = get_prefetched_file(latest.prefetched_input_files, File.FileType.JSON)
 
