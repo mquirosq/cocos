@@ -336,10 +336,8 @@ def build_process_status_context(user, process):
     latest_task = latest_step if latest_step else (assembly_task if assembly_task else task)
     latest_task_status = latest_task.status if latest_task else task.status
 
-    timeline = []
-    for task in process.conversion_tasks.order_by('created_at', 'id'):
-        timeline.append(_build_timeline_entry(task))
-        
+    timeline = [_build_timeline_entry(task) for task in process.conversion_tasks.order_by('created_at', 'id')]
+
     return {
         'task': task,
         'process_name': context['process_name'],
