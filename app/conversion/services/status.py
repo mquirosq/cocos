@@ -33,45 +33,8 @@ def get_processes_of_user_prefetch_tasks_and_files(user):
 def is_auto_annotated_assembly(task):
     return bool(task and task.task_type in ASSEMBLY_AND_ANNOTATION_TYPES)
 
-def find_latest_completed_annotation(annotations):
-    for annotation in annotations:
-        if annotation.status == ConversionTask.TaskStatus.COMPLETED:
-            return annotation
-    return None
-
-def find_annotation_with_uploaded_fasta(annotation_attempts):
-    """Return the first annotation attempt that has a valid uploaded FASTA path."""
-    for attempt in annotation_attempts:
-        if attempt.input_files.exists() and attempt.input_files.first() and attempt.input_files.first().file_type == File.FileType.FASTA:
-            return attempt
-    return None
-
 def get_prefetched_file(files, file_type):
     return next((file for file in files if file.file_type == file_type), None)
-
-def get_json_upload_for_task(task):
-    """Return the JSON File object for a task, or None if not found."""
-
-    if task.task_type in ANNOTATED_TYPES:
-        if task.output_files.exists():
-            return task.output_files.filter(file_type=File.FileType.JSON).first()
-
-    elif task.task_type == ConversionTask.TaskType.FROM_JSON:
-        input_file = task.input_files.first()
-        return input_file
-
-    return None
-
-def get_fasta_upload_for_task(task):
-    """Return the absolute path to the FASTA file for a task, or None if not found."""
-    if task.task_type == ConversionTask.TaskType.ANNOTATION:
-        return task.input_files.first()
-
-    if task.task_type in ASSEMBLY_TYPES:
-        return task.output_files.filter(file_type=File.FileType.FASTA).first()
-
-    return None
-
 
 def build_process_rows(user):
     """
@@ -318,3 +281,27 @@ def rename_task_process(user, task, new_name):
     task.process.name = new_name
     task.process.save(update_fields=["name"])
 
+
+def get_fasta_upload_for_task(task):
+    """Return the absolute path to the FASTA file for a task, or None if not found."""
+    if task.task_type == ConversionTask.TaskType.ANNOTATION:
+        return task.input_files.first()
+
+    if task.task_type in ASSEMBLY_TYPES:
+        return task.output_files.filter(file_type=File.FileType.FASTA).first()
+
+    return None
+
+
+def get_json_upload_for_task(task):
+    """Return the JSON File object for a task, or None if not found."""
+
+    if task.task_type in ANNOTATED_TYPES:
+        if task.output_files.exists():
+            return task.output_files.filter(file_type=File.FileType.JSON).first()
+
+    elif task.task_type == ConversionTask.TaskType.FROM_JSON:
+        input_file = task.input_files.first()
+        return input_file
+
+    return None
