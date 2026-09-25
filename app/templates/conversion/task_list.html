@@ -25,7 +25,7 @@
                 
                 <span class="badge badge-soft process-pipeline-badge {% if row.kind == 'assembly' and row.annotation_started %}process-pipeline-badge-advanced{% endif %}">{{row.pipeline_type}}</span>
                 
-                {% if row.top_pipeline != None and row.top_pipeline != row.pipeline_type %}
+                {% if row.top_pipeline and row.top_pipeline != row.pipeline_type %}
                   <span class="badge badge-soft process-pipeline-badge">{{ row.top_pipeline }}</span>
                 {% endif %}
                 <span class="badge process-status-badge {% if row.kind == 'assembly' %}{{ row.top_status_badge }}{% else %}{{ row.status_badge }}{% endif %}">{% if row.kind == 'assembly' %}{{ row.top_status|capfirst }}{% else %}{{ row.status|capfirst }}{% endif %}</span>
