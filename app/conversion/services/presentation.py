@@ -34,3 +34,91 @@ def status_badge_class(status):
 
 def pipeline_label(task_type):
     return PIPELINE_LABELS.get(task_type, 'Process')
+
+def get_process_stage_class(status):
+    return {
+        ConversionTask.TaskStatus.PENDING: "stage-pending",
+        ConversionTask.TaskStatus.RUNNING: "stage-running",
+        ConversionTask.TaskStatus.COMPLETED: "stage-completed",
+        ConversionTask.TaskStatus.FAILED: "stage-failed",
+    }.get(
+        status,
+        "stage-pending",
+    )
+
+def build_process_steps(assembly_task=None, annotation=None, json_task=None, is_auto_annotated=False):
+    if assembly_task is not None:
+        if is_auto_annotated:
+            return [
+                {
+                    "label": "Started",
+                    "state": "complete",
+                },
+                {
+                    "label": "Assembling",
+                    "state": _task_step_state(assembly_task),
+                },
+                {
+                    "label": "Annotated",
+                    "state": _task_step_state(assembly_task),
+                },
+            ]
+
+        steps = [
+            {
+                "label": "Started",
+                "state": "complete",
+            },
+            {
+                "label": "Assembling",
+                "state": _task_step_state(assembly_task),
+            },
+        ]
+
+        steps.append(
+                {
+                    "label": "Annotated",
+                    "state": _task_step_state(annotation) if annotation is not None else "pending",
+                }
+            )
+
+        return steps
+
+    if annotation is not None:
+        return [
+            {
+                "label": "Started",
+                "state": "complete",
+            },
+            {
+                "label": "Annotating",
+                "state": _task_step_state(annotation),
+            },
+            {
+                "label": "Parsed",
+                "state": _task_step_state(annotation),
+            },
+        ]
+
+    if json_task is not None:
+        return [
+            {
+                "label": "Started",
+                "state": "complete",
+            },
+            {
+                "label": "Parsed",
+                "state": _task_step_state(json_task),
+            },
+        ]
+
+    return []
+
+def _task_step_state(task):
+    if task.status == ConversionTask.TaskStatus.COMPLETED:
+        return "complete"
+
+    if task.status == ConversionTask.TaskStatus.FAILED:
+        return "error"
+
+    return "current"

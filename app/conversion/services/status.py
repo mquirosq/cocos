@@ -149,6 +149,7 @@ def build_assembly_row(process, assembly_tasks, annotations):
         'has_fasta': has_fasta,
         'has_json': has_json,
         'is_auto_annotated': auto_annotated,
+        'steps': build_process_steps(assembly_task=assembly_task, annotation=latest_annotation, is_auto_annotated=auto_annotated),
     }
 
 def build_annotation_row(process, annotations):
@@ -167,7 +168,8 @@ def build_annotation_row(process, annotations):
         'can_annotate': False,
         'can_retry_annotation': False,
         'has_fasta': bool(latest_uploaded_fasta),
-        'has_json': bool(latest_uploaded_json)
+        'has_json': bool(latest_uploaded_json),
+        'steps': build_process_steps(annotation=latest),
     }
 
 def build_json_row(process, json_tasks):
@@ -186,6 +188,7 @@ def build_json_row(process, json_tasks):
         'can_retry_annotation': False,
         'has_fasta': False,
         'has_json': bool(json_upload),
+        'steps': build_process_steps(json_task=latest),
     }
 
 

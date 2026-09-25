@@ -23,9 +23,7 @@
               <h2 class="card-title text-xl leading-tight process-title-text">{{ row.process_name }}</h2>
               <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
                 
-                <span class="badge badge-soft process-pipeline-badge {% if row.kind == 'assembly' and row.annotation_started %}process-pipeline-badge-advanced{% endif %}">
-                  {{row.pipeline_type}}
-                </span>
+                <span class="badge badge-soft process-pipeline-badge {% if row.kind == 'assembly' and row.annotation_started %}process-pipeline-badge-advanced{% endif %}">{{row.pipeline_type}}</span>
                 
                 {% if row.top_pipeline != None and row.top_pipeline != row.pipeline_type %}
                   <span class="badge badge-soft process-pipeline-badge">{{ row.top_pipeline }}</span>
@@ -34,24 +32,11 @@
               </div>
 
               <ul class="steps steps-horizontal process-steps mt-4 w-full">
-                {% if row.kind == 'assembly' %}
-                  {% if row.is_auto_annotated %}
-                    <li class="step {% if row.status == 'failed' %}step-error{% else %}step-primary{% endif %}">Started</li>
-                    <li class="step {% if row.status == 'completed' or row.status == 'running' or row.status == 'pending' %}step-primary{% elif row.status == 'failed' %}step-error{% endif %}">Assembling</li>
-                    <li class="step {% if row.has_json %}step-primary{% elif row.status == 'failed' %}step-error{% endif %}">Annotated</li>
-                  {% else %}
-                    <li class="step {% if row.status == 'failed' %}step-error{% else %}step-primary{% endif %}">Started</li>
-                    <li class="step {% if row.has_fasta or row.status == 'running' or row.status == 'completed' %}step-primary{% elif row.status == 'failed' %}step-error{% endif %}">Assembled</li>
-                    <li class="step {% if row.has_json %}step-primary{% elif row.can_retry_annotation %}step-error{% endif %}">Annotated</li>
-                  {% endif %}
-                {% elif row.kind == 'annotation' %}
-                  <li class="step {% if row.status == 'failed' %}step-error{% else %}step-primary{% endif %}">Started</li>
-                  <li class="step {% if row.status == 'completed' %}step-primary{% elif row.status == 'failed' %}step-error{% endif %}">Bakta</li>
-                  <li class="step {% if row.has_json %}step-primary{% endif %}">Parsed</li>
-                {% else %}
-                  <li class="step {% if row.status == 'failed' %}step-error{% else %}step-primary{% endif %}">Started</li>
-                  <li class="step {% if row.status == 'completed' %}step-primary{% elif row.status == 'failed' %}step-error{% endif %}">Parsed</li>
-                {% endif %}
+                {% for step in row.steps %}
+                  <li class="step {% if step.state == 'complete' %}step-primary{% elif step.state == 'error' %}step-error{% endif %}">
+                    {{ step.label }}
+                  </li>
+                {% endfor %}
               </ul>
 
               <div class="process-meta mt-4 grid gap-2 text-sm sm:grid-cols-2">
@@ -64,7 +49,7 @@
             <aside class="process-actions">
               <div class="text-right text-sm text-base-content/70">
                 <p>Updated {{ row.updated_at|timesince }} ago</p>
-                <p title="{{ row.updated_at|date:'d-m-Y H:i:s' }}">{{ row.updated_at|date:'d-m-Y H:i' }}</p>
+                <p>{{ row.updated_at|date:'d-m-Y H:i' }}</p>
               </div>
 
               <div class="stats stats-vertical mt-3 w-full border border-base-300 bg-base-200 shadow-sm">
@@ -114,6 +99,7 @@
           </div>
         </div>
       </article>
+    
     {% empty %}
       <div class="alert alert-soft">
         <span>No processes started yet!</span>
