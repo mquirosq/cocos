@@ -92,7 +92,7 @@ def prepare_prediction_csv(matrix):
         row_values = []
 
         for value in values:
-            if value is (None, 'NO_RESULT'):
+            if value in (None, 'NO_RESULT'):
                 row_values.append('')
                 continue
 
