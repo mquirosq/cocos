@@ -10,12 +10,12 @@ STATUS_BADGE_CLASSES = {
 }
 
 PIPELINE_LABELS = {
-    ConversionTask.TaskType.ASSEMBLY_ONT_ANNOTATED: 'Assembly + Annotation · ONT',
-    ConversionTask.TaskType.ASSEMBLY_ILLUMINA_ANNOTATED: 'Assembly + Annotation · Illumina',
-    ConversionTask.TaskType.ASSEMBLY_ONT: 'Assembly · ONT',
-    ConversionTask.TaskType.ASSEMBLY_ILLUMINA: 'Assembly · Illumina',
-    ConversionTask.TaskType.ANNOTATION: 'Annotation',
-    ConversionTask.TaskType.FROM_JSON: 'From JSON',
+    ConversionTask.ConversionTaskType.ASSEMBLY_ONT_ANNOTATED: 'Assembly + Annotation · ONT',
+    ConversionTask.ConversionTaskType.ASSEMBLY_ILLUMINA_ANNOTATED: 'Assembly + Annotation · Illumina',
+    ConversionTask.ConversionTaskType.ASSEMBLY_ONT: 'Assembly · ONT',
+    ConversionTask.ConversionTaskType.ASSEMBLY_ILLUMINA: 'Assembly · Illumina',
+    ConversionTask.ConversionTaskType.ANNOTATION: 'Annotation',
+    ConversionTask.ConversionTaskType.FROM_JSON: 'From JSON',
 }
 
 def format_process_label(task):

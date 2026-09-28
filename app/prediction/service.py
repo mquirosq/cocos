@@ -11,7 +11,7 @@ from .tasks import predict
 
 def get_prediction_input_options(user):
     tasks_json = ConversionTask.objects.filter(
-        models.Q(task_type=ConversionTask.TaskType.FROM_JSON) |
+        models.Q(task_type=ConversionTask.ConversionTaskType.FROM_JSON) |
         models.Q(task_type__in=ANNOTATED_TYPES),
         process__user=user,
     ).order_by('-created_at')
@@ -20,7 +20,7 @@ def get_prediction_input_options(user):
     for task in tasks_json:
 
         json_file = None
-        if task.task_type == ConversionTask.TaskType.FROM_JSON:
+        if task.task_type == ConversionTask.ConversionTaskType.FROM_JSON:
             json_file = task.input_files.filter(file_type=File.FileType.JSON).first()
         else: 
             json_file = task.output_files.filter(file_type=File.FileType.JSON).first()

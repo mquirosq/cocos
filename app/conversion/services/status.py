@@ -50,9 +50,9 @@ def build_process_rows(user):
 
         assembly_tasks = [task for task in tasks if task.task_type in ASSEMBLY_TYPES]
 
-        annotations = [task for task in tasks if task.task_type == ConversionTask.TaskType.ANNOTATION]
+        annotations = [task for task in tasks if task.task_type == ConversionTask.ConversionTaskType.ANNOTATION]
 
-        json_tasks = [task for task in tasks if task.task_type == ConversionTask.TaskType.FROM_JSON]
+        json_tasks = [task for task in tasks if task.task_type == ConversionTask.ConversionTaskType.FROM_JSON]
 
         if assembly_tasks:
             rows.append(_build_assembly_row(process, assembly_tasks, annotations))
@@ -194,8 +194,8 @@ def build_process_status_context(process):
     first_task = process_tasks[-1]
 
     assembly_task = next((task for task in process_tasks if task.task_type in ASSEMBLY_TYPES), None)
-    latest_annotation = next((task for task in process_tasks if task.task_type == ConversionTask.TaskType.ANNOTATION), None)
-    latest_json = next((task for task in process_tasks if task.task_type == ConversionTask.TaskType.FROM_JSON), None)
+    latest_annotation = next((task for task in process_tasks if task.task_type == ConversionTask.ConversionTaskType.ANNOTATION), None)
+    latest_json = next((task for task in process_tasks if task.task_type == ConversionTask.ConversionTaskType.FROM_JSON), None)
 
     is_auto_annotated = is_auto_annotated_assembly(assembly_task)
 
@@ -282,7 +282,7 @@ def rename_process(process, new_name):
 
 def get_fasta_upload_for_task(task):
     """Return FASTA file object for a task, or None if not found."""
-    if task.task_type == ConversionTask.TaskType.ANNOTATION:
+    if task.task_type == ConversionTask.ConversionTaskType.ANNOTATION:
         return task.input_files.first()
 
     if task.task_type in ASSEMBLY_TYPES:
@@ -298,7 +298,7 @@ def get_json_upload_for_task(task):
         if task.output_files.exists():
             return task.output_files.filter(file_type=File.FileType.JSON).first()
 
-    elif task.task_type == ConversionTask.TaskType.FROM_JSON:
+    elif task.task_type == ConversionTask.ConversionTaskType.FROM_JSON:
         input_file = task.input_files.first()
         return input_file
 

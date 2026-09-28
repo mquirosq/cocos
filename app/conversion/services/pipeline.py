@@ -13,8 +13,8 @@ from ..tasks import (
 from core.utils import upload_file
 
 ASSEMBLY_TYPES = {
-    'illumina': ConversionTask.TaskType.ASSEMBLY_ILLUMINA,
-    'ont': ConversionTask.TaskType.ASSEMBLY_ONT,
+    'illumina': ConversionTask.ConversionTaskType.ASSEMBLY_ILLUMINA,
+    'ont': ConversionTask.ConversionTaskType.ASSEMBLY_ONT,
 }
 
 def get_assembly_tasks_can_be_annotated(user):
@@ -22,7 +22,7 @@ def get_assembly_tasks_can_be_annotated(user):
 
     annotation_tasks = ConversionTask.objects.filter(
         process__user=user,
-        task_type=ConversionTask.TaskType.ANNOTATION,
+        task_type=ConversionTask.ConversionTaskType.ANNOTATION,
         status__in=(
             ConversionTask.TaskStatus.PENDING,
             ConversionTask.TaskStatus.RUNNING,
@@ -36,8 +36,8 @@ def get_assembly_tasks_can_be_annotated(user):
             process__user=user,
             status=ConversionTask.TaskStatus.COMPLETED,
             task_type__in=(
-                ConversionTask.TaskType.ASSEMBLY_ILLUMINA,
-                ConversionTask.TaskType.ASSEMBLY_ONT,
+                ConversionTask.ConversionTaskType.ASSEMBLY_ILLUMINA,
+                ConversionTask.ConversionTaskType.ASSEMBLY_ONT,
             ),
         )
         .exclude(output_files__input_conversion_tasks__in=annotation_tasks)
@@ -111,7 +111,7 @@ def start_annotation_from_assembly_task(user, source_job_id, complete_version):
         process__user=user,
         external_job_id=source_job_id,
         status=ConversionTask.TaskStatus.COMPLETED,
-        task_type__in=(ConversionTask.TaskType.ASSEMBLY_ILLUMINA, ConversionTask.TaskType.ASSEMBLY_ONT),
+        task_type__in=(ConversionTask.ConversionTaskType.ASSEMBLY_ILLUMINA, ConversionTask.ConversionTaskType.ASSEMBLY_ONT),
     ).first()
 
     if not source_task:
@@ -128,7 +128,7 @@ def start_annotation_from_assembly_task(user, source_job_id, complete_version):
 
     task = ConversionTask.objects.create(
         status=ConversionTask.TaskStatus.PENDING,
-        task_type=ConversionTask.TaskType.ANNOTATION,
+        task_type=ConversionTask.ConversionTaskType.ANNOTATION,
         process=source_task.process,
     )
     task.input_files.set(source_task.output_files.all())
@@ -150,7 +150,7 @@ def start_annotation_from_uploaded_fasta(user, fasta, complete_version):
     task = ConversionTask.objects.create(
         external_job_id=None,
         status=ConversionTask.TaskStatus.PENDING,
-        task_type=ConversionTask.TaskType.ANNOTATION,
+        task_type=ConversionTask.ConversionTaskType.ANNOTATION,
         process=process
     )
 
@@ -170,7 +170,7 @@ def start_json_processing(user, feature_file, complete_version=False):
     process = ProcessGroup.objects.create(name=os.path.basename(file.file.name), user=user)
     task = ConversionTask.objects.create(
         status=ConversionTask.TaskStatus.PENDING,
-        task_type=ConversionTask.TaskType.FROM_JSON,
+        task_type=ConversionTask.ConversionTaskType.FROM_JSON,
         process=process,
     )
 
