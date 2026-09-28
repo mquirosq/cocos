@@ -1,12 +1,13 @@
 from django.contrib.humanize.templatetags.humanize import naturaltime
 
 from ..models import ConversionTask
+from core.models import TaskStatus
 
 STATUS_BADGE_CLASSES = {
-    ConversionTask.TaskStatus.PENDING: 'badge-soft badge-warning',
-    ConversionTask.TaskStatus.RUNNING: 'badge-soft badge-info',
-    ConversionTask.TaskStatus.COMPLETED: 'badge-soft badge-success',
-    ConversionTask.TaskStatus.FAILED: 'badge-soft badge-error',
+    TaskStatus.PENDING: 'badge-soft badge-warning',
+    TaskStatus.RUNNING: 'badge-soft badge-info',
+    TaskStatus.COMPLETED: 'badge-soft badge-success',
+    TaskStatus.FAILED: 'badge-soft badge-error',
 }
 
 PIPELINE_LABELS = {
@@ -103,10 +104,10 @@ def build_process_steps(assembly_task=None, annotation=None, json_task=None, is_
     return []
 
 def _task_step_state(task):
-    if task.status == ConversionTask.TaskStatus.COMPLETED:
+    if task.status == TaskStatus.COMPLETED:
         return "complete"
 
-    if task.status == ConversionTask.TaskStatus.FAILED:
+    if task.status == TaskStatus.FAILED:
         return "error"
 
     return "current"

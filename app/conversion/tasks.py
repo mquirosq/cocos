@@ -4,7 +4,7 @@ import json
 import logging
 import requests
 from .models import ConversionTask
-from core.models import File
+from core.models import File, TaskStatus
 from .bio_api_client import annotate_from_fasta, download_assembly_fasta_result, download_bakta_json_result, get_job_status, sequence_illumina, sequence_ont
 from notifications.services import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed, notify_user_conversion_started, notify_user_conversion_warning
 from notifications.models import TaskNotification
@@ -96,7 +96,7 @@ def _fail_task(task, message):
         f"Task {task.id} ({task.task_type}) failed: {message}"
     )
 
-    task.status = ConversionTask.TaskStatus.FAILED
+    task.status = TaskStatus.FAILED
     task.save(update_fields=["status"])
 
     notify_user_conversion_failed(
@@ -236,10 +236,10 @@ def poll_assembly_start(self, task_id=None, assembly_type=None, annotate=False, 
 
         logger.info(f"Assembly started with job ID: {job_id} for task {task_id}")
 
-        should_notify_started = task.status != ConversionTask.TaskStatus.RUNNING
+        should_notify_started = task.status != TaskStatus.RUNNING
 
         task.external_job_id = job_id
-        task.status = ConversionTask.TaskStatus.RUNNING
+        task.status = TaskStatus.RUNNING
         task.save(update_fields=["external_job_id", "status"])
 
         if should_notify_started:
@@ -281,7 +281,7 @@ def poll_annotation_start(self, task_id, complete_version=False):
 
     if not fasta_file:
         logger.error(f"No FASTA input found for annotation task {task_id}")
-        task.status = ConversionTask.TaskStatus.FAILED
+        task.status = TaskStatus.FAILED
         task.save(update_fields=['status'])
 
         _fail_task(task, "No FASTA input was found for the annotation task.")
@@ -301,9 +301,9 @@ def poll_annotation_start(self, task_id, complete_version=False):
 
     if external_resp.get("status") == "running" or external_resp.get("status") == "annotation_pending":
         logger.info(f"Annotation started with job ID: {external_resp.get('job_id')} for task {task_id}")
-        should_notify_started = task.status != ConversionTask.TaskStatus.RUNNING
+        should_notify_started = task.status != TaskStatus.RUNNING
         task.external_job_id = external_resp["job_id"]
-        task.status = ConversionTask.TaskStatus.RUNNING
+        task.status = TaskStatus.RUNNING
         task.save()
         if should_notify_started:
             notify_user_conversion_started(task.process.user, task)
@@ -343,7 +343,7 @@ def process_json(self, task_id, complete_version=False):
         _fail_task(task, "No JSON input file was found.")
         return
 
-    task.status = ConversionTask.TaskStatus.RUNNING
+    task.status = TaskStatus.RUNNING
     task.save(update_fields=["status"])
 
     try:
@@ -367,7 +367,7 @@ def process_json(self, task_id, complete_version=False):
         _fail_task(task, "Error parsing features. Try again later.")
         return
 
-    task.status = ConversionTask.TaskStatus.COMPLETED
+    task.status = TaskStatus.COMPLETED
     task.save(update_fields=["status"])
     notify_user_conversion_complete(user=task.process.user, task=task)
 

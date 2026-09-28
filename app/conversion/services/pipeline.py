@@ -2,7 +2,7 @@ import os
 
 from django.db.models import Prefetch
 from ..models import ConversionTask
-from core.models import File, ProcessGroup
+from core.models import File, ProcessGroup, TaskStatus
 from .presentation import format_process_label
 from ..task_types import ANNOTATED_TYPES
 from ..tasks import (
@@ -24,9 +24,9 @@ def get_assembly_tasks_can_be_annotated(user):
         process__user=user,
         task_type=ConversionTask.ConversionTaskType.ANNOTATION,
         status__in=(
-            ConversionTask.TaskStatus.PENDING,
-            ConversionTask.TaskStatus.RUNNING,
-            ConversionTask.TaskStatus.COMPLETED,
+            TaskStatus.PENDING,
+            TaskStatus.RUNNING,
+            TaskStatus.COMPLETED,
         ),
     )
 
@@ -34,7 +34,7 @@ def get_assembly_tasks_can_be_annotated(user):
         ConversionTask.objects
         .filter(
             process__user=user,
-            status=ConversionTask.TaskStatus.COMPLETED,
+            status=TaskStatus.COMPLETED,
             task_type__in=(
                 ConversionTask.ConversionTaskType.ASSEMBLY_ILLUMINA,
                 ConversionTask.ConversionTaskType.ASSEMBLY_ONT,
@@ -86,7 +86,7 @@ def start_assembly(user, assembly_type, fastq, fastq_2=None, annotate=False, com
     process = ProcessGroup.objects.create(name=os.path.basename(fastq.name), user=user)
     task = ConversionTask.objects.create(
         external_job_id=None,
-        status=ConversionTask.TaskStatus.PENDING,
+        status=TaskStatus.PENDING,
         task_type=f"assembly_{assembly_type}{'_annotated' if annotate else ''}",
         process = process,
     )
@@ -110,7 +110,7 @@ def start_annotation_from_assembly_task(user, source_job_id, complete_version):
     source_task = ConversionTask.objects.filter(
         process__user=user,
         external_job_id=source_job_id,
-        status=ConversionTask.TaskStatus.COMPLETED,
+        status=TaskStatus.COMPLETED,
         task_type__in=(ConversionTask.ConversionTaskType.ASSEMBLY_ILLUMINA, ConversionTask.ConversionTaskType.ASSEMBLY_ONT),
     ).first()
 
@@ -123,11 +123,11 @@ def start_annotation_from_assembly_task(user, source_job_id, complete_version):
     if source_task.process.user != user:
         raise ValueError('You do not have permission to annotate this assembly result.')
     
-    if source_task.status != ConversionTask.TaskStatus.COMPLETED:
+    if source_task.status != TaskStatus.COMPLETED:
         raise ValueError('Selected assembly result is not ready for annotation.')
 
     task = ConversionTask.objects.create(
-        status=ConversionTask.TaskStatus.PENDING,
+        status=TaskStatus.PENDING,
         task_type=ConversionTask.ConversionTaskType.ANNOTATION,
         process=source_task.process,
     )
@@ -149,7 +149,7 @@ def start_annotation_from_uploaded_fasta(user, fasta, complete_version):
     process = ProcessGroup.objects.create(name=os.path.basename(file.file.name), user=user)
     task = ConversionTask.objects.create(
         external_job_id=None,
-        status=ConversionTask.TaskStatus.PENDING,
+        status=TaskStatus.PENDING,
         task_type=ConversionTask.ConversionTaskType.ANNOTATION,
         process=process
     )
@@ -169,7 +169,7 @@ def start_json_processing(user, feature_file, complete_version=False):
 
     process = ProcessGroup.objects.create(name=os.path.basename(file.file.name), user=user)
     task = ConversionTask.objects.create(
-        status=ConversionTask.TaskStatus.PENDING,
+        status=TaskStatus.PENDING,
         task_type=ConversionTask.ConversionTaskType.FROM_JSON,
         process=process,
     )

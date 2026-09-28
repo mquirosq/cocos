@@ -5,6 +5,12 @@ from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
 
+# TASKS
+class TaskStatus(models.TextChoices):
+    PENDING = 'pending', 'Pending'
+    RUNNING = 'running', 'Running'
+    COMPLETED = 'completed', 'Completed'
+    FAILED = 'failed', 'Failed'
 
 # GENE AND RELATED MODELS
 class GeneQuerySet(models.QuerySet):

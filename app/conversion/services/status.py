@@ -2,7 +2,7 @@ import os
 from django.db.models import Max, Prefetch
 
 from ..models import ConversionTask
-from core.models import File, ProcessGroup
+from core.models import File, ProcessGroup, TaskStatus
 from .presentation import pipeline_label, status_badge_class, build_process_steps
 from ..task_types import ASSEMBLY_TYPES, ANNOTATED_TYPES, ASSEMBLY_AND_ANNOTATION_TYPES
 
@@ -88,7 +88,7 @@ def _build_assembly_row(process, assembly_tasks, annotations):
     
     most_recent = latest_annotation.updated_at if latest_annotation else assembly_task.updated_at
     
-    assembly_completed = assembly_task.status == ConversionTask.TaskStatus.COMPLETED
+    assembly_completed = assembly_task.status == TaskStatus.COMPLETED
     
     has_auto_json = auto_annotated and assembly_completed
     
@@ -101,9 +101,9 @@ def _build_assembly_row(process, assembly_tasks, annotations):
     input_filename = ", ".join(input_filenames)
     
     can_annotate = assembly_completed and not annotations and not auto_annotated
-    can_retry_annotation = (latest_annotation.status == ConversionTask.TaskStatus.FAILED if latest_annotation else False) and not auto_annotated
+    can_retry_annotation = (latest_annotation.status == TaskStatus.FAILED if latest_annotation else False) and not auto_annotated
     has_fasta = assembly_completed and get_prefetched_file(assembly_task.prefetched_output_files, File.FileType.FASTA) is not None
-    has_json = (latest_annotation.status == ConversionTask.TaskStatus.COMPLETED if latest_annotation else False) or has_auto_json
+    has_json = (latest_annotation.status == TaskStatus.COMPLETED if latest_annotation else False) or has_auto_json
 
     stage_class = stage_class = ("process-stage-max" if has_json else "process-stage-mid" if annotation_started else "process-stage-light")
     
@@ -134,7 +134,7 @@ def _build_annotation_row(process, annotations):
     latest_uploaded_fasta = get_prefetched_file(latest.prefetched_input_files, File.FileType.FASTA)
     latest_uploaded_json = get_prefetched_file(latest.prefetched_output_files, File.FileType.JSON)
 
-    stage_class = ("process-stage-max" if latest.status == ConversionTask.TaskStatus.COMPLETED else "process-stage-mid")
+    stage_class = ("process-stage-max" if latest.status == TaskStatus.COMPLETED else "process-stage-mid")
 
     return {
         'kind': 'annotation',
@@ -159,7 +159,7 @@ def _build_json_row(process, json_tasks):
     latest = json_tasks[0]
     json_upload = get_prefetched_file(latest.prefetched_input_files, File.FileType.JSON)
 
-    stage_class = ("process-stage-max" if latest.status == ConversionTask.TaskStatus.COMPLETED else "process-stage-dark")
+    stage_class = ("process-stage-max" if latest.status == TaskStatus.COMPLETED else "process-stage-dark")
 
     return {
         'kind': 'json',
@@ -199,12 +199,12 @@ def build_process_status_context(process):
 
     is_auto_annotated = is_auto_annotated_assembly(assembly_task)
 
-    has_completed_assembly = (assembly_task and assembly_task.status == ConversionTask.TaskStatus.COMPLETED)
+    has_completed_assembly = (assembly_task and assembly_task.status == TaskStatus.COMPLETED)
 
     can_annotate = (has_completed_assembly and latest_annotation is None and not is_auto_annotated)
 
     can_retry_annotation = (has_completed_assembly and latest_annotation is not None
-        and latest_annotation.status == ConversionTask.TaskStatus.FAILED and not is_auto_annotated)
+        and latest_annotation.status == TaskStatus.FAILED and not is_auto_annotated)
 
     process_kind = ('assembly' if assembly_task else 'json' if latest_json else 'annotation')
     
@@ -235,7 +235,7 @@ def build_process_status_context(process):
     }
 
 def _get_fasta_download_task_id(assembly_task, latest_annotation):
-    if assembly_task and assembly_task.status == ConversionTask.TaskStatus.COMPLETED:
+    if assembly_task and assembly_task.status == TaskStatus.COMPLETED:
         return assembly_task.id
 
     if latest_annotation:
@@ -247,10 +247,10 @@ def _get_json_download_task_id(assembly_task, latest_annotation, latest_json, is
     if latest_annotation and get_prefetched_file(latest_annotation.prefetched_output_files, File.FileType.JSON):
         return latest_annotation.id
 
-    if is_auto_annotated and assembly_task and assembly_task.status == ConversionTask.TaskStatus.COMPLETED:
+    if is_auto_annotated and assembly_task and assembly_task.status == TaskStatus.COMPLETED:
         return assembly_task.id
 
-    if latest_json and latest_json.status == ConversionTask.TaskStatus.COMPLETED:
+    if latest_json and latest_json.status == TaskStatus.COMPLETED:
         if get_prefetched_file(latest_json.prefetched_output_files, File.FileType.JSON):
             return latest_json.id
 

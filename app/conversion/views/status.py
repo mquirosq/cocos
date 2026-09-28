@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 
 from app.utils.pagination import get_pagination_page_range
 from ..models import ConversionTask
-from core.models import ProcessGroup
+from core.models import ProcessGroup, TaskStatus
 from ..services.status import (
     build_process_rows,
     build_process_status_context,
@@ -58,7 +58,7 @@ def process_status_view(request, process_id):
 def download_json_view(request, task_id):
     task = get_object_or_404(get_current_user_tasks(request), id=task_id)
 
-    if task.status != ConversionTask.TaskStatus.COMPLETED:
+    if task.status != TaskStatus.COMPLETED:
         return redirect('conversion:process_status', process_id=task.process.id)
 
     upload = get_json_upload_for_task(task)
@@ -87,7 +87,7 @@ def download_json_view(request, task_id):
 def download_fasta_view(request, task_id):
     task = get_object_or_404(get_current_user_tasks(request), id=task_id)
 
-    if task.status != ConversionTask.TaskStatus.COMPLETED:
+    if task.status != TaskStatus.COMPLETED:
         return redirect('conversion:process_status', process_id=task.process.id)
 
     upload = get_fasta_upload_for_task(task)
