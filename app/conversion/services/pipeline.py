@@ -9,7 +9,7 @@ from ..tasks import (
     poll_assembly_start,
     process_json,
 )
-from ..utils import upload_file
+from core.utils import upload_file
 
 ASSEMBLY_TYPES = {
     'illumina': ConversionTask.TaskType.ASSEMBLY_ILLUMINA,

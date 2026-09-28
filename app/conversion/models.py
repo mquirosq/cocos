@@ -122,7 +122,6 @@ class ConversionTask(models.Model):
         ASSEMBLY_ILLUMINA = 'assembly_illumina', 'Illumina Assembly'
         ASSEMBLY_ONT_ANNOTATED = 'assembly_ont_annotated', 'ONT Assembly with Annotation'
         ASSEMBLY_ILLUMINA_ANNOTATED = 'assembly_illumina_annotated', 'Illumina Assembly with Annotation'
-        PREDICTION = 'prediction', 'Prediction'
     
     # Allow blank so we can create a pending task before an external job id exists.
     external_job_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
