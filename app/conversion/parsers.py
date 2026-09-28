@@ -1,4 +1,4 @@
-from conversion.models import FileGene, Gene, File
+from core.models import FileGene, Gene
 from django.db import transaction
 
 # --- Registry for parsers ---

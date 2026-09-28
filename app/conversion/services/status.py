@@ -1,7 +1,8 @@
 import os
 from django.db.models import Max, Prefetch
 
-from ..models import ConversionTask, File, ProcessGroup
+from ..models import ConversionTask
+from core.models import File, ProcessGroup
 from .presentation import pipeline_label, status_badge_class, build_process_steps
 from ..task_types import ASSEMBLY_TYPES, ANNOTATED_TYPES, ASSEMBLY_AND_ANNOTATION_TYPES
 

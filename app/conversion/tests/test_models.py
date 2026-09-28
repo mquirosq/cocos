@@ -1,9 +1,12 @@
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
-from conversion.models import ConversionTask, File, Gene
+from conversion.models import ConversionTask
+from core.models import File, Gene
 
 User = get_user_model()
+
+# TODO: Move Gene tests to core app
 
 class GeneModelTests(TestCase):
     def test_identifiers_list_normalizes_inputs(self):

@@ -16,7 +16,6 @@ PIPELINE_LABELS = {
     ConversionTask.TaskType.ASSEMBLY_ILLUMINA: 'Assembly · Illumina',
     ConversionTask.TaskType.ANNOTATION: 'Annotation',
     ConversionTask.TaskType.FROM_JSON: 'From JSON',
-    ConversionTask.TaskType.PREDICTION: 'Prediction',
 }
 
 def format_process_label(task):

@@ -8,7 +8,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
-from conversion.models import ConversionTask, File
+from conversion.models import ConversionTask
+from core.models import File
 
 User = get_user_model()
 

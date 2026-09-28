@@ -1,4 +1,4 @@
-from conversion.models import File
+from core.models import File
 
 def upload_file(file, user, file_type):
     """Upload a file to the system, associating it with a user and file type."""

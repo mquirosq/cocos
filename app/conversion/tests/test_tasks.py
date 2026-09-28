@@ -1,12 +1,12 @@
 from types import SimpleNamespace
-from unittest.mock import call, patch
+from unittest.mock import patch
 
 from celery.exceptions import MaxRetriesExceededError
 from django.contrib.auth import get_user_model
-from django.core.files.base import ContentFile
 from django.test import TestCase
 
-from conversion.models import ConversionTask, File
+from conversion.models import ConversionTask
+from core.models import File
 from conversion.tasks import (
     _ensure_in_app_notification,
     _persist_annotation_json_output,

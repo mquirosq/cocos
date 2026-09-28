@@ -1,6 +1,6 @@
 from celery import shared_task
 
-from conversion.models import File
+from core.models import File
 from .prediction import get_prediction_matrix
 
 @shared_task(bind=True)

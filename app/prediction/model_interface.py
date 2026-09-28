@@ -7,14 +7,14 @@ to make it discoverable.
 
 class ModelInterface:
     """
-    Model interface for predicting antibiotic resistance from a `FileUpload`.
+    Model interface for predicting antibiotic resistance from a `File`.
 
     Implementations should provide:
       - `features()` -> Input features for the model (e.g. genes)
       - `load()` -> None
-      - `predict(file_upload)` -> float
+      - `predict(file)` -> float
 
-    file_upload is expected to be an identifier for a bakta-annotated file in the database (FileUpload instance))
+    file is expected to be an identifier for a bakta-annotated file in the database (File instance))
     """
 
     def features(self, file) -> list:

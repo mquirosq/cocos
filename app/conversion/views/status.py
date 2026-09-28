@@ -9,7 +9,8 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from app.utils.pagination import get_pagination_page_range
-from ..models import ConversionTask, ProcessGroup
+from ..models import ConversionTask
+from core.models import ProcessGroup
 from ..services.status import (
     build_process_rows,
     build_process_status_context,

@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'home',
+    'core.apps.CoreConfig',
     'conversion.apps.ConversionConfig',
     'notifications.apps.NotificationsConfig',
     'prediction.apps.PredictionConfig',

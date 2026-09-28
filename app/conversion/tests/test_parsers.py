@@ -2,7 +2,8 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.test import TestCase
-from conversion.models import FileGene, File, Gene
+from core.models import FileGene, Gene
+from core.models import File
 from conversion.parsers import BaktaJsonParser, get_parser, parse_file, register_parser
 from pathlib import Path
 import json

@@ -1,7 +1,8 @@
 import os
 
 from django.db.models import Prefetch
-from ..models import ConversionTask, File, ProcessGroup
+from ..models import ConversionTask
+from core.models import File, ProcessGroup
 from .presentation import format_process_label
 from ..task_types import ANNOTATED_TYPES
 from ..tasks import (

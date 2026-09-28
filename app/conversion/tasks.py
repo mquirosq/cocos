@@ -3,7 +3,8 @@ from django.core.files.base import ContentFile
 import json
 import logging
 import requests
-from .models import ConversionTask, File, ProcessGroup
+from .models import ConversionTask
+from core.models import File
 from .bio_api_client import annotate_from_fasta, download_assembly_fasta_result, download_bakta_json_result, get_job_status, sequence_illumina, sequence_ont
 from notifications.services import notify_user_server_busy, notify_user_conversion_complete, notify_user_conversion_failed, notify_user_conversion_started, notify_user_conversion_warning
 from notifications.models import TaskNotification

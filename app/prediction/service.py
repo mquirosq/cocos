@@ -1,6 +1,7 @@
 from django.db import models
 
-from conversion.models import File, ConversionTask
+from conversion.models import ConversionTask
+from core.models import File
 from conversion.services.presentation import format_process_label
 from conversion.task_types import ANNOTATED_TYPES
 
