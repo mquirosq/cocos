@@ -149,27 +149,13 @@ document.addEventListener('DOMContentLoaded', function () {
       </div>`;
   }
 
-  function parseMatrixResponse(raw) {
-    if (!Array.isArray(raw) && Object.keys(raw).length && Object.values(raw).every(v => v && typeof v === 'object' && !Array.isArray(v))) {
-      const antibiotics = Object.keys(raw);
-      const modelSet = new Set();
-      antibiotics.forEach(a => Object.keys(raw[a] || {}).forEach(m => modelSet.add(m)));
-      const models = Array.from(modelSet);
-      const data = antibiotics.map(a => models.map(m => {
-        const cell = raw[a] && raw[a][m];
-        if (cell === 'NO_RESULT') return 'NO_RESULT';
-        return Number(cell) || 0;
-      }));
-      return { models, antibiotics, data };
-    }
-  }
-
   async function computeMatrix() {
     matrixDiv.innerHTML = '<div class="p-4">Computing…</div>';
     const sel = collectSelection();
     const params = new URLSearchParams();
-    (sel.models.length ? sel.models : ['all']).forEach(m => params.append('models', m));
-    (sel.antibiotics.length ? sel.antibiotics : ['all']).forEach(a => params.append('antibiotics', a));
+
+    sel.models.forEach(m => params.append('models', m));
+    sel.antibiotics.forEach(a => params.append('antibiotics', a));
     params.append('file_id', sel.file_id);
 
     try {
@@ -186,18 +172,14 @@ document.addEventListener('DOMContentLoaded', function () {
         window.location.href = '/prediction/';
         return;
       }
-      let data = await res.json();
-      const normalized = parseMatrixResponse(data);
-      if (!normalized) {
-        matrixDiv.innerHTML = `<div class="alert alert-error">Received unexpected matrix format.</div>`;
-        lastComputedMatrix = null;
-        return null;
-      }
-      lastComputedMatrix = normalized;
-      renderMatrix(normalized);
-      return normalized;
+      const matrix = await res.json();
+
+      lastComputedMatrix = matrix;
+      renderMatrix(matrix);
+      return matrix;
+
     } catch (err) {
-      matrixDiv.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+      matrixDiv.innerHTML = `<div class="alert alert-error">${error?.error || 'Failed to compute predictions.'}</div>`;
       lastComputedMatrix = null;
       return null;
     }
