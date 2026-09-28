@@ -40,14 +40,14 @@ def get_valid_prediction_antibiotics(model_names, antibiotics):
 
 def get_prediction_file(user, file_id):
     if not file_id:
-        return None
+        raise ValueError('Select a dataset.')
     
     try:
         return File.objects.get(pk=int(file_id), user=user, file_type=File.FileType.JSON)
     except (ValueError, File.DoesNotExist):
         raise ValueError('Selected file not found.')
 
-def start_prediction(user, model_names, antibiotics, file_id=None):
+def start_prediction(user, model_names, antibiotics, file_id):
     if not model_names:
         raise ValueError('Select at least one model.')
 
@@ -55,7 +55,7 @@ def start_prediction(user, model_names, antibiotics, file_id=None):
         raise ValueError('Select at least one antibiotic.')
 
     file = get_prediction_file(user, file_id)
-    
+
     valid_antibiotics = get_valid_prediction_antibiotics(model_names, antibiotics)
 
     if not valid_antibiotics:
