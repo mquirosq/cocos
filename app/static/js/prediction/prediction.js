@@ -1,7 +1,4 @@
 document.addEventListener('DOMContentLoaded', function () {
-  const LOW_THRESHOLD = 0.35;
-  const HIGH_THRESHOLD = 0.65;
-
   const computeBtn = document.getElementById('compute-matrix');
   const exportBtn = document.getElementById('export-csv');
   const fileSelect = document.getElementById('file_id_batch');
@@ -12,25 +9,12 @@ document.addEventListener('DOMContentLoaded', function () {
   const modelsSelectEl = document.getElementById('models-select');
   const antibioticsSelectEl = document.getElementById('antibiotics-select');
 
-  const lowThresholdElement = document.getElementById('prediction-low-threshold');
-  const highThresholdElement = document.getElementById('prediction-high-threshold');
-
   const csrftoken = (() => {
     const el = document.querySelector('input[name=csrfmiddlewaretoken]');
     return el ? el.value : null;
   })();
 
   let lastComputedMatrix = null;
-
-
-  // Initialization
-  if (lowThresholdElement) {
-    lowThresholdElement.textContent = LOW_THRESHOLD;
-  }
-
-  if (highThresholdElement) {
-    highThresholdElement.textContent = HIGH_THRESHOLD;
-  }
 
 
   // Selection
@@ -53,9 +37,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
   function collectSelection() {
-    const models = (modelsSelectEl && Array.isArray(modelsSelectEl.value))? modelsSelectEl.value.slice() : [];
+    const models = (
+      modelsSelectEl &&
+      Array.isArray(modelsSelectEl.value)
+    )
+      ? modelsSelectEl.value.slice()
+      : [];
 
-    const antibiotics = (antibioticsSelectEl && Array.isArray(antibioticsSelectEl.value)) ? antibioticsSelectEl.value.slice() : [];
+    const antibiotics = (
+      antibioticsSelectEl &&
+      Array.isArray(antibioticsSelectEl.value)
+    )
+      ? antibioticsSelectEl.value.slice()
+      : [];
 
     return {
       models: models,
@@ -83,189 +77,6 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
 
-  // Matrix rendering
-
-  function renderMatrix(matrix) {
-    const header = document.getElementById('prediction-header');
-    const body = document.getElementById('prediction-body');
-
-    if (!header || !body || !predictionResults) {
-      return;
-    }
-
-    body.innerHTML = '';
-
-    // Remove previous model headers
-    header.querySelectorAll('.prediction-model-header').forEach(element => element.remove());
-
-    // Add model headers
-    matrix.models.forEach(model => {
-      const th = document.createElement('th');
-
-      th.className = 'prediction-table-header prediction-antibiotic';
-
-      th.textContent = model;
-
-      header.insertBefore(th, header.querySelector('.prediction-average-header'));
-    });
-
-    // Add rows
-    matrix.antibiotics.forEach((antibiotic, index) => {
-      const values = matrix.data[index];
-
-      const row = document.createElement('tr');
-      row.className = 'prediction-row';
-
-      const antibioticCell = document.createElement('td');
-      antibioticCell.className = 'prediction-antibiotic';
-      antibioticCell.textContent = antibiotic;
-
-      row.appendChild(antibioticCell);
-
-      values.forEach(value => {row.appendChild(createPredictionCell(value))});
-
-      // Average
-      row.appendChild(createAverageCell(values));
-
-      body.appendChild(row);
-    });
-
-    predictionResults.classList.remove('hidden');
-  }
-
-
-  function createPredictionCell(value) {
-    const cell = document.createElement('td');
-    cell.className = 'prediction-cell';
-
-    if (value === 'NO_RESULT') {
-      cell.classList.add('prediction-no-result');
-
-      const content = document.createElement('div');
-      content.className = 'prediction-cell-content';
-
-      const label = document.createElement('span');
-      label.className = 'prediction-value';
-      label.textContent = 'No results';
-
-      content.appendChild(label);
-      cell.appendChild(content);
-
-      return cell;
-    }
-
-    const level = getPredictionLevel(value);
-    cell.classList.add(level);
-
-    const content = document.createElement('div');
-    content.className = 'prediction-cell-content';
-
-    const valueElement = document.createElement('span');
-    valueElement.className = 'prediction-value';
-    valueElement.textContent = value.toFixed(2);
-
-    const bar = document.createElement('div');
-    bar.className = 'prediction-bar';
-
-    const fill = document.createElement('div');
-    fill.className = `prediction-bar-fill ${level}`;
-    fill.style.width = `${(value * 100).toFixed(0)}%`;
-
-    bar.appendChild(fill);
-
-    content.append(valueElement, bar);
-    cell.appendChild(content);
-
-    return cell;
-  }
-
-
-  function createAverageCell(values) {
-    const cell = document.createElement('td');
-    cell.className = 'prediction-cell prediction-average';
-
-    const numericValues = values.filter(
-      value => value !== 'NO_RESULT'
-    );
-
-    if (numericValues.length === 0) {
-      cell.classList.add('prediction-no-result');
-
-      const content = document.createElement('div');
-      content.className = 'prediction-cell-content';
-
-      const label = document.createElement('span');
-      label.className = 'prediction-value';
-      label.textContent = 'N/A';
-
-      content.appendChild(label);
-      cell.appendChild(content);
-
-      return cell;
-    }
-
-    const average =
-      numericValues.reduce((sum, value) => sum + value, 0) /
-      numericValues.length;
-
-    const roundedAverage = Number(average.toFixed(2));
-    const level = getPredictionLevel(roundedAverage);
-
-    cell.classList.add(level);
-
-    const content = document.createElement('div');
-    content.className = 'prediction-cell-content';
-
-    const valueElement = document.createElement('span');
-    valueElement.className = 'prediction-value';
-    valueElement.textContent = roundedAverage.toFixed(2);
-
-    const bar = document.createElement('div');
-    bar.className = 'prediction-bar';
-
-    const fill = document.createElement('div');
-    fill.className = `prediction-bar-fill ${level}`;
-    fill.style.width = `${(roundedAverage * 100).toFixed(0)}%`;
-
-    bar.appendChild(fill);
-
-    const riskElement = document.createElement('span');
-    riskElement.className = `prediction-risk ${level}`;
-    riskElement.textContent = getRiskLabel(roundedAverage);
-
-    content.append(valueElement, bar, riskElement);
-    cell.appendChild(content);
-
-    return cell;
-  }
-
-
-  function getPredictionLevel(value) {
-    if (value < LOW_THRESHOLD) {
-      return 'prediction-low';
-    }
-
-    if (value < HIGH_THRESHOLD) {
-      return 'prediction-medium';
-    }
-
-    return 'prediction-high';
-  }
-
-
-  function getRiskLabel(value) {
-    if (value < LOW_THRESHOLD) {
-      return 'Low';
-    }
-
-    if (value < HIGH_THRESHOLD) {
-      return 'Medium';
-    }
-
-    return 'High';
-  }
-
-
   // Prediction
 
   async function computeMatrix() {
@@ -282,9 +93,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const selection = collectSelection();
     const params = new URLSearchParams();
 
-    selection.models.forEach(model => params.append('models', model));
+    selection.models.forEach(model => {
+      params.append('models', model);
+    });
 
-    selection.antibiotics.forEach(antibiotic => params.append('antibiotics', antibiotic));
+    selection.antibiotics.forEach(antibiotic => {
+      params.append('antibiotics', antibiotic);
+    });
 
     params.append('file_id', selection.file_id);
 
@@ -301,7 +116,11 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
 
-        console.error('Prediction request failed:', response.status, error);
+        console.error(
+          'Prediction request failed:',
+          response.status,
+          error
+        );
 
         lastComputedMatrix = null;
         return null;
@@ -316,6 +135,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     } catch (error) {
       console.error('Prediction failed:', error);
+
       lastComputedMatrix = null;
       return null;
 
@@ -361,17 +181,23 @@ document.addEventListener('DOMContentLoaded', function () {
       const link = document.createElement('a');
       link.href = url;
 
-      const contentDisposition = response.headers.get('Content-Disposition') || '';
+      const contentDisposition =
+        response.headers.get('Content-Disposition') || '';
 
-      const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+      const filenameMatch =
+        contentDisposition.match(/filename="?([^"]+)"?/);
 
-      link.download = filenameMatch? filenameMatch[1] : 'predictions.csv';
+      link.download = filenameMatch
+        ? filenameMatch[1]
+        : 'predictions.csv';
 
       document.body.appendChild(link);
       link.click();
       link.remove();
 
-      setTimeout(() => window.URL.revokeObjectURL(url), 1500);
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1500);
 
     } catch (error) {
       console.error('CSV export failed:', error);
@@ -403,4 +229,7 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   updateButtonsState();
+
+  // Matrix initialization
+  initializeMatrix();
 });

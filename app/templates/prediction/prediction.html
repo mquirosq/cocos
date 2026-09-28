@@ -2,8 +2,9 @@
 {% load static %}
 
 {% block override_style %}
-<link rel="stylesheet" href="{% static 'css/prediction/prediction.css' %}">
-<link rel="stylesheet" href="{% static 'css/prediction/daisy-multiselect.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/prediction/prediction-matrix.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/prediction/prediction.css' %}">
+  <link rel="stylesheet" href="{% static 'css/prediction/daisy-multiselect.css' %}" />
 {% endblock %}
 
 {% block title %}Prediction{% endblock %}
@@ -80,6 +81,7 @@
 </div>
 
 <script src="{% static 'js/prediction/prediction.js' %}"></script>
+<script src="{% static 'js/prediction/prediction-matrix.js' %}"></script>
 <script defer src="{% static 'js/prediction/daisy-multiselect.js' %}"></script>
 
 {% endblock %}
