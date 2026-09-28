@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  const sourceJobSelect = document.getElementById('source_job_id');
+  const sourceJobSelect = document.getElementById('source_task_id');
   const fastaFileInput = document.getElementById('fasta_file');
   const clearFastaFileButton = document.getElementById('clear-fasta-file');
 

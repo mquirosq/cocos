@@ -37,11 +37,11 @@
           {% csrf_token %}
           <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4 assembly-interactive">
             <legend class="fieldset-legend text-base font-semibold">FASTA input</legend>
-            <label class="label text-base font-medium" for="source_job_id">From previous Assembly output</label>
-            <select id="source_job_id" name="source_job_id" class="select w-full bg-base-100 source-job-select">
+            <label class="label text-base font-medium" for="source_task_id">From previous Assembly output</label>
+            <select id="source_task_id" name="source_task_id" class="select w-full bg-base-100 source-job-select">
               <option value="">Select a previous FASTA output (optional)</option>
               {% for task in available_fasta_jobs %}
-                <option value="{{ task.external_job_id }}">{{ task.source_label }}</option>
+                <option value="{{ task.id }}">{{ task.source_label }}</option>
               {% empty %}
                 <option value="" disabled>No available Assembly outputs to annotate</option>
               {% endfor %}

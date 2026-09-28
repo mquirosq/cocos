@@ -106,10 +106,10 @@ def start_assembly(user, assembly_type, fastq, fastq_2=None, annotate=False, com
 
 
 # Annotation
-def start_annotation_from_assembly_task(user, source_job_id, complete_version):
+def start_annotation_from_assembly_task(user, source_task_id, complete_version):
     source_task = ConversionTask.objects.filter(
         process__user=user,
-        external_job_id=source_job_id,
+        id=source_task_id,
         status=TaskStatus.COMPLETED,
         task_type__in=(ConversionTask.ConversionTaskType.ASSEMBLY_ILLUMINA, ConversionTask.ConversionTaskType.ASSEMBLY_ONT),
     ).first()

@@ -232,6 +232,7 @@ def build_process_status_context(process):
         'can_annotate': can_annotate,
         'can_retry_annotation': can_retry_annotation,
         'timeline': timeline,
+        'assembly_task_id': assembly_task.id if assembly_task else None,
     }
 
 def _get_fasta_download_task_id(assembly_task, latest_annotation):

@@ -76,7 +76,7 @@
                 {% if row.can_annotate %}
                   <form method="post" action="{% url 'conversion:start_annotation_task' %}">
                     {% csrf_token %}
-                    <input type="hidden" name="source_job_id" value="{{ row.task.external_job_id }}">
+                    <input type="hidden" name="source_task_id" value="{{ row.task.id }}">
                     <button type="submit" class="btn btn-sm btn-primary">
                         Annotate
                     </button>
@@ -84,7 +84,7 @@
                 {% elif row.can_retry_annotation %}
                   <form method="post" action="{% url 'conversion:start_annotation_task' %}">
                     {% csrf_token %}
-                    <input type="hidden" name="source_job_id" value="{{ row.task.external_job_id }}">
+                    <input type="hidden" name="source_task_id" value="{{ row.task.id }}">
                     <button type="submit" class="btn btn-sm btn-primary">
                         Retry annotation
                     </button>

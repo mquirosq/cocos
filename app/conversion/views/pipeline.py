@@ -71,14 +71,14 @@ def start_annotation_task(request):
     Allow users to upload a FASTA file via a simple web form to start an external annotation task.
     On submission, create an AnnotationTask and trigger polling of its status.
     """
-    source_job_id = (request.POST.get('source_job_id') or '').strip()
+    source_task_id = (request.POST.get('source_task_id') or '').strip()
     fasta = request.FILES.get('fasta_file')
     complete_version = request.POST.get('complete') == 'on'
 
     try:
-        if source_job_id:
-            task = start_annotation_from_assembly_task(request.user, source_job_id, complete_version,)
-            message = (f'Annotation task started from previous assembly job {source_job_id}. You will be notified when it is complete.')
+        if source_task_id:
+            task = start_annotation_from_assembly_task(request.user, source_task_id, complete_version,)
+            message = (f'Annotation task started from previous assembly job {source_task_id}. You will be notified when it is complete.')
         else:
             task = start_annotation_from_uploaded_fasta(request.user, fasta, complete_version)
             message = (f'Annotation task started for file {fasta.name}. You will be notified when it is complete.')
