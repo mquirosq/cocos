@@ -24,10 +24,13 @@ def get_prediction_input_options(user):
         else: 
             json_file = task.output_files.filter(file_type=File.FileType.JSON).first()
 
+        if not json_file:
+            continue
+
         options.append({
-                        'id': str(json_file.id) if json_file else None,
-                        'label': format_process_label(task),
-                    })
+            'id': str(json_file.id),
+            'label': format_process_label(task),
+        })
 
     return options
 
