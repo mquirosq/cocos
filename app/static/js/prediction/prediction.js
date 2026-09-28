@@ -1,34 +1,62 @@
 document.addEventListener('DOMContentLoaded', function () {
-  const lowToHighPredictionThreshold = 0.35;
-  const highToLowPredictionThreshold = 0.65;
-  
+  const LOW_THRESHOLD = 0.35;
+  const HIGH_THRESHOLD = 0.65;
+
   const computeBtn = document.getElementById('compute-matrix');
   const exportBtn = document.getElementById('export-csv');
   const fileSelect = document.getElementById('file_id_batch');
-  const matrixDiv = document.getElementById('prediction-matrix');
-  const predictionData = document.getElementById('prediction-data');
 
+  const predictionResults = document.getElementById('prediction-results');
+  const predictionStatus = document.getElementById('prediction-status');
 
-  const csrftoken = (function() {
+  const modelsSelectEl = document.getElementById('models-select');
+  const antibioticsSelectEl = document.getElementById('antibiotics-select');
+
+  const lowThresholdElement = document.getElementById('prediction-low-threshold');
+  const highThresholdElement = document.getElementById('prediction-high-threshold');
+
+  const csrftoken = (() => {
     const el = document.querySelector('input[name=csrfmiddlewaretoken]');
     return el ? el.value : null;
   })();
 
-  const modelsSelectEl = document.getElementById('models-select');
-  const antibioticsSelectEl = document.getElementById('antibiotics-select');
   let lastComputedMatrix = null;
-  function initializeSelection() {
-    if (modelsSelectEl) modelsSelectEl.addEventListener('change', updateButtonsState);
-    if (antibioticsSelectEl) antibioticsSelectEl.addEventListener('change', updateButtonsState);
-    if (fileSelect) fileSelect.addEventListener('change', updateButtonsState);
 
-    updateButtonsState();
-    return Boolean(modelsSelectEl || antibioticsSelectEl);
+
+  // Initialization
+  if (lowThresholdElement) {
+    lowThresholdElement.textContent = LOW_THRESHOLD;
   }
 
+  if (highThresholdElement) {
+    highThresholdElement.textContent = HIGH_THRESHOLD;
+  }
+
+
+  // Selection
+
+  function initializeSelection() {
+    if (modelsSelectEl) {
+      modelsSelectEl.addEventListener('change', updateButtonsState);
+    }
+
+    if (antibioticsSelectEl) {
+      antibioticsSelectEl.addEventListener('change', updateButtonsState);
+    }
+
+    if (fileSelect) {
+      fileSelect.addEventListener('change', updateButtonsState);
+    }
+
+    updateButtonsState();
+  }
+
+
   function collectSelection() {
-    const models = (modelsSelectEl && Array.isArray(modelsSelectEl.value)) ? modelsSelectEl.value.slice() : [];
+    const models = (modelsSelectEl && Array.isArray(modelsSelectEl.value))? modelsSelectEl.value.slice() : [];
+
     const antibiotics = (antibioticsSelectEl && Array.isArray(antibioticsSelectEl.value)) ? antibioticsSelectEl.value.slice() : [];
+
     return {
       models: models,
       antibiotics: antibiotics,
@@ -36,168 +64,284 @@ document.addEventListener('DOMContentLoaded', function () {
     };
   }
 
+
   function updateButtonsState() {
-    if (!computeBtn || !exportBtn) return;
-    const sel = collectSelection();
-    const hasModels = Array.isArray(sel.models) ? sel.models.length > 0 : Boolean(sel.models);
-    const hasAntibiotics = Array.isArray(sel.antibiotics) ? sel.antibiotics.length > 0 : Boolean(sel.antibiotics);
-    const hasFile = Boolean(sel.file_id);
-    computeBtn.disabled = !(hasModels && hasAntibiotics && hasFile);
-    exportBtn.disabled = !(hasModels && hasAntibiotics && hasFile);
+    if (!computeBtn || !exportBtn) {
+      return;
+    }
+
+    const selection = collectSelection();
+
+    const hasModels = selection.models.length > 0;
+    const hasAntibiotics = selection.antibiotics.length > 0;
+    const hasFile = Boolean(selection.file_id);
+
+    const enabled = hasModels && hasAntibiotics && hasFile;
+
+    computeBtn.disabled = !enabled;
+    exportBtn.disabled = !enabled;
   }
 
-  function getCSSVar(name) {
-    return getComputedStyle(document.querySelector('[data-theme]')).getPropertyValue(name).trim();
-  }
+
+  // Matrix rendering
 
   function renderMatrix(matrix) {
-    const warningColor = '#f7edc6';
-    const warningColorContent = '#d0ac18';
-    const errorColor = getCSSVar('--color-error-soft');
-    const errorColorContent = getCSSVar('--color-error-soft-content');
-    const successColor = getCSSVar('--color-success-soft');
-    const successColorContent = getCSSVar('--color-success-soft-content');
+    const header = document.getElementById('prediction-header');
+    const body = document.getElementById('prediction-body');
 
-    const container = document.getElementById('prediction-matrix');
-
-    function colorForProb(p) {
-      if (p < lowToHighPredictionThreshold) return { bg: successColor, fill: successColorContent, text: successColorContent };
-      if (p < highToLowPredictionThreshold) return { bg: warningColor, fill: warningColorContent, text: warningColorContent };
-      return { bg: errorColor, fill: errorColorContent, text: errorColorContent };
+    if (!header || !body || !predictionResults) {
+      return;
     }
 
-    function riskLabel(p) {
-      if (p < lowToHighPredictionThreshold) return { label: 'Low',    bg: successColor, color: successColorContent };
-      if (p < highToLowPredictionThreshold) return { label: 'Medium', bg: warningColor, color: warningColorContent };
-      return             { label: 'High',   bg: errorColor, color: errorColorContent };
-    }
+    body.innerHTML = '';
 
-    function cellHTML(v) {
-      if (v === 'NO_RESULT') {
-        return `<td style="background:#d7edfa;padding:9px 14px;text-align:center;">
-          <div style="display:inline-flex;flex-direction:column;align-items:center;gap:3px;min-width:52px">
-            <span style="font-size:12px;font-weight:500;color:#5fa9de">No results</span>
-          </div>
-        </td>`;
-      }
-      const c = colorForProb(v);
-      return `<td style="background:${c.bg};padding:9px 14px;text-align:center">
-        <div style="display:inline-flex;flex-direction:column;align-items:center;gap:3px;min-width:52px">
-          <span style="font-size:13px;font-weight:500;color:${c.text}">${v.toFixed(2)}</span>
-          <div style="width:36px;height:3px;border-radius:2px;background:#ffffff">
-            <div style="width:${(v*100).toFixed(0)}%;height:100%;border-radius:2px;background:${c.fill}"></div>
-          </div>
-        </div>
-      </td>`;
-    }
+    // Remove previous model headers
+    header.querySelectorAll('.prediction-model-header').forEach(element => element.remove());
 
-    function avgCellHTML(avg) {
-      if (avg === null || isNaN(avg)) {
-        return `<td style="background:#d7edfa;padding:9px 14px;text-align:center;font-weight:500">
-          <div style="display:inline-flex;flex-direction:column;align-items:center;gap:3px;min-width:52px">
-            <span style="font-size:12px;font-weight:500;color:#5fa9de">N/A</span>
-          </div>
-        </td>`;
-      }
-      const c = colorForProb(avg);
-      const rl = riskLabel(avg);
-      return `<td style="background:${c.bg};padding:9px 14px;text-align:center;border-left:1.5px solid #d1d5db;font-weight:500">
-        <div style="display:inline-flex;flex-direction:column;align-items:center;gap:3px;min-width:52px">
-          <span style="font-size:13px;font-weight:500;color:${c.text}">${avg.toFixed(2)}</span>
-          <div style="width:36px;height:3px;border-radius:2px;background:#ffffff">
-            <div style="width:${(avg*100).toFixed(0)}%;height:100%;border-radius:2px;background:${c.fill}"></div>
-          </div>
-          <span style="font-size:11px;font-weight:500;padding:2px 7px;border-radius:999px;background:${rl.bg};color:${rl.color}">${rl.label}</span>
-        </div>
-      </td>`;
-    }
+    // Add model headers
+    matrix.models.forEach(model => {
+      const th = document.createElement('th');
 
-    const rows = matrix.antibiotics.map((ab, i) => {
-      const vals = matrix.data[i];
-      const numericVals = vals.filter(v => v !== 'NO_RESULT');
-      const avg = numericVals.length > 0 ? parseFloat((numericVals.reduce((a, b) => a + b, 0) / numericVals.length).toFixed(2)) : null;
-      return `<tr style="border-bottom:0.5px solid #e5e7eb">
-        <td style="padding:9px 14px;font-weight:500;font-size:13px;white-space:nowrap">${ab}</td>
-        ${vals.map(v => cellHTML(v)).join('')}
-        ${avgCellHTML(avg)}
-      </tr>`;
+      th.className = 'prediction-table-header prediction-antibiotic';
+
+      th.textContent = model;
+
+      header.insertBefore(th, header.querySelector('.prediction-average-header'));
     });
 
-    container.innerHTML = `
-      <div style="margin-top:1.5rem">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:8px">
-          <span style="font-size:15px;font-weight:500">Prediction matrix</span>
-          <div style="display:flex;align-items:center;gap:12px;font-size:12px;color:#6b7280">
-            <span>Resistance probability:</span>
-            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:${successColorContent};display:inline-block"></span>Low (&lt;${lowToHighPredictionThreshold})</span>
-            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:${warningColorContent};display:inline-block"></span>Medium</span>
-            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:${errorColorContent};display:inline-block"></span>High (&gt;${highToLowPredictionThreshold})</span>
-          </div>
-        </div>
-        <div style="overflow-x:auto;border-radius:12px;border:0.5px solid #e5e7eb">
-          <table style="width:100%;border-collapse:collapse;font-size:13px">
-            <thead>
-              <tr style="background:#f9fafb;border-bottom:0.5px solid #e5e7eb">
-                <th style="padding:10px 14px;text-align:left;font-weight:500;font-size:12px;color:#6b7280;white-space:nowrap">Antibiotic</th>
-                ${matrix.models.map(m => `<th style="padding:10px 14px;text-align:center;font-weight:500;font-size:12px;color:#6b7280;white-space:nowrap">${m}</th>`).join('')}
-                <th style="padding:10px 14px;text-align:center;font-weight:500;font-size:12px;color:#111827;border-left:1.5px solid #d1d5db;white-space:nowrap">Average</th>
-              </tr>
-            </thead>
-            <tbody>${rows.join('')}</tbody>
-          </table>
-        </div>
-      </div>`;
+    // Add rows
+    matrix.antibiotics.forEach((antibiotic, index) => {
+      const values = matrix.data[index];
+
+      const row = document.createElement('tr');
+      row.className = 'prediction-row';
+
+      const antibioticCell = document.createElement('td');
+      antibioticCell.className = 'prediction-antibiotic';
+      antibioticCell.textContent = antibiotic;
+
+      row.appendChild(antibioticCell);
+
+      values.forEach(value => {row.appendChild(createPredictionCell(value))});
+
+      // Average
+      row.appendChild(createAverageCell(values));
+
+      body.appendChild(row);
+    });
+
+    predictionResults.classList.remove('hidden');
   }
 
+
+  function createPredictionCell(value) {
+    const cell = document.createElement('td');
+    cell.className = 'prediction-cell';
+
+    if (value === 'NO_RESULT') {
+      cell.classList.add('prediction-no-result');
+
+      const content = document.createElement('div');
+      content.className = 'prediction-cell-content';
+
+      const label = document.createElement('span');
+      label.className = 'prediction-value';
+      label.textContent = 'No results';
+
+      content.appendChild(label);
+      cell.appendChild(content);
+
+      return cell;
+    }
+
+    const level = getPredictionLevel(value);
+    cell.classList.add(level);
+
+    const content = document.createElement('div');
+    content.className = 'prediction-cell-content';
+
+    const valueElement = document.createElement('span');
+    valueElement.className = 'prediction-value';
+    valueElement.textContent = value.toFixed(2);
+
+    const bar = document.createElement('div');
+    bar.className = 'prediction-bar';
+
+    const fill = document.createElement('div');
+    fill.className = `prediction-bar-fill ${level}`;
+    fill.style.width = `${(value * 100).toFixed(0)}%`;
+
+    bar.appendChild(fill);
+
+    content.append(valueElement, bar);
+    cell.appendChild(content);
+
+    return cell;
+  }
+
+
+  function createAverageCell(values) {
+    const cell = document.createElement('td');
+    cell.className = 'prediction-cell prediction-average';
+
+    const numericValues = values.filter(
+      value => value !== 'NO_RESULT'
+    );
+
+    if (numericValues.length === 0) {
+      cell.classList.add('prediction-no-result');
+
+      const content = document.createElement('div');
+      content.className = 'prediction-cell-content';
+
+      const label = document.createElement('span');
+      label.className = 'prediction-value';
+      label.textContent = 'N/A';
+
+      content.appendChild(label);
+      cell.appendChild(content);
+
+      return cell;
+    }
+
+    const average =
+      numericValues.reduce((sum, value) => sum + value, 0) /
+      numericValues.length;
+
+    const roundedAverage = Number(average.toFixed(2));
+    const level = getPredictionLevel(roundedAverage);
+
+    cell.classList.add(level);
+
+    const content = document.createElement('div');
+    content.className = 'prediction-cell-content';
+
+    const valueElement = document.createElement('span');
+    valueElement.className = 'prediction-value';
+    valueElement.textContent = roundedAverage.toFixed(2);
+
+    const bar = document.createElement('div');
+    bar.className = 'prediction-bar';
+
+    const fill = document.createElement('div');
+    fill.className = `prediction-bar-fill ${level}`;
+    fill.style.width = `${(roundedAverage * 100).toFixed(0)}%`;
+
+    bar.appendChild(fill);
+
+    const riskElement = document.createElement('span');
+    riskElement.className = `prediction-risk ${level}`;
+    riskElement.textContent = getRiskLabel(roundedAverage);
+
+    content.append(valueElement, bar, riskElement);
+    cell.appendChild(content);
+
+    return cell;
+  }
+
+
+  function getPredictionLevel(value) {
+    if (value < LOW_THRESHOLD) {
+      return 'prediction-low';
+    }
+
+    if (value < HIGH_THRESHOLD) {
+      return 'prediction-medium';
+    }
+
+    return 'prediction-high';
+  }
+
+
+  function getRiskLabel(value) {
+    if (value < LOW_THRESHOLD) {
+      return 'Low';
+    }
+
+    if (value < HIGH_THRESHOLD) {
+      return 'Medium';
+    }
+
+    return 'High';
+  }
+
+
+  // Prediction
+
   async function computeMatrix() {
-    matrixDiv.innerHTML = '<div class="p-4">Computing…</div>';
-    const sel = collectSelection();
+    if (!predictionResults) {
+      return null;
+    }
+
+    predictionResults.classList.add('hidden');
+
+    if (predictionStatus) {
+      predictionStatus.classList.remove('hidden');
+    }
+
+    const selection = collectSelection();
     const params = new URLSearchParams();
 
-    sel.models.forEach(m => params.append('models', m));
-    sel.antibiotics.forEach(a => params.append('antibiotics', a));
-    params.append('file_id', sel.file_id);
+    selection.models.forEach(model => params.append('models', model));
+
+    selection.antibiotics.forEach(antibiotic => params.append('antibiotics', antibiotic));
+
+    params.append('file_id', selection.file_id);
 
     try {
-        const res = await fetch('/prediction/matrix/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-CSRFToken': csrftoken,
-            },
-            body: params.toString(),
-        });
+      const response = await fetch('/prediction/matrix/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': csrftoken,
+        },
+        body: params.toString(),
+      });
 
-      if (!res.ok) {
-        window.location.href = '/prediction/';
-        return;
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+
+        console.error('Prediction request failed:', response.status, error);
+
+        lastComputedMatrix = null;
+        return null;
       }
-      const matrix = await res.json();
+
+      const matrix = await response.json();
 
       lastComputedMatrix = matrix;
       renderMatrix(matrix);
+
       return matrix;
 
-    } catch (err) {
-      matrixDiv.innerHTML = `<div class="alert alert-error">${error?.error || 'Failed to compute predictions.'}</div>`;
+    } catch (error) {
+      console.error('Prediction failed:', error);
       lastComputedMatrix = null;
       return null;
-    }
-   }
 
-   async function exportCSV() {
+    } finally {
+      if (predictionStatus) {
+        predictionStatus.classList.add('hidden');
+      }
+    }
+  }
+
+
+  // CSV export
+
+  async function exportCSV() {
     let matrix = lastComputedMatrix;
+
     if (!matrix) {
-      matrixDiv.innerHTML = '<div class="p-4">Computing matrix for CSV export…</div>';
       matrix = await computeMatrix();
+
       if (!matrix) {
-        matrixDiv.innerHTML = `<div class="alert alert-error">Cannot export CSV: failed to compute matrix.</div>`;
         return;
       }
     }
 
     try {
-      const res = await fetch('/prediction/matrix/csv/', {
+      const response = await fetch('/prediction/matrix/csv/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -206,46 +350,57 @@ document.addEventListener('DOMContentLoaded', function () {
         body: JSON.stringify(matrix),
       });
 
-      if (!res.ok) {
-        window.location.href = '/prediction/';
+      if (!response.ok) {
+        console.error('CSV export failed:', response.status);
         return;
       }
 
-      const blob = await res.blob();
+      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
 
-      const cd = res.headers.get('Content-Disposition') || '';
-      let filename = 'predictions.csv';
+      const link = document.createElement('a');
+      link.href = url;
 
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      const contentDisposition = response.headers.get('Content-Disposition') || '';
+
+      const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+
+      link.download = filenameMatch? filenameMatch[1] : 'predictions.csv';
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
       setTimeout(() => window.URL.revokeObjectURL(url), 1500);
-    } catch (err) {
-      window.location.href = '/prediction/';
+
+    } catch (error) {
+      console.error('CSV export failed:', error);
     }
-   }
+  }
 
-   computeBtn.addEventListener('click', (e) => {
-     e.preventDefault();
-     console.log('Computing matrix with selection:', collectSelection());
-     computeMatrix();
-   });
 
-   exportBtn.addEventListener('click', (e) => {
-     e.preventDefault();
-     console.log('Exporting CSV with selection:', collectSelection());
-     exportCSV();
-   });
+  // Event listeners
 
+  if (computeBtn) {
+    computeBtn.addEventListener('click', event => {
+      event.preventDefault();
+      computeMatrix();
+    });
+  }
+
+  if (exportBtn) {
+    exportBtn.addEventListener('click', event => {
+      event.preventDefault();
+      exportCSV();
+    });
+  }
+
+
+  // Multi-select initialization
 
   customElements.whenDefined('multi-select').then(() => {
     initializeSelection();
   });
 
-  // initial state
   updateButtonsState();
 });

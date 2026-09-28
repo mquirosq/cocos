@@ -69,7 +69,11 @@
 
       </div>
 
-      <div id="prediction-matrix"></div>
+      <div id="prediction-status" class="hidden">
+        <p>Computing…</p>
+      </div>
+
+      {% include 'prediction/matrix.html' %}
 
     </div>
   </div>
