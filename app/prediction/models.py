@@ -14,7 +14,7 @@ class PredictionTask(models.Model):
 
     selected_models = models.JSONField(default=list)
     selected_antibiotics = models.JSONField(default=list)
-    data = models.JSONField(default=list)
+    data = models.JSONField(default=list, blank=True, null=True)
 
     # Model-level validation
     def clean(self):
