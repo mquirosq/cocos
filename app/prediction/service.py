@@ -76,7 +76,7 @@ def prepare_prediction_csv(matrix):
     antibiotics = matrix.get('antibiotics')
     data = matrix.get('data')
 
-    if not (isinstance(models, list) and isinstance(antibiotics, list) and isinstance(data, list)):
+    if not all(isinstance(value, list) for value in [models, antibiotics, data]):
         raise ValueError('Invalid matrix structure.')
 
     if len(antibiotics) != len(data):
@@ -92,7 +92,7 @@ def prepare_prediction_csv(matrix):
         row_values = []
 
         for value in values:
-            if value is None:
+            if value is (None, 'NO_RESULT'):
                 row_values.append('')
                 continue
 
