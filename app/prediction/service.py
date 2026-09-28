@@ -84,44 +84,5 @@ def start_prediction(user, model_names, antibiotics, file_id):
     )
 
 def prepare_prediction_csv(matrix):
-    if not isinstance(matrix, dict):
-        raise ValueError('Invalid matrix payload.')
-
-    models = matrix.get('models')
-    antibiotics = matrix.get('antibiotics')
-    data = matrix.get('data')
-
-    if not all(isinstance(value, list) for value in [models, antibiotics, data]):
-        raise ValueError('Invalid matrix structure.')
-
-    if len(antibiotics) != len(data):
-        raise ValueError('Matrix data size mismatch.')
-
-    for row in data:
-        if not isinstance(row, list) or len(row) != len(models):
-            raise ValueError('Matrix rows must match models length.')
-
-    rows = []
-
-    for antibiotic, values in zip(antibiotics, data):
-        row_values = []
-
-        for value in values:
-            if value in (None, 'NO_RESULT'):
-                row_values.append('')
-                continue
-
-            try:
-                row_values.append(round(float(value), 4))
-            except (ValueError, TypeError):
-                row_values.append('')
-
-        numeric_values = [value for value in row_values if value != '']
-
-        average = (round(sum(numeric_values) / len(numeric_values), 4)
-            if numeric_values else ''
-        )
-
-        rows.append([antibiotic] + row_values + [average])
-
-    return models, rows
+    # TODO: Remove when async is implemented
+    return None
