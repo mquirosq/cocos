@@ -34,6 +34,19 @@ def get_prediction_input_options(user):
 
     return options
 
+def get_valid_prediction_antibiotics(model_names, antibiotics):
+    return [antibiotic for antibiotic in antibiotics if 
+            any(antibiotic in get_model_supported_antibiotics(model_name) for model_name in model_names)]
+
+def get_prediction_file(user, file_id):
+    if not file_id:
+        return None
+    
+    try:
+        return File.objects.get(pk=int(file_id), user=user, file_type=File.FileType.JSON)
+    except (ValueError, File.DoesNotExist):
+        raise ValueError('Selected file not found.')
+
 def start_prediction(user, model_names, antibiotics, file_id=None):
     if not model_names:
         raise ValueError('Select at least one model.')
@@ -41,17 +54,9 @@ def start_prediction(user, model_names, antibiotics, file_id=None):
     if not antibiotics:
         raise ValueError('Select at least one antibiotic.')
 
-    file = None
-
-    if file_id:
-        try:
-            file = File.objects.get(pk=int(file_id), user=user, file_type=File.FileType.JSON)
-        except (ValueError, File.DoesNotExist):
-            raise ValueError('Selected file not found.')
-
-    valid_antibiotics = [antibiotic for antibiotic in antibiotics
-        if any(antibiotic in get_model_supported_antibiotics(model_name) for model_name in model_names)
-    ]
+    file = get_prediction_file(user, file_id)
+    
+    valid_antibiotics = get_valid_prediction_antibiotics(model_names, antibiotics)
 
     if not valid_antibiotics:
         raise ValueError('No valid antibiotic/model combinations found.')
