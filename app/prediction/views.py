@@ -37,8 +37,10 @@ def prediction_matrix_view(request):
         return JsonResponse({'error': str(e)}, status=400)
     except Exception as e:
         messages.error(request, str(e))
-        return JsonResponse({'error': str(e)}, status=500)
-
+        return JsonResponse(
+            {'error': 'An unexpected error occurred while computing predictions.'},
+            status=500,
+        )
     return JsonResponse(matrix)
 
 @login_required
