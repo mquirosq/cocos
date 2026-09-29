@@ -148,26 +148,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
   // CSV export
-
+  // TODO: Remove the hardcoded URL and use the prediction task ID instead.
   async function exportCSV() {
-    let matrix = lastComputedMatrix;
-
-    if (!matrix) {
-      matrix = await computeMatrix();
-
-      if (!matrix) {
-        return;
-      }
-    }
-
     try {
-      const response = await fetch('/prediction/matrix/csv/', {
+      const response = await fetch('/prediction/3/csv/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-CSRFToken': csrftoken,
         },
-        body: JSON.stringify(matrix),
       });
 
       if (!response.ok) {

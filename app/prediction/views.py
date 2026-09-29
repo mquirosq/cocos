@@ -1,13 +1,14 @@
-import json
-import csv
+import os
 
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponse
-from django.shortcuts import render
+from django.http import FileResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .service import get_prediction_input_options, start_prediction, prepare_prediction_csv
+from core.models import TaskStatus
+from .models import PredictionTask
+from .service import get_prediction_input_options, start_prediction
 from .registry import list_registered_models, list_all_antibiotics
 
 @login_required
@@ -45,23 +46,29 @@ def make_prediction_view(request):
 
 @login_required
 @require_POST
-def prediction_csv_from_matrix_view(request):
+def download_prediction_csv(request, prediction_task_id):
+    task = get_object_or_404(_get_user_prediction_tasks(request.user), pk=prediction_task_id)
+
+    if task.status != TaskStatus.COMPLETED or not task.output_csv:
+        messages.error(request, 'The requested CSV is not available for download.')
+        return redirect('prediction:prediction')
+
     try:
-        matrix = json.loads(request.body)
-        models, rows = prepare_prediction_csv(matrix)
-    except json.JSONDecodeError:
-        messages.error(request, 'Invalid JSON.')
-        return JsonResponse({'error': 'Invalid JSON.'}, status=400)
-    except ValueError as e:
-        messages.error(request, str(e))
-        return JsonResponse({'error': str(e)}, status=400)
+        file = task.output_csv.file.open('rb')
+        filename = os.path.basename(task.output_csv.file.name)
 
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = ('attachment; filename="predictions.csv"')
+        response = FileResponse(
+            file,
+            as_attachment=True,
+            filename=filename,
+            content_type='text/csv',
+        )
+        
+        return response
+    
+    except Exception as e:
+        messages.error(request, 'Could not read the CSV file. Please try again later.')
+        return redirect('prediction:prediction')
 
-    writer = csv.writer(response)
-    writer.writerow(['Antibiotic'] + models + ['Average'])
-
-    writer.writerows(rows)
-
-    return response
+def _get_user_prediction_tasks(user):
+    return PredictionTask.objects.filter(process__user=user).order_by('-created_at')
