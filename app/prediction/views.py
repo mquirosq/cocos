@@ -11,7 +11,7 @@ from .service import get_prediction_input_options, start_prediction, prepare_pre
 from .registry import list_registered_models, list_all_antibiotics
 
 @login_required
-def prediction_view(request):
+def prediction_ui(request):
     return render(request, 'prediction/prediction.html', {
         'input_file_options': get_prediction_input_options(request.user),
         'available_models': list_registered_models(),
@@ -20,7 +20,7 @@ def prediction_view(request):
 
 @login_required
 @require_POST
-def prediction_matrix_view(request):
+def make_prediction_view(request):
     model_names = request.POST.getlist('models')
     antibiotics = request.POST.getlist('antibiotics')
     file_id = request.POST.get('file_id', '').strip() or None
