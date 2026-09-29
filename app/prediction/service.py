@@ -82,7 +82,3 @@ def start_prediction(user, model_names, antibiotics, file_id):
         task_id=task.id,
         file_id=file.id if file else None,
     )
-
-def prepare_prediction_csv(matrix):
-    # TODO: Remove when async is implemented
-    return None
