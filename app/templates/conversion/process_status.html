@@ -112,9 +112,8 @@
           {% for prediction in predictions %}
             <details class="rounded-box border border-base-300 prediction-item">
 
-              <summary class="cursor-pointer list-none p-4">
-                <div class="flex flex-wrap items-center justify-between gap-3">
-
+              <summary class="cursor-pointer list-none p-4 prediction-summary">
+                <div class="flex flex-wrap items-center justify-between gap-3 w-full">
                   <div>
                     <div class="flex flex-wrap items-center gap-2">
                       <p class="font-semibold">
@@ -133,43 +132,8 @@
                     </p>
                   </div>
 
-                  <i class="bi bi-chevron-down prediction-chevron"></i>
-                </div>
-              </summary>
-
-              <div class="border-t border-base-300 p-4">
-
-                <div class="mb-4">
-                  <p class="text-sm font-semibold mb-2">Models</p>
-
-                  <div class="flex flex-wrap gap-2">
-                    {% for model in prediction.models %}
-                      <span class="badge badge-soft">
-                        {{ model }}
-                      </span>
-                    {% endfor %}
-                  </div>
-                </div>
-
-                <div class="mb-4">
-                  <p class="text-sm font-semibold mb-2">Antibiotics</p>
-
-                  <div class="flex flex-wrap gap-2">
-                    {% for antibiotic in prediction.antibiotics %}
-                      <span class="badge badge-soft">
-                        {{ antibiotic }}
-                      </span>
-                    {% endfor %}
-                  </div>
-                </div>
-
-                {% if prediction.status == 'completed' %}
-
-                  {{ prediction.matrix|json_script:prediction.matrix_json_id }}
-
-                    <div class="prediction-matrix" data-matrix-id="{{ prediction.matrix_json_id }}"></div>
-
-                  {% if prediction.can_download %}
+                  <div class="prediction-summary-actions">
+                    {% if prediction.can_download %}
                     <div class="mt-4 flex justify-end">
                       <form
                         method="post"
@@ -179,11 +143,49 @@
 
                         <button type="submit" class="btn btn-sm btn-primary">
                           <i class="bi bi-download"></i>
-                          Download CSV
+                          CSV
                         </button>
                       </form>
                     </div>
                   {% endif %}
+
+                  </div>
+
+                  <i class="bi bi-chevron-down prediction-chevron"></i>
+
+                </div>
+              </summary>
+
+              <div class="border-t border-base-300 p-4">
+
+                <div class="prediction-selection-grid mb-4">
+
+                  <div>
+                    <p class="text-sm font-semibold mb-2">Models</p>
+                    <div class="prediction-badges">
+                      {% for model in prediction.models %}
+                        <span class="badge badge-soft"> {{ model }} </span>
+                      {% endfor %}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p class="text-sm font-semibold mb-2">Antibiotics</p>
+                    <div class="prediction-badges">
+                      {% for antibiotic in prediction.antibiotics %}
+                        <span class="badge badge-soft"> {{ antibiotic }} </span>
+                      {% endfor %}
+                    </div>
+                  </div>
+
+                </div>
+
+                {% if prediction.status == 'completed' %}
+
+                  {{ prediction.matrix|json_script:prediction.matrix_json_id }}
+
+                    <div class="prediction-matrix" data-matrix-id="{{ prediction.matrix_json_id }}"></div>
+
 
                 {% elif prediction.status == 'pending' %}
 
