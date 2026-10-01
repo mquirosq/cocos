@@ -77,8 +77,9 @@ def start_prediction(user, model_names, antibiotics, file_id):
         selected_antibiotics=valid_antibiotics,
         )
 
-    # TODO: Make really async with Celery, for now sync
-    return predict(
+    predict.delay(
         task_id=task.id,
         file_id=file.id if file else None,
     )
+
+    return task

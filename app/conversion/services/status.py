@@ -218,6 +218,34 @@ def build_process_status_context(process):
     
     timeline = [_build_timeline_entry(task) for task in reversed(process_tasks)]
 
+    prediction_tasks = list(process.prediction_tasks
+        .order_by('-created_at', '-id')
+    )
+
+    predictions = [
+        {
+            'id': task.id,
+            'status': task.status,
+            'status_badge': status_badge_class(task.status),
+            'created_at': task.created_at,
+            'updated_at': task.updated_at,
+            'models': task.selected_models,
+            'antibiotics': task.selected_antibiotics,
+            'matrix': {
+                'models': task.selected_models,
+                'antibiotics': task.selected_antibiotics,
+                'data': task.data,
+            },
+            'matrix_json_id': f'prediction-matrix-{task.id}',
+            'can_download': (
+                task.status == TaskStatus.COMPLETED
+                and task.output_csv is not None
+            ),
+        }
+        for task in prediction_tasks
+    ]
+
+
     return {
         'process_name': process.name,
         'process_id': process.id,
@@ -233,6 +261,7 @@ def build_process_status_context(process):
         'can_retry_annotation': can_retry_annotation,
         'timeline': timeline,
         'assembly_task_id': assembly_task.id if assembly_task else None,
+        'predictions': predictions,
     }
 
 def _get_fasta_download_task_id(assembly_task, latest_annotation):

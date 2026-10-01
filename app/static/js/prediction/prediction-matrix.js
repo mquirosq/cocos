@@ -2,9 +2,10 @@ const LOW_THRESHOLD = 0.35;
 const HIGH_THRESHOLD = 0.65;
 
 
-function initializeMatrix() {
-  const lowThresholdElement = document.getElementById('prediction-low-threshold');
-  const highThresholdElement = document.getElementById('prediction-high-threshold');
+function initializeMatrix(container) {
+  const lowThresholdElement = container.querySelector('.prediction-low-threshold');
+
+  const highThresholdElement = container.querySelector('.prediction-high-threshold');
 
   if (lowThresholdElement) {
     lowThresholdElement.textContent = LOW_THRESHOLD;
@@ -16,36 +17,47 @@ function initializeMatrix() {
 }
 
 
-function renderMatrix(matrix) {
-  const header = document.getElementById('prediction-header');
-  const body = document.getElementById('prediction-body');
-  const predictionResults = document.getElementById('prediction-results');
+function renderMatrix(container, matrix) {
+  const template = document.getElementById('prediction-matrix-template');
 
-  if (!header || !body || !predictionResults) {
+  if (!template) {
+    console.error('Prediction matrix template not found.');
     return;
   }
 
-  body.innerHTML = '';
+  container.innerHTML = template.innerHTML;
 
-  // Remove previous model headers
-  header
-    .querySelectorAll('.prediction-model-header')
-    .forEach(element => element.remove());
+  initializeMatrix(container);
 
-  // Add model headers
-  matrix.models.forEach(model => {
+  const header = container.querySelector('.prediction-header');
+  const body = container.querySelector('.prediction-body');
+
+  if (!header || !body) {
+    console.error('Prediction matrix elements not found.');
+    return;
+  }
+
+  renderHeaders(header, matrix.models);
+  renderRows(body, matrix);
+}
+
+
+function renderHeaders(header, models) {
+  const averageHeader = header.querySelector('.prediction-average-header');
+
+  models.forEach(model => {
     const th = document.createElement('th');
 
     th.className = 'prediction-table-header prediction-model-header';
     th.textContent = model;
 
-    header.insertBefore(
-      th,
-      header.querySelector('.prediction-average-header')
-    );
+    header.insertBefore(th, averageHeader);
   });
+}
 
-  // Add rows
+function renderRows(body, matrix) {
+  body.innerHTML = '';
+
   matrix.antibiotics.forEach((antibiotic, index) => {
     const values = matrix.data[index];
 
@@ -66,8 +78,6 @@ function renderMatrix(matrix) {
 
     body.appendChild(row);
   });
-
-  predictionResults.classList.remove('hidden');
 }
 
 
@@ -201,3 +211,33 @@ function getRiskLabel(value) {
 
   return 'High';
 }
+
+
+function initializePredictionMatrices() {
+  document.querySelectorAll('.prediction-matrix').forEach(container => {
+    const matrixId = container.dataset.matrixId;
+
+    if (!matrixId) {
+      return;
+    }
+
+    const matrixElement = document.getElementById(matrixId);
+
+    if (!matrixElement) {
+      return;
+    }
+
+    try {
+      const matrix = JSON.parse(matrixElement.textContent);
+      renderMatrix(container, matrix);
+    } catch (error) {
+      console.error('Could not parse prediction matrix:', error);
+    }
+  });
+}
+
+
+document.addEventListener(
+  'DOMContentLoaded',
+  initializePredictionMatrices
+);

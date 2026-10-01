@@ -1,48 +1,44 @@
-<div id="prediction-results" class="hidden">
-  <div class="prediction-matrix-wrapper">
+<div class="prediction-matrix-wrapper">
 
-    <div class="prediction-matrix-header">
-      <span class="prediction-matrix-title">Prediction matrix</span>
+  <div class="prediction-matrix-header">
+    <span class="prediction-matrix-title">Prediction matrix</span>
 
-      <div class="prediction-legend">
-        <span>Resistance probability:</span>
+    <div class="prediction-legend">
+      <span>Resistance probability:</span>
 
-        <span class="prediction-legend-item">
-          <span class="prediction-legend-dot prediction-low"></span>
-          Low (&lt;<span id="prediction-low-threshold"></span>)
-        </span>
+      <span class="prediction-legend-item">
+        <span class="prediction-legend-dot prediction-low"></span>
+        Low (&lt;<span class="prediction-low-threshold"></span>)
+      </span>
 
-        <span class="prediction-legend-item">
-          <span class="prediction-legend-dot prediction-medium"></span>
-          Medium
-        </span>
+      <span class="prediction-legend-item">
+        <span class="prediction-legend-dot prediction-medium"></span>
+        Medium
+      </span>
 
-        <span class="prediction-legend-item">
-          <span class="prediction-legend-dot prediction-high"></span>
-          High (&gt;<span id="prediction-high-threshold"></span>)
-        </span>
-      </div>
+      <span class="prediction-legend-item">
+        <span class="prediction-legend-dot prediction-high"></span>
+        High (&gt;<span class="prediction-high-threshold"></span>)
+      </span>
     </div>
-
-    <div class="prediction-table-container">
-      <table class="prediction-table">
-        <thead>
-          <tr id="prediction-header">
-            <th class="prediction-table-header prediction-antibiotic-header">
-              Antibiotic
-            </th>
-
-            <!-- Model headers inserted by JS -->
-
-            <th class="prediction-table-header prediction-average-header">
-              Average
-            </th>
-          </tr>
-        </thead>
-
-        <tbody id="prediction-body"></tbody>
-      </table>
-    </div>
-
   </div>
+
+  <div class="prediction-table-container">
+    <table class="prediction-table">
+      <thead>
+        <tr class="prediction-header">
+          <th class="prediction-table-header prediction-antibiotic-header">
+            Antibiotic
+          </th>
+
+          <th class="prediction-table-header prediction-average-header">
+            Average
+          </th>
+        </tr>
+      </thead>
+
+      <tbody class="prediction-body"></tbody>
+    </table>
+  </div>
+
 </div>

@@ -25,9 +25,10 @@ def make_prediction_view(request):
     model_names = request.POST.getlist('models')
     antibiotics = request.POST.getlist('antibiotics')
     file_id = request.POST.get('file_id', '').strip() or None
+    task = None
 
     try:
-        matrix = start_prediction(
+        task = start_prediction(
             user=request.user,
             model_names=model_names,
             antibiotics=antibiotics,
@@ -42,7 +43,8 @@ def make_prediction_view(request):
             {'error': 'An unexpected error occurred while computing predictions.'},
             status=500,
         )
-    return JsonResponse(matrix)
+    
+    return JsonResponse({'task_id': task.id, 'process_id': task.process.id}, status=202)
 
 @login_required
 @require_POST

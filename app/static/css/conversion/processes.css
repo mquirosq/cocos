@@ -351,3 +351,23 @@
   }
 }
 
+
+.prediction-item > summary {
+    list-style: none;
+}
+
+.prediction-item > summary::-webkit-details-marker {
+    display: none;
+}
+
+.prediction-item > summary::marker {
+    display: none;
+}
+
+.prediction-item[open] .prediction-chevron {
+    transform: rotate(180deg);
+}
+
+.prediction-chevron {
+    transition: transform 0.2s ease;
+}

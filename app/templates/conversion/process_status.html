@@ -3,6 +3,7 @@
 
 {% block override_style %}
 <link rel="stylesheet" href="{% static 'css/conversion/processes.css' %}">
+<link rel="stylesheet" href="{% static 'css/prediction/prediction-matrix.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -101,5 +102,134 @@
     </div>
   </div>
 
+  
+  <div class="card bg-base-100 border border-base-300 shadow-sm process-timeline-card mt-4">
+    <div class="card-body">
+      <h2 class="card-title text-xl">Predictions</h2>
+
+      {% if predictions %}
+        <div class="space-y-3">
+          {% for prediction in predictions %}
+            <details class="rounded-box border border-base-300 prediction-item">
+
+              <summary class="cursor-pointer list-none p-4">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+
+                  <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <p class="font-semibold">
+                        Prediction · {{ prediction.created_at|date:'d-m-Y H:i' }}
+                      </p>
+
+                      <span class="badge process-status-badge {{ prediction.status_badge }}">
+                        {{ prediction.status|capfirst }}
+                      </span>
+                    </div>
+
+                    <p class="text-sm text-base-content/70 mt-1">
+                      {{ prediction.models|length }} model{{ prediction.models|length|pluralize }}
+                      ·
+                      {{ prediction.antibiotics|length }} antibiotic{{ prediction.antibiotics|length|pluralize }}
+                    </p>
+                  </div>
+
+                  <i class="bi bi-chevron-down prediction-chevron"></i>
+                </div>
+              </summary>
+
+              <div class="border-t border-base-300 p-4">
+
+                <div class="mb-4">
+                  <p class="text-sm font-semibold mb-2">Models</p>
+
+                  <div class="flex flex-wrap gap-2">
+                    {% for model in prediction.models %}
+                      <span class="badge badge-soft">
+                        {{ model }}
+                      </span>
+                    {% endfor %}
+                  </div>
+                </div>
+
+                <div class="mb-4">
+                  <p class="text-sm font-semibold mb-2">Antibiotics</p>
+
+                  <div class="flex flex-wrap gap-2">
+                    {% for antibiotic in prediction.antibiotics %}
+                      <span class="badge badge-soft">
+                        {{ antibiotic }}
+                      </span>
+                    {% endfor %}
+                  </div>
+                </div>
+
+                {% if prediction.status == 'completed' %}
+
+                  {{ prediction.matrix|json_script:prediction.matrix_json_id }}
+
+                    <div class="prediction-matrix" data-matrix-id="{{ prediction.matrix_json_id }}"></div>
+
+                  {% if prediction.can_download %}
+                    <div class="mt-4 flex justify-end">
+                      <form
+                        method="post"
+                        action="{% url 'prediction:download_csv' prediction.id %}"
+                      >
+                        {% csrf_token %}
+
+                        <button type="submit" class="btn btn-sm btn-primary">
+                          <i class="bi bi-download"></i>
+                          Download CSV
+                        </button>
+                      </form>
+                    </div>
+                  {% endif %}
+
+                {% elif prediction.status == 'pending' %}
+
+                  <div class="text-sm text-base-content/70">
+                    <i class="bi bi-clock"></i>
+                    Prediction is waiting to start.
+                  </div>
+
+                {% elif prediction.status == 'running' %}
+
+                  <div class="text-sm text-base-content/70">
+                    <span class="loading loading-spinner loading-sm"></span>
+                    Prediction is running...
+                  </div>
+
+                {% elif prediction.status == 'failed' %}
+
+                  <div class="alert alert-error">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Prediction failed.
+                  </div>
+
+                {% endif %}
+
+              </div>
+            </details>
+          {% endfor %}
+        </div>
+
+      {% else %}
+
+        <p class="text-sm text-base-content/70">
+          No predictions have been made for this process yet.
+        </p>
+
+      {% endif %}
+    </div>
+  </div>
+
 </div>
+
+<template id="prediction-matrix-template">
+  {% include 'prediction/matrix.html' %}
+</template>
+
+<script src="{% static 'js/prediction/prediction-matrix.js' %}"></script>
+
 {% endblock %}
+
