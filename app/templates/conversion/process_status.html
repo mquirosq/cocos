@@ -4,6 +4,7 @@
 {% block override_style %}
 <link rel="stylesheet" href="{% static 'css/conversion/processes.css' %}">
 <link rel="stylesheet" href="{% static 'css/prediction/prediction-matrix.css' %}">
+<link rel="stylesheet" href="{% static 'css/components/pagination.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -103,7 +104,7 @@
   </div>
 
   
-  <div class="card bg-base-100 border border-base-300 shadow-sm process-timeline-card mt-4">
+  <div id="predictions-section" class="card bg-base-100 border border-base-300 shadow-sm process-timeline-card mt-4">
     <div class="card-body">
       <h2 class="card-title text-xl">Predictions</h2>
 
@@ -215,6 +216,8 @@
           {% endfor %}
         </div>
 
+        {% include 'includes/pagination.html' with pagination_url=pagination_url pagination_query=pagination_query pagination_label=pagination_label pagination_link_attribute=pagination_link_attribute %}
+        
       {% else %}
 
         <p class="text-sm text-base-content/70">
@@ -232,6 +235,7 @@
 </template>
 
 <script src="{% static 'js/prediction/prediction-matrix.js' %}"></script>
+<script src="{% static 'js/conversion/process-status.js' %}"></script>
 
 {% endblock %}
 

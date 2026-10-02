@@ -49,7 +49,7 @@ def process_status_view(request, process_id):
         messages.error(request, 'You do not have permission to view this process.')
         return redirect('conversion:process_list')
 
-    context = build_process_status_context(process)
+    context = build_process_status_context(process, page=request.GET.get('page'))
 
     return render(request, 'conversion/process_status.html', context)
 

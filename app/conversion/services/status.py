@@ -1,10 +1,13 @@
 import os
 from django.db.models import Max, Prefetch
+from django.core.paginator import Paginator
+from django.urls import reverse
 
 from ..models import ConversionTask
 from core.models import File, ProcessGroup, TaskStatus
 from .presentation import pipeline_label, status_badge_class, build_process_steps
 from ..task_types import ASSEMBLY_TYPES, ANNOTATED_TYPES, ASSEMBLY_AND_ANNOTATION_TYPES
+from app.utils.pagination import get_pagination_page_range
 
 def get_processes_of_user_prefetch_tasks_and_files(user):
     """
@@ -179,7 +182,7 @@ def _build_json_row(process, json_tasks):
     }
 
 
-def build_process_status_context(process):
+def build_process_status_context(process, page=1):
     """Build the context for the process status template."""
 
     process_tasks = list(process.conversion_tasks
@@ -222,6 +225,13 @@ def build_process_status_context(process):
         .order_by('-created_at', '-id')
     )
 
+    paginator = Paginator(prediction_tasks, 3)
+    prediction_page = paginator.get_page(page)
+
+    pagination_url = reverse('conversion:process_status', kwargs={'process_id': process.id})
+
+    pagination_page_range = get_pagination_page_range(paginator, prediction_page.number)
+
     predictions = [
         {
             'id': task.id,
@@ -242,7 +252,7 @@ def build_process_status_context(process):
                 and task.output_csv is not None
             ),
         }
-        for task in prediction_tasks
+        for task in prediction_page
     ]
 
 
@@ -262,6 +272,12 @@ def build_process_status_context(process):
         'timeline': timeline,
         'assembly_task_id': assembly_task.id if assembly_task else None,
         'predictions': predictions,
+        'page_obj': prediction_page,
+        'pagination_page_range': pagination_page_range,
+        'pagination_url': pagination_url,
+        'pagination_query': '',
+        'pagination_label': 'Predictions',
+        'pagination_link_attribute': 'data-prediction-page', 
     }
 
 def _get_fasta_download_task_id(assembly_task, latest_annotation):
