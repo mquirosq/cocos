@@ -9,11 +9,12 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from app.utils.pagination import get_pagination_page_range
-from ..models import ConversionTask
+from core.utils import create_file_zip
 from core.models import ProcessGroup, TaskStatus
 from ..services.status import (
     build_process_rows,
     build_process_status_context,
+    get_fastq_uploads_for_task,
     get_fasta_upload_for_task,
     get_json_upload_for_task,
     rename_process,
@@ -110,6 +111,30 @@ def download_fasta_view(request, task_id):
 
     except Exception:
         messages.error(request, 'Could not read the FASTA file. Please try again later.')
+        return redirect('conversion:process_status', process_id=task.process.id)
+
+@login_required
+def download_fastq_view(request, task_id):
+    task = get_object_or_404(get_current_user_tasks(request), id=task_id)
+
+    uploads = get_fastq_uploads_for_task(task)
+
+    if not uploads.exists():
+        messages.error(request, 'FASTQ files are not available for download.')
+        return redirect('conversion:process_status', process_id=task.process.id)
+
+    try:
+        zip_path = create_file_zip(uploads)
+
+        return FileResponse(
+            open(zip_path, 'rb'),
+            as_attachment=True,
+            filename=f'{task.process.name}_fastq.zip',
+            content_type='application/zip',
+        )
+
+    except Exception:
+        messages.error(request, 'Could not read the FASTQ files. Please try again later.')
         return redirect('conversion:process_status', process_id=task.process.id)
     
 @require_POST

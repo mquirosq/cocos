@@ -14,4 +14,5 @@ urlpatterns = [
     path('processes/<int:process_id>/rename/', status.rename_process_view, name='rename_process'),
     path('tasks/<int:task_id>/download-json/', status.download_json_view, name='download_json'),
     path('tasks/<int:task_id>/download-fasta/', status.download_fasta_view, name='download_fasta'),
+    path('tasks/<int:task_id>/download-fastq/', status.download_fastq_view, name='download_fastq'),
 ]

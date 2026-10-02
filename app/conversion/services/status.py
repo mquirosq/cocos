@@ -325,6 +325,12 @@ def rename_process(process, new_name):
     process.name = new_name
     process.save(update_fields=["name"])
 
+def get_fastq_uploads_for_task(task):
+    """Return FASTQ file(s) object for a task, or None if not found."""
+    if task.task_type in ASSEMBLY_TYPES:
+        return task.input_files.all()
+
+    return File.objects.none()
 
 def get_fasta_upload_for_task(task):
     """Return FASTA file object for a task, or None if not found."""

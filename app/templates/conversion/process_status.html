@@ -43,6 +43,12 @@
       <div class="mt-4">
         <h2 class="font-semibold mb-2">Downloads</h2>
         <div class="flex flex-wrap gap-2">
+          {% if assembly_task_id %}
+            <a href="{% url 'conversion:download_fastq' assembly_task_id %}" class="btn btn-sm process-download-btn"><i class="bi bi-download"></i>FASTQ</a>
+          {% else %}
+            <button class="btn btn-sm process-download-btn" disabled><i class="bi bi-download"></i>FASTQ</button>
+          {% endif %}
+
           {% if fasta_download_task_id %}
             <a href="{% url 'conversion:download_fasta' fasta_download_task_id %}" class="btn btn-sm process-download-btn"><i class="bi bi-download"></i>FASTA</a>
           {% else %}
