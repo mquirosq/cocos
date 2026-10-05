@@ -44,8 +44,8 @@ def build_process_steps(assembly_task=None, annotation=None, json_task=None, is_
                     "state": "complete",
                 },
                 {
-                    "label": "Assembling",
-                    "state": _task_step_state(assembly_task),
+                    "label": "Assembled",
+                    "state": "complete" if assembly_task.status == TaskStatus.RUNNING else "current",
                 },
                 {
                     "label": "Annotated",
@@ -59,7 +59,7 @@ def build_process_steps(assembly_task=None, annotation=None, json_task=None, is_
                 "state": "complete",
             },
             {
-                "label": "Assembling",
+                "label": "Assembled",
                 "state": _task_step_state(assembly_task),
             },
         ]
