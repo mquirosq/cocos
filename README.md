@@ -1,12 +1,14 @@
 # cocos
 
-Framework to easily access and offer prediction models for predicting antibiotic resistance.
+Framework for integrating and deploying antibiotic resistance prediction models in genomic analysis workflows.
+
+COCOS provides a web interface that allows users to process genomic data and obtain antibiotic resistance predictions from multiple registered prediction models. The framework is designed to facilitate the use of research models by users without requiring direct interaction with the underlying machine learning implementations.
 
 ---
 
 ## Quick Start
 
-### Development Setup (Windows)
+### Development Setup
 
 From the `cocos` folder run:
 
@@ -27,20 +29,104 @@ cd docker
 docker compose -f docker-compose.yml up
 ```
 
+The development environment includes:
+
+- Django development server
+- PostgreSQL
+- Redis
+- Celery worker
+
 Access at: `http://localhost:8080`
 
-### Production Deployment (Docker)
+The development environment mounts the application source code into the containers, so changes to the code are reflected without rebuilding the image.
+
+### Production Deployment
+
+The production environment uses:
+
+                         Nginx
+                           │
+                           ▼
+                       Gunicorn
+                           │
+                           ▼
+                         Django
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+          PostgreSQL      Redis       Celery
+
+Nginx is the public entry point and acts as a reverse proxy for the Django application.
+
+The Django/Gunicorn container is not directly exposed to the host.
 
 From `cocos/docker` folder:
 
 ```bash
 # Configure environment (copy template and fill with real values)
 cp ../.env.prod.example ../.env.prod
-# Edit .env.prod with production credentials
-
-# Deploy
-docker compose -f docker-compose.prod.yml up --build
 ```
+
+Then edit `.env.prod and` configure the required values. At minimum, production requires:
+
+```
+DJANGO_DEBUG=0
+DJANGO_SECRET_KEY=<strong-secret-key>
+
+DB_NAME=<database-name>
+DB_USER=<database-user>
+DB_PASSWORD=<strong-password>
+DB_HOST=postgres
+DB_PORT=5432
+
+POSTGRES_DB=<database-name>
+POSTGRES_USER=<database-user>
+POSTGRES_PASSWORD=<strong-password>
+```
+
+Generate a Django secret key with:
+
+```
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+```
+
+If email notifications are enabled, configure:
+
+```
+SENDGRID_API_KEY=<api-key>
+```
+
+The production domain is configured through environment variables:
+
+```
+DJANGO_ALLOWED_HOSTS=<domain>
+DJANGO_CSRF_TRUSTED_ORIGINS=https://<domain>
+```
+
+For example:
+
+```
+DJANGO_ALLOWED_HOSTS=cocos.example.com
+DJANGO_CSRF_TRUSTED_ORIGINS=https://cocos.example.com
+```
+
+These values depend on the domain assigned to the deployment.
+
+To start the production environment, run:
+
+```
+docker compose --env-file ../.env.prod -f docker-compose.prod.yml -p cocos-prod up --build -d
+```
+
+The production stack contains:
+
+- `cocos-web` - Django + Gunicorn
+- `cocos-worker` - Celery worker
+- `cocos-nginx` - Nginx reverse proxy
+- `cocos-postgres` - PostgreSQL
+- `cocos-redis` - Redis
+
+The application data and uploaded files are stored in Docker volumes.
 
 Access at: `http://localhost` (port 80)
 
