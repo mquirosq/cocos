@@ -12,64 +12,71 @@
 <div class="container mx-auto px-4 py-8">
   <div class="mb-6">
     <h1 class="text-3xl font-bold mb-2">Prediction</h1>
-    <p class="text-base-content/70">Select models, antibiotics, and an uploaded dataset to compute a prediction matrix.</p>
+    <p class="text-base-content/70">
+      Use prediction models to estimate antibiotic resistance from an annotated dataset.
+    </p>
   </div>
+
+  <div class="alert alert-info alert-soft border-2 border-base-content mb-6 items-start gap-3">
+  <i class="bi bi-info-circle text-lg mt-0.5"></i>
+  <div>
+    <h3 class="font-semibold">What happens?</h3>
+    <p class="text-sm mt-1">
+      Cocos runs the selected prediction models on your annotated sample for the antibiotics you choose. 
+      The results are combined into a prediction matrix showing the predicted resistance or susceptibility
+      for each antibiotic and model.
+    </p>
+  </div>
+</div>
 
   <div class="bg-base-100 border border-base-300 rounded-box shadow-sm px-4 sm:px-6 py-6">
     <div class="space-y-6">
-      <div class="grid gap-6 lg:grid-cols-1">
+      <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4">
+        <legend class="fieldset-legend text-base font-semibold">Sample selection</legend>
+        <p class="text-sm opacity-70 mb-3">Select an annotated sample to use as input for the prediction models.</p>
 
-        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4">
-          <legend class="fieldset-legend text-base font-semibold flex items-center gap-2">
-            Antibiotics
-          </legend>
-          <div class="flex justify-between items-center mb-2">
-            <multi-select placeholder="Select antibiotics…" id="antibiotics-select" class="multiselect w-full">
-              {% for antibiotic in available_antibiotics %}
-                <ms-option value="{{ antibiotic }}">{{ antibiotic }}</ms-option>
-              {% empty %}
-                <option value="" disabled>No available antibiotics</option>
-              {% endfor %}
-            </multi-select>
-          </div>
-        </fieldset>
+        <select id="file_id_batch" class="select select-bordered w-full source-job-select">
+          <option value="">Select a sample</option>
 
-        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4">
-          <legend class="fieldset-legend text-base font-semibold flex items-center gap-2">
-            Models
-          </legend>
-          <div class="flex justify-between items-center mb-2">
-            <multi-select placeholder="Select models…" id="models-select" class="multiselect w-full">
-              {% for model in available_models %}
-                <ms-option value="{{ model }}">{{ model }}</ms-option>
-              {% empty %}
-                <option value="" disabled>No available models</option>
-              {% endfor %}
-            </multi-select>
-          </div>
-        </fieldset>
+          {% for upload in input_file_options %}
+            <option value="{{ upload.id }}">{{ upload.label }}</option>
+          {% empty %}
+            <option value="" disabled>
+              No available samples for prediction
+            </option>
+          {% endfor %}
+        </select>
+      </fieldset>
 
-        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4">
-          <legend class="fieldset-legend text-base font-semibold">Dataset</legend>
-          <select id="file_id_batch" class="select select-bordered w-full source-job-select">
-              <option value="">Select a processed file</option>
-              {% for upload in input_file_options %}
-                <option value="{{ upload.id }}">{{ upload.label }}</option>
-              {% empty %}
-                <option value="" disabled>No available processes for prediction</option>
-              {% endfor %}
-            </select>
-        </fieldset>
+      <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4">
+        <legend class="fieldset-legend text-base font-semibold">Prediction models</legend>
+        <p class="text-sm opacity-70 mb-3">Select the models you want to use for the prediction.</p>
 
+        <multi-select placeholder="Select models…" id="models-select" class="multiselect w-full">
+          {% for model in available_models %}
+            <ms-option value="{{ model }}">{{ model }}</ms-option>
+          {% empty %}
+            <option value="" disabled>No available models</option>
+          {% endfor %}
+        </multi-select>
+      </fieldset>
+
+      <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4">
+        <legend class="fieldset-legend text-base font-semibold">Antibiotics</legend>
+
+        <p class="text-sm opacity-70 mb-3">Select the antibiotics for which you want predictions.</p>
+
+        <multi-select placeholder="Select antibiotics…" id="antibiotics-select" class="multiselect w-full">
+          {% for antibiotic in available_antibiotics %}
+            <ms-option value="{{ antibiotic }}">{{ antibiotic }}</ms-option>
+          {% empty %}
+            <option value="" disabled>No available antibiotics</option>
+          {% endfor %}
+        </multi-select>
+      </fieldset>
 
       <div>
-        <button id="compute-matrix" class="btn btn-primary">Compute matrix</button>
-      </div>
-
-      </div>
-
-      <div id="prediction-status" class="hidden">
-        <p>Computing…</p>
+        <button id="compute-matrix" class="btn btn-primary">Compute Prediction</button>
       </div>
     </div>
   </div>
