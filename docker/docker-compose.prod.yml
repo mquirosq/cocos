@@ -66,6 +66,8 @@ services:
       redis:
         condition: service_started
     restart: unless-stopped
+    volumes:
+      - media_volume:/app/media
     networks:
       - bio-network
 
