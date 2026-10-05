@@ -31,6 +31,15 @@ ALLOWED_HOSTS = os.getenv(
      "localhost",
 ).split(",")
 
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "DJANGO_CSRF_TRUSTED_ORIGINS",
+        "",
+    ).split(",")
+    if origin.strip()
+]
+
 # Application definition
 
 INSTALLED_APPS = [
