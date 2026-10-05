@@ -11,7 +11,8 @@
 <div class="container mx-auto px-4 py-8">
   <div class="mb-6">
     <h1 class="text-3xl font-bold mb-2">Assembly</h1>
-    <p class="text-base-content/70">Transform FASTQ reads into assembled FASTA output. Use Illumina or ONT depending on your machine.</p>
+    <p class="text-base-content/70">Assemble sequencing reads into a genome sequence that can be used for annotation and prediction.</p>
+    <p class="text-base-content/70">Choose the appropriate tab depending on the sequencing method used in your data.</p>
   </div>
 
   <div class="alert alert-soft alert-info border-2 border-base-content mb-4 items-center gap-3">
@@ -22,22 +23,37 @@
 
   <div class="bg-base-200 border border-base-300 border-b-0 rounded-t-box shadow-sm px-2 sm:px-4 pt-4 mb-0 conversion-card-top">
     <div role="tablist" class="tabs tabs-lift w-fit conversion-tabs" aria-label="Assembly technology tabs">
-      <button role="tab" class="tab tab-active" data-target-tab="illumina-panel">Illumina</button>
-      <button role="tab" class="tab" data-target-tab="ont-panel">ONT</button>
+      <button role="tab" class="tab tab-active" data-target-tab="illumina-panel">Illumina Sequencing</button>
+      <button role="tab" class="tab" data-target-tab="ont-panel">ONT Sequencing</button>
     </div>
   </div>
 
   <div class="bg-base-100 border border-base-300 rounded-b-box shadow-sm px-4 sm:px-6 py-6 conversion-card-body">
+
     <div id="illumina-panel" class="tab-panel">
       <div class="space-y-4">
-        <h2 class="card-title">Illumina FASTQ to FASTA</h2>
-        <p class="text-sm opacity-70">Upload paired-end reads (R1 and R2).</p>
+        <div>
+          <h2 class="card-title">Assemble Illumina FASTQ</h2>
+          <p class="text-sm opacity-70">Upload paired-end Illumina reads to assemble them into a FASTA genome sequence.</p>
+        </div>
+
+        <div class="alert alert-info alert-soft border border-info/30 items-start gap-3">
+          <i class="bi bi-info-circle text-lg mt-0.5"></i>
+          <div>
+            <h3 class="font-semibold">What happens?</h3>
+            <p class="text-sm mt-1">
+              Cocos uses SPAdes to assemble your sequencing reads into longer genomic sequences.
+              The resulting FASTA can then be annotated and used for prediction.
+            </p>
+          </div>
+        </div>
+
         <form id="assembly-form-illumina" method="post" enctype="multipart/form-data" action="{% url 'conversion:assembly_run' %}" class="space-y-4">
           {% csrf_token %}
           <input type="hidden" name="assembly_type" value="illumina">
 
           <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4 assembly-interactive">
-            <legend class="fieldset-legend text-base font-semibold">Input reads</legend>
+            <legend class="fieldset-legend text-base font-semibold">Paired-end reads</legend>
 
             <label class="label text-base font-medium" for="illumina_fastq_1">FASTQ read 1</label>
             <div class="assembly-input-shell bg-base-100">
@@ -50,15 +66,20 @@
             </div>
           </fieldset>
 
-          <label class="label w-full cursor-pointer justify-start gap-3 px-1 py-1 assembly-annotate-row">
-            <input class="checkbox checkbox-primary" type="checkbox" name="annotate">
-            <span class="label-text">Run annotation automatically after assembly</span>
+          <label class="flex cursor-pointer items-center justify-between gap-4 rounded-box border border-base-300 bg-base-200 px-4 py-3">
+            <div class="flex items-start gap-3">
+              <i class="bi bi-gear-fill text-base mt-1"></i>
+              <div>
+                <span class="font-medium">Run annotation automatically</span>
+                <p class="text-sm opacity-70 mt-1">Automatically annotate the assembled FASTA with Bakta when the assembly finishes.</p>
+              </div>
+            </div>
+
+            <input class="toggle toggle-primary shrink-0" type="checkbox" name="annotate">
           </label>
 
           <div class="w-full">
-            <div class="join">
-              <button type="submit" class="btn btn-primary join-item">Start Illumina Assembly</button>
-            </div>
+            <button type="submit" class="btn btn-primary">Start Assembly</button>
           </div>
         </form>
       </div>
@@ -66,14 +87,29 @@
 
     <div id="ont-panel" class="tab-panel hidden">
       <div class="space-y-4">
-        <h2 class="card-title">ONT FASTQ to FASTA</h2>
-        <p class="text-sm opacity-70">Upload a single ONT read file.</p>
+
+        <div>
+          <h2 class="card-title">Assemble ONT FASTQ</h2>
+          <p class="text-sm opacity-70">Upload an ONT read file to assemble it into a FASTA genome sequence.</p>
+        </div>
+
+        <div class="alert alert-info alert-soft border border-info/30 items-start gap-3">
+          <i class="bi bi-info-circle text-lg mt-0.5"></i>
+          <div>
+            <h3 class="font-semibold">What happens?</h3>
+            <p class="text-sm mt-1">
+              Cocos uses Flye or Raven to assemble your long sequencing reads into a genome sequence.
+              The resulting FASTA can then be annotated and used for prediction.
+            </p>
+          </div>
+        </div>
+
         <form id="assembly-form-ont" method="post" enctype="multipart/form-data" action="{% url 'conversion:assembly_run' %}" class="space-y-4">
           {% csrf_token %}
           <input type="hidden" name="assembly_type" value="ont">
 
           <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box p-4 assembly-interactive">
-            <legend class="fieldset-legend text-base font-semibold">Input reads</legend>
+            <legend class="fieldset-legend text-base font-semibold">Sequencing reads</legend>
 
             <label class="label text-base font-medium" for="ont_fastq">FASTQ read</label>
             <div class="assembly-input-shell bg-base-100">
@@ -81,22 +117,27 @@
             </div>
           </fieldset>
 
-          <label class="label w-full cursor-pointer justify-start gap-3 px-1 py-1 assembly-annotate-row">
-            <input class="checkbox checkbox-primary" type="checkbox" name="annotate">
-            <span class="label-text">Run annotation automatically after assembly</span>
+          <label class="flex cursor-pointer items-center justify-between gap-4 rounded-box border border-base-300 bg-base-200 px-4 py-3">
+            <div class="flex items-start gap-3">
+              <i class="bi bi-gear-fill text-base mt-1"></i>
+              <div>
+                <span class="font-medium">Run annotation automatically</span>
+                <p class="text-sm opacity-70 mt-1">Automatically annotate the assembled FASTA with Bakta when the assembly finishes.</p>
+              </div>
+            </div>
+
+            <input class="toggle toggle-primary shrink-0" type="checkbox" name="annotate">
           </label>
 
           <div class="w-full">
-            <div class="join">
-              <button type="submit" class="btn btn-primary join-item">Start ONT Assembly</button>
-            </div>
+            <button type="submit" class="btn btn-primary">Start Assembly</button>
           </div>
         </form>
       </div>
     </div>
+
   </div>
 </div>
 
 <script src="{% static 'js/conversion/assembly.js' %}"></script>
-
 {% endblock %}
