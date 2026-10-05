@@ -28,7 +28,9 @@ document.addEventListener('DOMContentLoaded', function () {
   const clearFastaFileButton = document.getElementById('clear-fasta-file');
 
   function syncFastaSourceGuard() {
-    if (!sourceJobSelect || !fastaFileInput) return;
+    if (!sourceJobSelect || !fastaFileInput){
+      return;
+    }
     const hasSourceJob = Boolean(sourceJobSelect.value);
     const hasLocalFile = Boolean(fastaFileInput.files && fastaFileInput.files.length > 0);
 
