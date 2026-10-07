@@ -63,7 +63,7 @@ def _has_annotation_for_previous(previous_task):
     """Check if there is an annotation task for the given user and previous assembly task."""
     if not previous_task:
         return False
-    return previous_task.process.conversion_tasks.filter(task_type__in=ANNOTATED_TYPES).exists()
+    return ConversionTask.objects.filter(process=previous_task.process, task_type__in=ANNOTATED_TYPES).exists()
 
 # Assembly
 def start_assembly(user, assembly_type, fastq, fastq_2=None, annotate=False, complete_version=False):

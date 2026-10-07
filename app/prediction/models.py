@@ -1,13 +1,12 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 
-from core.models import File, ProcessGroup, Task
+from core.models import File, Task
 
 class PredictionTask(Task):
     """A prediction task representing a model prediction process"""
 
     task_ptr = models.OneToOneField(Task, on_delete=models.CASCADE, parent_link=True, primary_key=True, db_column='id')
-    process = models.ForeignKey(ProcessGroup, on_delete=models.PROTECT, related_name='prediction_tasks')
     output_csv = models.ForeignKey('core.File', on_delete=models.PROTECT, null=True, blank=True, related_name='prediction_output_csv')
 
     selected_models = models.JSONField(default=list)

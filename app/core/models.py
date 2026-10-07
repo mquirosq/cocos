@@ -17,6 +17,7 @@ class Task(models.Model):
     status = models.CharField(max_length=50, choices=TaskStatus.choices, default=TaskStatus.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    process = models.ForeignKey('ProcessGroup', on_delete=models.PROTECT, related_name='tasks')
 
     @property
     def concrete(self):

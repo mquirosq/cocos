@@ -1,9 +1,10 @@
 import os
-from django.db.models import Max, Prefetch
+from django.db.models import Max, Prefetch, Q
 from django.core.paginator import Paginator
 from django.urls import reverse
 
 from ..models import ConversionTask
+from prediction.models import PredictionTask
 from core.models import File, ProcessGroup, TaskStatus
 from .presentation import pipeline_label, status_badge_class, build_process_steps
 from ..task_types import ASSEMBLY_TYPES, ANNOTATED_TYPES, ASSEMBLY_AND_ANNOTATION_TYPES
@@ -17,9 +18,9 @@ def get_processes_of_user_prefetch_tasks_and_files(user):
     """
     return (
         ProcessGroup.objects.filter(user=user)
-        .annotate(last_updated=Max('conversion_tasks__updated_at'))
+        .annotate(last_updated=Max('tasks__updated_at', filter=Q(tasks__conversiontask__isnull=False)))
         .prefetch_related(
-            Prefetch('conversion_tasks',
+            Prefetch('tasks',
                 queryset=(
                     ConversionTask.objects
                     .prefetch_related(
@@ -185,7 +186,8 @@ def _build_json_row(process, json_tasks):
 def build_process_status_context(process, page=1):
     """Build the context for the process status template."""
 
-    process_tasks = list(process.conversion_tasks
+    process_tasks = list(ConversionTask.objects
+        .filter(process=process)
         .prefetch_related(
             Prefetch('input_files', to_attr='prefetched_input_files'),
             Prefetch('output_files', to_attr='prefetched_output_files'),
@@ -221,7 +223,8 @@ def build_process_status_context(process, page=1):
     
     timeline = [_build_timeline_entry(task) for task in reversed(process_tasks)]
 
-    prediction_tasks = list(process.prediction_tasks
+    prediction_tasks = list(PredictionTask.objects
+        .filter(process=process)
         .order_by('-created_at', '-id')
     )
 
