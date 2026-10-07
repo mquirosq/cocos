@@ -2,10 +2,10 @@ import re
 from django.db import models
 from django.core.exceptions import ValidationError
 
-from core.models import File, ProcessGroup, TaskStatus
+from core.models import File, ProcessGroup, Task, TaskStatus
 
 # CONVERSION TASK MODELS
-class ConversionTask(models.Model):
+class ConversionTask(Task):
     """A conversion task representing a bioinformatics process"""
 
     class ConversionTaskType(models.TextChoices):
@@ -16,11 +16,9 @@ class ConversionTask(models.Model):
         ASSEMBLY_ONT_ANNOTATED = 'assembly_ont_annotated', 'ONT Assembly with Annotation'
         ASSEMBLY_ILLUMINA_ANNOTATED = 'assembly_illumina_annotated', 'Illumina Assembly with Annotation'
     
+    task_ptr = models.OneToOneField(Task, on_delete=models.CASCADE, parent_link=True, primary_key=True, db_column='id')
     # Allow blank so we can create a pending task before an external job id exists.
     external_job_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
-    status = models.CharField(max_length=50, choices=TaskStatus.choices, default=TaskStatus.PENDING)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     process = models.ForeignKey(ProcessGroup, on_delete=models.PROTECT, related_name='conversion_tasks')
     input_files = models.ManyToManyField(File, related_name='input_conversion_tasks', blank=True)
     output_files = models.ManyToManyField(File, related_name='output_conversion_tasks', blank=True)

@@ -56,9 +56,10 @@ def _create_notification(user, event_type, message, task=None):
         channels=channels,
     )
 
-def notify_user_conversion_complete(user, task):
-    task_ref = task.process.name
-    message = f"The {task.get_task_type_display()} for the process {task_ref} is complete. You can now access your results."
+def notify_user_conversion_complete(user, task, message=None):
+    if not message:
+        task_ref = task.process.name
+        message = f"The {task.get_task_type_display()} for the process {task_ref} is complete. You can now access your results."
     return _create_notification(
         user=user,
         event_type=TaskNotification.EVENT_COMPLETED,
@@ -66,9 +67,10 @@ def notify_user_conversion_complete(user, task):
         task=task,
     )
 
-def notify_user_conversion_started(user, task):
-    task_ref = task.process.name
-    message = f"The {task.get_task_type_display()} for the process {task_ref} has started and is now running."
+def notify_user_conversion_started(user, task, message=None):
+    if not message:
+        task_ref = task.process.name
+        message = f"The {task.get_task_type_display()} for the process {task_ref} has started and is now running."
     return _create_notification(
         user=user,
         event_type=TaskNotification.EVENT_STARTED,

@@ -4,7 +4,9 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 
 from conversion.models import ConversionTask
+from core.models import ProcessGroup
 from notifications.models import TaskNotification
+from prediction.models import PredictionTask
 from notifications.services import (
     _send_email_notification,
     notify_user_conversion_complete,
@@ -145,3 +147,23 @@ class NotificationServiceTests(TestCase):
                 was_sent = _send_email_notification(user, message)
                 self.assertFalse(was_sent)
                 send_mail_mock.assert_not_called()
+
+
+class TaskNotificationTaskTypesTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='user', password='pass1234', email='user@example.com')
+        self.process = ProcessGroup.objects.create(name='process-1', user=self.user)
+
+    @patch('notifications.services._send_email_notification', return_value=False)
+    def test_notifications_link_to_any_task_type(self, email_mock):
+        conversion = ConversionTask.objects.create(process=self.process, task_type='from_json')
+        prediction = PredictionTask.objects.create(process=self.process, selected_models=['m'], selected_antibiotics=['a'])
+
+        for task in (conversion, prediction):
+            with self.subTest(task=type(task).__name__):
+                notification = notify_user_conversion_started(self.user, task, message='started')
+
+                self.assertEqual(notification.task_id, task.pk)
+                self.assertEqual(notification.task.concrete, task)
+                self.assertIsInstance(notification.task.concrete, type(task))
+                self.assertTrue(TaskNotification.objects.filter(task=task).exists())

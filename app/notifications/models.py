@@ -36,7 +36,7 @@ class TaskNotification(models.Model):
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='task_notifications')
-    task = models.ForeignKey('conversion.ConversionTask', on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications')
+    task = models.ForeignKey('core.Task', on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications')
     event_type = models.CharField(max_length=30, choices=EVENT_CHOICES)
     message = models.TextField()
     is_read = models.BooleanField(default=False)

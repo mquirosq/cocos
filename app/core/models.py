@@ -3,7 +3,7 @@ import re
 
 from django.db import models
 from django.conf import settings
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 
 # TASKS
 class TaskStatus(models.TextChoices):
@@ -11,6 +11,29 @@ class TaskStatus(models.TextChoices):
     RUNNING = 'running', 'Running'
     COMPLETED = 'completed', 'Completed'
     FAILED = 'failed', 'Failed'
+
+class Task(models.Model):
+    """Base task shared by conversion and prediction tasks (multi-table inheritance)"""
+    status = models.CharField(max_length=50, choices=TaskStatus.choices, default=TaskStatus.PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def concrete(self):
+        """Return the child instance (ConversionTask, PredictionTask...) behind this task"""
+        for rel in self._meta.related_objects:
+            if not rel.parent_link:
+                continue
+            try:
+                return getattr(self, rel.get_accessor_name())
+            except ObjectDoesNotExist:
+                continue
+        return self
+
+    def __str__(self):
+        return f"Task(id={self.pk}, status={self.status})"
+    class Meta:
+        db_table = 'model_task'
 
 # GENE AND RELATED MODELS
 class GeneQuerySet(models.QuerySet):
