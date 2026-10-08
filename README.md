@@ -200,7 +200,18 @@ See `ai_models/base_bakta_50/` for example.
 
 ## Testing
 
-Run all tests:
+Dependencies are split in two files:
+
+- `requirements.txt` - what the application needs to run (installed in the Docker image).
+- `requirements-dev.txt` - test tools (`coverage`, `responses`). It includes `requirements.txt`, so a single command installs everything:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+The tests need the PostgreSQL database configured in `.env`. The bio service is mocked at HTTP level and Celery tasks run synchronously, so neither the bio service nor Redis/Celery workers have to be running.
+
+From the `app` folder, run all tests:
 
 ```bash
 python manage.py test
@@ -210,4 +221,11 @@ Run tests for specific app:
 
 ```bash
 python manage.py test notifications
+```
+
+Measure test coverage:
+
+```bash
+python -m coverage run --source=. --omit="*/migrations/*,*/tests/*,manage.py,app/wsgi.py,app/asgi.py,core/testing.py" manage.py test
+python -m coverage report
 ```
