@@ -259,7 +259,6 @@ class BioServiceProblemsTests(ConversionFlowMixin, TestCase):
         self.assertFalse(self.process_outputs(process, File.FileType.FASTA).exists())
         self.assertIn(TaskNotification.EVENT_FAILED, self.events(process))
 
-    @unittest.expectedFailure  # Known bug: get_job_status raises on 404 before the caller can handle it.
     def test_missing_external_job_marks_task_failed_and_notifies(self):
         with FakeBioService(missing_jobs=True):
             self.run_assembly('ont')

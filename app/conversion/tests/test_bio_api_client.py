@@ -20,6 +20,11 @@ class BioApiClientTests(TestCase):
         mock_get.return_value = response
         self.assertEqual(get_job_status("job-1"), ("running", 200))
 
+    @patch("conversion.bio_api_client.requests.get")
+    def test_get_job_status_missing_job_returns_404_without_raising(self, mock_get):
+        mock_get.return_value = MagicMock(status_code=404)
+        self.assertEqual(get_job_status("job-1"), (None, 404))
+
     @patch("conversion.bio_api_client.requests.post")
     def test_perform_bakta_annotation_from_job_success(self, mock_post):
         response = MagicMock(status_code=200)
