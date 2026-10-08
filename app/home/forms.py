@@ -88,13 +88,20 @@ class ProfileSettingsForm(forms.Form):
         new_password1 = cleaned_data.get('new_password1')
         new_password2 = cleaned_data.get('new_password2')
 
-        if any([current_password, new_password1, new_password2]):
+        # Changing the email also requires the password: with password reset by email,
+        # an email change would otherwise let an open session take over the account.
+        new_email = cleaned_data.get('email') or ''
+        changing_email = new_email.strip().lower() != (self.user.email or '').strip().lower()
+        changing_password = any([new_password1, new_password2])
+
+        if changing_email or changing_password or current_password:
             if not current_password:
-                raise forms.ValidationError('The current password is required to change the password.')
+                raise forms.ValidationError('The current password is required to change the email or the password.')
 
             if not self.user.check_password(current_password):
                 raise forms.ValidationError('The current password is incorrect.')
 
+        if changing_password or (current_password and not changing_email):
             if not new_password1 or not new_password2:
                 raise forms.ValidationError('Please complete both password fields to change your password.')
 
