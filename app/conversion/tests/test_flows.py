@@ -4,7 +4,6 @@ These tests describe user-visible behaviour (what gets created, stored and notif
 keep passing unchanged across internal refactors of tasks and services.
 """
 import json
-import unittest
 import zipfile
 from io import BytesIO
 
@@ -374,7 +373,6 @@ class ProcessContractTests(ProcessContractMixin, TestCase):
         self.assertStatus(process, [('Assembly · ONT', 'completed'), ('Annotation', 'failed')],
                           latest_task_status='failed', can_retry_annotation=True, json_download_task_id=None)
 
-    @unittest.expectedFailure  # Known bug: retry is offered but any previous annotation (even failed) blocks it.
     def test_retrying_failed_annotation_produces_genes(self):
         with FakeBioService():
             self.run_assembly('ont')
