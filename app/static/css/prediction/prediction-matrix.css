@@ -1,6 +1,26 @@
 
 .prediction-matrix-wrapper {
     margin-top: 1.5rem;
+
+    /* Soft backgrounds, lighter so the coloured marks stand out */
+    --prediction-low-bg: color-mix(in oklab, var(--color-success) 10%, white);
+    --prediction-medium-bg: color-mix(in oklab, #d0ac18 10%, white);
+    --prediction-high-bg: color-mix(in oklab, var(--color-error) 10%, white);
+    --prediction-no-result-bg: color-mix(in oklab, #5fa9de 10%, white);
+
+    /* Text: the lightest tone with >= 4.5:1 on its background (WCAG AA) */
+    --prediction-low-content: color-mix(in oklab, var(--color-success) 75%, black);
+    --prediction-medium-content: color-mix(in oklab, #d0ac18 72%, black);
+    --prediction-high-content: color-mix(in oklab, var(--color-error) 82%, black);
+    --prediction-no-result-content: color-mix(in oklab, #5fa9de 76%, black);
+
+    /* Bars and legend dots: the most vivid tone with >= 3:1 on white */
+    --prediction-low-mark: color-mix(in oklab, var(--color-success) 92%, black);
+    --prediction-medium-mark: color-mix(in oklab, #d0ac18 87%, black);
+    --prediction-high-mark: var(--color-error);
+
+    --prediction-border: #eceef1;
+    --prediction-border-strong: #d1d5db;
 }
 
 .prediction-matrix-header {
@@ -41,7 +61,7 @@
 .prediction-table-container {
     overflow-x: auto;
     border-radius: 12px;
-    border: 0.5px solid #e5e7eb;
+    border: 1px solid #e5e7eb;
 }
 
 .prediction-table {
@@ -52,7 +72,7 @@
 
 .prediction-table thead tr {
     background: #f9fafb;
-    border-bottom: 0.5px solid #e5e7eb;
+    border-bottom: 1px solid var(--prediction-border-strong);
 }
 
 .prediction-table-header {
@@ -69,7 +89,11 @@
 }
 
 .prediction-row {
-    border-bottom: 0.5px solid #e5e7eb;
+    border-bottom: 1px solid var(--prediction-border);
+}
+
+.prediction-row:last-child {
+    border-bottom: none;
 }
 
 .prediction-antibiotic {
@@ -110,7 +134,7 @@
 }
 
 .prediction-average {
-    border-left: 1.5px solid #d1d5db;
+    border-left: 1.5px solid var(--prediction-border-strong);
     font-weight: 500;
 }
 
@@ -124,51 +148,43 @@
 /* Prediction colours */
 
 .prediction-low {
-    background: var(--color-success-soft);
-    color: var(--color-success-soft-content);
+    background: var(--prediction-low-bg);
+    color: var(--prediction-low-content);
 }
 
 .prediction-medium {
-    background: #f7edc6;
-    color: #d0ac18;
+    background: var(--prediction-medium-bg);
+    color: var(--prediction-medium-content);
 }
 
 .prediction-high {
-    background: var(--color-error-soft);
-    color: var(--color-error-soft-content);
+    background: var(--prediction-high-bg);
+    color: var(--prediction-high-content);
 }
 
 .prediction-bar-fill.prediction-low,
 .prediction-legend-dot.prediction-low {
-    background: var(--color-success-soft-content);
+    background: var(--prediction-low-mark);
 }
 
 .prediction-bar-fill.prediction-medium,
 .prediction-legend-dot.prediction-medium {
-    background: #d0ac18;
+    background: var(--prediction-medium-mark);
 }
 
 .prediction-bar-fill.prediction-high,
 .prediction-legend-dot.prediction-high {
-    background: var(--color-error-soft-content);
+    background: var(--prediction-high-mark);
 }
 
-.prediction-risk.prediction-low {
-    background: var(--color-success-soft);
-    color: var(--color-success-soft-content);
-}
-
-.prediction-risk.prediction-medium {
-    background: #f7edc6;
-    color: #d0ac18;
-}
-
+.prediction-risk.prediction-low,
+.prediction-risk.prediction-medium,
 .prediction-risk.prediction-high {
-    background: var(--color-error-soft);
-    color: var(--color-error-soft-content);
+    background: #ffffff;
+    border: 1px solid currentColor;
 }
 
 .prediction-no-result {
-    background: #d7edfa;
-    color: #5fa9de;
+    background: var(--prediction-no-result-bg);
+    color: var(--prediction-no-result-content);
 }
