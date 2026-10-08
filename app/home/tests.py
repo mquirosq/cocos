@@ -47,6 +47,17 @@ class ProfileSettingsTests(TestCase):
         self.assertRedirects(response, self.url, fetch_redirect_response=False)
         self.assertTrue(UserNotificationSettings.objects.get(user=self.user).email_notifications_enabled)
 
+    def test_password_change_keeps_this_session_and_ends_the_others(self):
+        other_session = self.client_class()
+        other_session.login(username='user', password='Old-pass-123')
+
+        self.post(current_password='Old-pass-123', new_password1='New-pass-456', new_password2='New-pass-456')
+
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+        response = other_session.get(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('login', response['Location'])
+
     def test_password_change_still_requires_current_password(self):
         self.post(new_password1='New-pass-456', new_password2='New-pass-456')
         self.user.refresh_from_db()

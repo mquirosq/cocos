@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from .forms import ProfileSettingsForm, RegistroUsuarioForm
@@ -30,6 +31,9 @@ def profile_settings(request):
         form = ProfileSettingsForm(request.POST, user=request.user)
         if form.is_valid():
             form.save()
+            if form.cleaned_data.get('new_password1'):
+                # Keep this session logged in; other sessions of the user are invalidated.
+                update_session_auth_hash(request, request.user)
             messages.success(request, 'Profile settings updated successfully.')
             return redirect('accounts:profile')
     else:
