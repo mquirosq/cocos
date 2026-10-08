@@ -21,8 +21,8 @@ class PresenceFromListTests(TestCase):
         gene_a = Gene.objects.create(identifiers=" UniRef:UniRef50_AAA , UniRef:UniRef50_BBB ")
         gene_b = Gene.objects.create(identifiers="UniRef:UniRef50_ccc,uniref:uniref50_ddd")
 
-        FileGene.objects.create(file_upload=self.file_upload, gene=gene_a, expert="test")
-        FileGene.objects.create(file_upload=self.file_upload, gene=gene_b, expert="test")
+        FileGene.objects.create(file=self.file_upload, gene=gene_a, expert="test")
+        FileGene.objects.create(file=self.file_upload, gene=gene_b, expert="test")
 
     def test_presence_from_list_matches_normalized_identifiers(self):
         model_features = [

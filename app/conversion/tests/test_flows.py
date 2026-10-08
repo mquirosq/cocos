@@ -1,0 +1,527 @@
+"""End-to-end conversion flows through the views, with the bio service mocked at HTTP level.
+
+These tests describe user-visible behaviour (what gets created, stored and notified) and must
+keep passing unchanged across internal refactors of tasks and services.
+"""
+import json
+import unittest
+import zipfile
+from io import BytesIO
+
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase
+from django.urls import reverse
+
+from conversion.models import ConversionTask
+from core.models import File, FileGene, ProcessGroup, TaskStatus
+from core.testing import ASSEMBLY_FASTA, BAKTA_JSON, FakeBioService, FlowTestMixin
+from notifications.models import TaskNotification
+
+N_FEATURES = len(BAKTA_JSON['features'])
+
+
+def fastq(name='reads.fastq.gz', content=b'@r1\nACGT\n+\nIIII\n'):
+    return SimpleUploadedFile(name, content, content_type='application/gzip')
+
+
+def fasta(name='genome.fasta', content=b'>seq\nACGTACGT\n'):
+    return SimpleUploadedFile(name, content, content_type='application/octet-stream')
+
+
+def bakta_json(name='sample.json', payload=None):
+    body = json.dumps(BAKTA_JSON if payload is None else payload).encode()
+    return SimpleUploadedFile(name, body, content_type='application/json')
+
+
+class ConversionFlowMixin(FlowTestMixin):
+    def run_assembly(self, assembly_type='ont', annotate=False, complete=False, files=None):
+        data = {'assembly_type': assembly_type}
+        if files is None:
+            files = [fastq('reads_R1.fastq.gz', b'R1-CONTENT')]
+            if assembly_type == 'illumina':
+                files.append(fastq('reads_R2.fastq.gz', b'R2-CONTENT'))
+        data['fastq_file'] = files[0]
+        if len(files) > 1:
+            data['fastq_file_2'] = files[1]
+        if annotate:
+            data['annotate'] = 'on'
+        if complete:
+            data['complete'] = 'on'
+        return self.client.post(reverse('conversion:assembly_run'), data=data)
+
+    def latest_process(self):
+        return ProcessGroup.objects.filter(user=self.user).order_by('-id').first()
+
+    def process_tasks(self, process):
+        return ConversionTask.objects.filter(process=process).order_by('id')
+
+    def process_outputs(self, process, file_type):
+        return File.objects.filter(output_conversion_tasks__process=process, file_type=file_type).distinct()
+
+    def events(self, process):
+        return set(TaskNotification.objects.filter(task__process=process).values_list('event_type', flat=True))
+
+
+class AssemblyFlowTests(ConversionFlowMixin, TestCase):
+    def test_ont_assembly_without_annotation_produces_fasta(self):
+        with FakeBioService() as bio:
+            response = self.run_assembly('ont')
+
+        process = self.latest_process()
+        self.assertRedirects(response, reverse('conversion:process_status', args=[process.id]), fetch_redirect_response=False)
+        self.assertEqual(process.name, 'reads_R1.fastq.gz')
+
+        submissions = bio.submissions_to('assembly/ont')
+        self.assertEqual(len(submissions), 1)
+        self.assertFalse(submissions[0]['annotate'])
+        self.assertEqual(submissions[0]['files']['reads'], b'R1-CONTENT')
+
+        tasks = self.process_tasks(process)
+        self.assertTrue(all(task.status == TaskStatus.COMPLETED for task in tasks))
+        fasta_outputs = self.process_outputs(process, File.FileType.FASTA)
+        self.assertEqual(fasta_outputs.count(), 1)
+        with fasta_outputs.first().file.open('rb') as f:
+            self.assertEqual(f.read(), ASSEMBLY_FASTA)
+        self.assertFalse(self.process_outputs(process, File.FileType.JSON).exists())
+        self.assertTrue({TaskNotification.EVENT_STARTED, TaskNotification.EVENT_COMPLETED} <= self.events(process))
+
+    def test_illumina_assembly_with_annotation_uses_single_auto_annotated_job(self):
+        with FakeBioService() as bio:
+            self.run_assembly('illumina', annotate=True)
+
+        process = self.latest_process()
+        submissions = bio.submissions_to('assembly/illumina')
+        self.assertEqual(len(submissions), 1)
+        self.assertTrue(submissions[0]['annotate'])
+        self.assertEqual(submissions[0]['files']['r1'], b'R1-CONTENT')
+        self.assertEqual(submissions[0]['files']['r2'], b'R2-CONTENT')
+        self.assertEqual(bio.submissions_to('annotation/upload'), [])
+
+        self.assertTrue(all(task.status == TaskStatus.COMPLETED for task in self.process_tasks(process)))
+        self.assertEqual(self.process_outputs(process, File.FileType.FASTA).count(), 1)
+        json_outputs = self.process_outputs(process, File.FileType.JSON)
+        self.assertEqual(json_outputs.count(), 1)
+        self.assertEqual(FileGene.objects.filter(file=json_outputs.first()).count(), N_FEATURES)
+
+    def test_complete_version_stores_sequences_and_positions(self):
+        with FakeBioService():
+            self.run_assembly('ont', annotate=True, complete=True)
+
+        json_file = self.process_outputs(self.latest_process(), File.FileType.JSON).first()
+        file_gene = FileGene.objects.filter(file=json_file).order_by('id').first()
+        self.assertEqual(file_gene.start, BAKTA_JSON['features'][0]['start'])
+        self.assertEqual(file_gene.nt, BAKTA_JSON['features'][0]['nt'])
+
+    def test_without_complete_version_sequences_are_not_stored(self):
+        with FakeBioService():
+            self.run_assembly('ont', annotate=True)
+
+        json_file = self.process_outputs(self.latest_process(), File.FileType.JSON).first()
+        self.assertFalse(FileGene.objects.filter(file=json_file, nt__isnull=False).exists())
+
+    @unittest.expectedFailure  # Known bug: 'assembled' is taken as completion for auto-annotated jobs.
+    def test_auto_annotated_job_waits_for_annotation_to_finish(self):
+        sequence = ['running', 'assembled', 'annotation_pending', 'running', 'annotated']
+        with FakeBioService(status_sequence=sequence):
+            self.run_assembly('ont', annotate=True)
+
+        process = self.latest_process()
+        json_outputs = self.process_outputs(process, File.FileType.JSON)
+        self.assertEqual(json_outputs.count(), 1)
+        self.assertEqual(FileGene.objects.filter(file=json_outputs.first()).count(), N_FEATURES)
+        self.assertNotIn(TaskNotification.EVENT_WARNING, self.events(process))
+
+    def test_invalid_assembly_requests_create_nothing(self):
+        cases = [
+            ('missing fastq', {'assembly_type': 'ont'}),
+            ('unknown type', {'assembly_type': 'pacbio', 'fastq_file': fastq()}),
+            ('illumina without R2', {'assembly_type': 'illumina', 'fastq_file': fastq()}),
+            ('ont with R2', {'assembly_type': 'ont', 'fastq_file': fastq(), 'fastq_file_2': fastq('r2.fastq.gz')}),
+        ]
+        for label, data in cases:
+            with self.subTest(label), FakeBioService() as bio:
+                response = self.client.post(reverse('conversion:assembly_run'), data=data)
+                self.assertRedirects(response, reverse('conversion:assembly_ui'), fetch_redirect_response=False)
+                self.assertEqual(bio.submissions, [])
+        self.assertFalse(ProcessGroup.objects.exists())
+
+
+class AnnotationFlowTests(ConversionFlowMixin, TestCase):
+    def test_annotation_of_uploaded_fasta_produces_genes(self):
+        with FakeBioService() as bio:
+            response = self.client.post(reverse('conversion:start_annotation_task'), data={'fasta_file': fasta()})
+
+        process = self.latest_process()
+        self.assertRedirects(response, reverse('conversion:process_status', args=[process.id]), fetch_redirect_response=False)
+        submissions = bio.submissions_to('annotation/upload')
+        self.assertEqual(len(submissions), 1)
+        self.assertEqual(submissions[0]['files']['assembly'], b'>seq\nACGTACGT\n')
+
+        self.assertTrue(all(task.status == TaskStatus.COMPLETED for task in self.process_tasks(process)))
+        json_file = self.process_outputs(process, File.FileType.JSON).first()
+        self.assertIsNotNone(json_file)
+        self.assertEqual(FileGene.objects.filter(file=json_file).count(), N_FEATURES)
+
+    def test_annotation_of_completed_assembly_stays_in_same_process(self):
+        with FakeBioService() as bio:
+            self.run_assembly('ont')
+            process = self.latest_process()
+            assembly_task = self.process_tasks(process).first()
+
+            response = self.client.post(reverse('conversion:start_annotation_task'), data={'source_task_id': assembly_task.id})
+
+        self.assertRedirects(response, reverse('conversion:process_status', args=[process.id]), fetch_redirect_response=False)
+        self.assertEqual(ProcessGroup.objects.filter(user=self.user).count(), 1)
+        self.assertEqual(bio.submissions_to('annotation/upload')[0]['files']['assembly'], ASSEMBLY_FASTA)
+        json_file = self.process_outputs(process, File.FileType.JSON).first()
+        self.assertEqual(FileGene.objects.filter(file=json_file).count(), N_FEATURES)
+
+    def test_completed_assembly_is_offered_for_annotation_only_once(self):
+        with FakeBioService():
+            self.run_assembly('ont')
+            assembly_task = self.process_tasks(self.latest_process()).first()
+
+            page = self.client.get(reverse('conversion:annotation_ui'))
+            self.assertIn(assembly_task.id, [task.id for task in page.context['available_fasta_jobs']])
+
+            self.client.post(reverse('conversion:start_annotation_task'), data={'source_task_id': assembly_task.id})
+            page = self.client.get(reverse('conversion:annotation_ui'))
+            self.assertNotIn(assembly_task.id, [task.id for task in page.context['available_fasta_jobs']])
+
+            n_tasks = ConversionTask.objects.count()
+            self.client.post(reverse('conversion:start_annotation_task'), data={'source_task_id': assembly_task.id})
+            self.assertEqual(ConversionTask.objects.count(), n_tasks)
+
+    def test_auto_annotated_assembly_is_not_offered_for_annotation(self):
+        with FakeBioService():
+            self.run_assembly('ont', annotate=True)
+        page = self.client.get(reverse('conversion:annotation_ui'))
+        self.assertEqual(list(page.context['available_fasta_jobs']), [])
+
+    def test_cannot_annotate_assembly_of_other_user(self):
+        with FakeBioService():
+            self.run_assembly('ont')
+            assembly_task = self.process_tasks(self.latest_process()).first()
+
+            self.client.login(username='other-user', password='pass1234')
+            n_tasks = ConversionTask.objects.count()
+            self.client.post(reverse('conversion:start_annotation_task'), data={'source_task_id': assembly_task.id})
+        self.assertEqual(ConversionTask.objects.count(), n_tasks)
+
+
+class JsonFlowTests(ConversionFlowMixin, TestCase):
+    def test_bakta_json_upload_links_genes_to_uploaded_file(self):
+        with FakeBioService() as bio:
+            response = self.client.post(reverse('conversion:annotation_from_json'), data={'feature_file': bakta_json()})
+
+        process = self.latest_process()
+        self.assertRedirects(response, reverse('conversion:process_status', args=[process.id]), fetch_redirect_response=False)
+        self.assertEqual(bio.submissions, [])
+        self.assertTrue(all(task.status == TaskStatus.COMPLETED for task in self.process_tasks(process)))
+        json_file = File.objects.get(user=self.user, file_type=File.FileType.JSON)
+        self.assertEqual(FileGene.objects.filter(file=json_file).count(), N_FEATURES)
+        self.assertIn(TaskNotification.EVENT_COMPLETED, self.events(process))
+
+    def test_invalid_json_fails_and_notifies(self):
+        bad = SimpleUploadedFile('bad.json', b'{not json', content_type='application/json')
+        with FakeBioService():
+            self.client.post(reverse('conversion:annotation_from_json'), data={'feature_file': bad})
+
+        process = self.latest_process()
+        self.assertEqual({task.status for task in self.process_tasks(process)}, {TaskStatus.FAILED})
+        self.assertIn(TaskNotification.EVENT_FAILED, self.events(process))
+
+
+class BioServiceProblemsTests(ConversionFlowMixin, TestCase):
+    def test_busy_server_retries_and_then_warns_user(self):
+        with FakeBioService(start_behavior='busy') as bio:
+            self.run_assembly('ont')
+
+        process = self.latest_process()
+        self.assertGreater(len(bio.submissions_to('assembly/ont')), 1)
+        self.assertFalse(self.process_tasks(process).filter(status=TaskStatus.COMPLETED).exists())
+        self.assertIn(TaskNotification.EVENT_WARNING, self.events(process))
+
+    def test_busy_server_for_annotation_retries_and_then_warns_user(self):
+        with FakeBioService(start_behavior='busy') as bio:
+            self.client.post(reverse('conversion:start_annotation_task'), data={'fasta_file': fasta()})
+
+        process = self.latest_process()
+        self.assertGreater(len(bio.submissions_to('annotation/upload')), 1)
+        self.assertIn(TaskNotification.EVENT_WARNING, self.events(process))
+
+    def test_failed_external_job_marks_task_failed_and_notifies(self):
+        with FakeBioService(status_sequence=['running', 'failed']):
+            self.run_assembly('ont')
+
+        process = self.latest_process()
+        self.assertIn(TaskStatus.FAILED, {task.status for task in self.process_tasks(process)})
+        self.assertFalse(self.process_outputs(process, File.FileType.FASTA).exists())
+        self.assertIn(TaskNotification.EVENT_FAILED, self.events(process))
+
+    @unittest.expectedFailure  # Known bug: get_job_status raises on 404 before the caller can handle it.
+    def test_missing_external_job_marks_task_failed_and_notifies(self):
+        with FakeBioService(missing_jobs=True):
+            self.run_assembly('ont')
+
+        process = self.latest_process()
+        self.assertIn(TaskStatus.FAILED, {task.status for task in self.process_tasks(process)})
+        self.assertIn(TaskNotification.EVENT_FAILED, self.events(process))
+
+
+class ProcessContractMixin(ConversionFlowMixin):
+    """Helpers that only use what the UI exposes (rows, status context, download links)."""
+
+    def status_context(self, process):
+        response = self.client.get(reverse('conversion:process_status', args=[process.id]))
+        self.assertEqual(response.status_code, 200)
+        return response.context
+
+    def row_for(self, process):
+        rows = []
+        page = 1
+        while True:
+            context = self.client.get(reverse('conversion:process_list'), {'page': page}).context
+            rows.extend(context['page_obj'].object_list)
+            if not context['page_obj'].has_next():
+                break
+            page += 1
+        return next(row for row in rows if row['process_name'] == process.name)
+
+    def annotate_assembly_of(self, process):
+        return self.client.post(reverse('conversion:start_annotation_task'),
+                                data={'source_task_id': self.status_context(process)['assembly_task_id']})
+
+    def download(self, name, task_id):
+        response = self.client.get(reverse(name, args=[task_id]))
+        self.assertEqual(response.status_code, 200)
+        return b''.join(response.streaming_content)
+
+
+def steps(*pairs):
+    return [{'label': label, 'state': state} for label, state in pairs]
+
+
+class ProcessContractTests(ProcessContractMixin, TestCase):
+    """Pins what the process list and status page show for each kind of process."""
+
+    def assertRow(self, process, **expected):
+        row = self.row_for(process)
+        self.assertEqual({key: row.get(key) for key in expected}, expected)
+
+    def assertStatus(self, process, timeline, **expected):
+        context = self.status_context(process)
+        self.assertEqual({key: context.get(key) for key in expected}, expected)
+        self.assertEqual([(entry['label'], entry['status']) for entry in context['timeline']], timeline)
+        return context
+
+    def test_ont_assembly(self):
+        with FakeBioService():
+            self.run_assembly('ont')
+        process = self.latest_process()
+        self.assertRow(process, kind='assembly', pipeline_type='Assembly · ONT', status='completed',
+                       top_pipeline='Assembly · ONT', can_annotate=True, can_retry_annotation=False,
+                       has_fasta=True, has_json=False, is_auto_annotated=False, stage_class='process-stage-light',
+                       steps=steps(('Started', 'complete'), ('Assembled', 'complete'), ('Annotated', 'pending')))
+        self.assertEqual(self.row_for(process)['input_filename'], 'reads_R1.fastq.gz')
+        context = self.assertStatus(process, [('Assembly · ONT', 'completed')], process_kind='assembly',
+                                    pipeline_badges=['Assembly · ONT'], latest_task_status='completed',
+                                    can_annotate=True, can_retry_annotation=False, json_download_task_id=None)
+        self.assertEqual(self.download('conversion:download_fasta', context['fasta_download_task_id']), ASSEMBLY_FASTA)
+
+    def test_ont_assembly_with_auto_annotation(self):
+        with FakeBioService():
+            self.run_assembly('ont', annotate=True)
+        process = self.latest_process()
+        self.assertRow(process, kind='assembly', pipeline_type='Assembly + Annotation · ONT', status='completed',
+                       top_pipeline='Assembly + Annotation · ONT', can_annotate=False, can_retry_annotation=False,
+                       has_fasta=True, has_json=True, is_auto_annotated=True, stage_class='process-stage-max')
+        self.assertEqual(self.row_for(process)['steps'][2], {'label': 'Annotated', 'state': 'complete'})
+        context = self.assertStatus(process, [('Assembly + Annotation · ONT', 'completed')], process_kind='assembly',
+                                    pipeline_badges=['Assembly + Annotation · ONT'], latest_task_status='completed',
+                                    can_annotate=False, can_retry_annotation=False)
+        self.assertEqual(self.download('conversion:download_fasta', context['fasta_download_task_id']), ASSEMBLY_FASTA)
+        self.assertEqual(json.loads(self.download('conversion:download_json', context['json_download_task_id'])), BAKTA_JSON)
+
+    @unittest.expectedFailure  # Known bug: a completed auto-annotated assembly shows 'Assembled' as current.
+    def test_completed_auto_annotation_shows_assembled_step_complete(self):
+        with FakeBioService():
+            self.run_assembly('ont', annotate=True)
+        self.assertEqual(self.row_for(self.latest_process())['steps'][1], {'label': 'Assembled', 'state': 'complete'})
+
+    def test_illumina_assembly_then_manual_annotation(self):
+        with FakeBioService():
+            self.run_assembly('illumina')
+            process = self.latest_process()
+            self.annotate_assembly_of(process)
+        self.assertRow(process, kind='assembly', pipeline_type='Assembly · Illumina', status='completed',
+                       top_pipeline='Annotation', can_annotate=False, can_retry_annotation=False,
+                       has_fasta=True, has_json=True, is_auto_annotated=False, stage_class='process-stage-max',
+                       steps=steps(('Started', 'complete'), ('Assembled', 'complete'), ('Annotated', 'complete')))
+        self.assertEqual(self.row_for(process)['input_filename'], 'reads_R1.fastq.gz, reads_R2.fastq.gz')
+        context = self.assertStatus(process, [('Assembly · Illumina', 'completed'), ('Annotation', 'completed')],
+                                    process_kind='assembly', pipeline_badges=['Assembly · Illumina', 'Annotation'],
+                                    latest_task_status='completed', can_annotate=False, can_retry_annotation=False)
+        self.assertEqual(self.download('conversion:download_fasta', context['fasta_download_task_id']), ASSEMBLY_FASTA)
+        self.assertEqual(json.loads(self.download('conversion:download_json', context['json_download_task_id'])), BAKTA_JSON)
+
+    def test_assembly_with_failed_annotation_offers_retry(self):
+        with FakeBioService():
+            self.run_assembly('ont')
+        process = self.latest_process()
+        with FakeBioService(status_sequence=['running', 'failed']):
+            self.annotate_assembly_of(process)
+        self.assertRow(process, status='failed', top_pipeline='Annotation', can_annotate=False,
+                       can_retry_annotation=True, has_fasta=True, has_json=False, stage_class='process-stage-mid',
+                       steps=steps(('Started', 'complete'), ('Assembled', 'complete'), ('Annotated', 'error')))
+        self.assertStatus(process, [('Assembly · ONT', 'completed'), ('Annotation', 'failed')],
+                          latest_task_status='failed', can_retry_annotation=True, json_download_task_id=None)
+
+    @unittest.expectedFailure  # Known bug: retry is offered but any previous annotation (even failed) blocks it.
+    def test_retrying_failed_annotation_produces_genes(self):
+        with FakeBioService():
+            self.run_assembly('ont')
+        process = self.latest_process()
+        with FakeBioService(status_sequence=['running', 'failed']):
+            self.annotate_assembly_of(process)
+        with FakeBioService():
+            self.annotate_assembly_of(process)
+        self.assertRow(process, status='completed', has_json=True, can_retry_annotation=False)
+
+    def test_annotation_of_uploaded_fasta(self):
+        with FakeBioService():
+            self.client.post(reverse('conversion:start_annotation_task'), data={'fasta_file': fasta('up.fasta')})
+        process = self.latest_process()
+        self.assertRow(process, kind='annotation', pipeline_type='Annotation', status='completed',
+                       can_annotate=False, can_retry_annotation=False, has_fasta=True, has_json=True,
+                       stage_class='process-stage-max',
+                       steps=steps(('Started', 'complete'), ('Annotating', 'complete'), ('Parsed', 'complete')))
+        self.assertEqual(self.row_for(process)['input_filename'], 'up.fasta')
+        context = self.assertStatus(process, [('Annotation', 'completed')], process_kind='annotation',
+                                    pipeline_badges=['Annotation'], latest_task_status='completed', assembly_task_id=None)
+        self.assertEqual(self.download('conversion:download_fasta', context['fasta_download_task_id']), b'>seq\nACGTACGT\n')
+        self.assertEqual(json.loads(self.download('conversion:download_json', context['json_download_task_id'])), BAKTA_JSON)
+
+    def test_uploaded_json(self):
+        with FakeBioService():
+            self.client.post(reverse('conversion:annotation_from_json'), data={'feature_file': bakta_json('up.json')})
+        process = self.latest_process()
+        self.assertRow(process, kind='json', pipeline_type='From JSON', status='completed', can_annotate=False,
+                       can_retry_annotation=False, has_fasta=False, has_json=True, stage_class='process-stage-max',
+                       steps=steps(('Started', 'complete'), ('Parsed', 'complete')))
+        self.assertEqual(self.row_for(process)['input_filename'], 'up.json')
+        self.assertStatus(process, [('From JSON', 'completed')], process_kind='json', pipeline_badges=['From JSON'],
+                          latest_task_status='completed', fasta_download_task_id=None, assembly_task_id=None)
+
+    def test_pending_assembly_while_server_busy(self):
+        with FakeBioService(start_behavior='busy'):
+            self.run_assembly('ont')
+        process = self.latest_process()
+        self.assertRow(process, kind='assembly', status='pending', can_annotate=False, has_fasta=False,
+                       has_json=False, stage_class='process-stage-light',
+                       steps=steps(('Started', 'complete'), ('Assembled', 'current'), ('Annotated', 'pending')))
+        context = self.assertStatus(process, [('Assembly · ONT', 'pending')], latest_task_status='pending',
+                                    fasta_download_task_id=None, json_download_task_id=None)
+        response = self.client.get(reverse('conversion:download_fasta', args=[context['assembly_task_id']]))
+        self.assertRedirects(response, reverse('conversion:process_status', args=[process.id]), fetch_redirect_response=False)
+
+
+class ProcessPagesTests(ProcessContractMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        with FakeBioService():
+            self.run_assembly('illumina', annotate=True)
+            self.assembly_process = self.latest_process()
+            self.client.post(reverse('conversion:start_annotation_task'), data={'fasta_file': fasta()})
+            self.annotation_process = self.latest_process()
+            self.client.post(reverse('conversion:annotation_from_json'), data={'feature_file': bakta_json()})
+            self.json_process = self.latest_process()
+
+    def test_pages_render(self):
+        for name in ('conversion:assembly_ui', 'conversion:annotation_ui', 'conversion:process_list'):
+            with self.subTest(name):
+                self.assertEqual(self.client.get(reverse(name)).status_code, 200)
+        for process in (self.assembly_process, self.annotation_process, self.json_process):
+            with self.subTest(process.name):
+                response = self.client.get(reverse('conversion:process_status', args=[process.id]))
+                self.assertContains(response, process.name)
+
+    def test_process_list_paginates_three_per_page(self):
+        with FakeBioService():
+            self.run_assembly('ont')
+        first = self.client.get(reverse('conversion:process_list')).context['page_obj']
+        self.assertEqual((first.paginator.count, len(first.object_list)), (4, 3))
+        second = self.client.get(reverse('conversion:process_list'), {'page': 2}).context['page_obj']
+        self.assertEqual(len(second.object_list), 1)
+
+    def test_fastq_download_zips_both_reads(self):
+        archive_bytes = self.download('conversion:download_fastq', self.status_context(self.assembly_process)['assembly_task_id'])
+        with zipfile.ZipFile(BytesIO(archive_bytes)) as archive:
+            self.assertEqual(sorted(archive.read(name) for name in archive.namelist()), [b'R1-CONTENT', b'R2-CONTENT'])
+
+    def test_fastq_download_without_fastq_redirects(self):
+        task_id = self.status_context(self.annotation_process)['fasta_download_task_id']
+        response = self.client.get(reverse('conversion:download_fastq', args=[task_id]))
+        self.assertRedirects(response, reverse('conversion:process_status', args=[self.annotation_process.id]), fetch_redirect_response=False)
+
+    def test_json_download_of_uploaded_json_returns_original(self):
+        task_id = self.row_for(self.json_process)['task'].id
+        self.assertEqual(json.loads(self.download('conversion:download_json', task_id)), BAKTA_JSON)
+
+    def test_fasta_download_without_fasta_redirects(self):
+        task_id = self.row_for(self.json_process)['task'].id
+        response = self.client.get(reverse('conversion:download_fasta', args=[task_id]))
+        self.assertRedirects(response, reverse('conversion:process_status', args=[self.json_process.id]), fetch_redirect_response=False)
+
+    def test_unknown_process_redirects_to_list(self):
+        response = self.client.get(reverse('conversion:process_status', args=[999999]))
+        self.assertRedirects(response, reverse('conversion:process_list'), fetch_redirect_response=False)
+
+    def test_rename_process(self):
+        url = reverse('conversion:rename_process', args=[self.assembly_process.id])
+        response = self.client.post(url, data={'process_name': 'New name'})
+        self.assertRedirects(response, reverse('conversion:process_status', args=[self.assembly_process.id]), fetch_redirect_response=False)
+        self.assembly_process.refresh_from_db()
+        self.assertEqual(self.assembly_process.name, 'New name')
+
+        self.client.post(url, data={'process_name': '  '})
+        self.assembly_process.refresh_from_db()
+        self.assertEqual(self.assembly_process.name, 'New name')
+
+
+class PermissionsTests(ProcessContractMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        with FakeBioService():
+            self.run_assembly('ont', annotate=True)
+        self.process = self.latest_process()
+        context = self.status_context(self.process)
+        self.task_ids = {context['assembly_task_id'], context['fasta_download_task_id'], context['json_download_task_id']}
+        self.client.login(username='other-user', password='pass1234')
+
+    def test_other_user_cannot_see_process(self):
+        response = self.client.get(reverse('conversion:process_status', args=[self.process.id]))
+        self.assertRedirects(response, reverse('conversion:process_list'), fetch_redirect_response=False)
+        self.assertEqual(self.client.get(reverse('conversion:process_list')).context['page_obj'].paginator.count, 0)
+
+    def test_other_user_cannot_download(self):
+        for name in ('conversion:download_fastq', 'conversion:download_fasta', 'conversion:download_json'):
+            for task_id in self.task_ids:
+                with self.subTest(name=name, task_id=task_id):
+                    self.assertEqual(self.client.get(reverse(name, args=[task_id])).status_code, 404)
+
+    def test_other_user_cannot_rename(self):
+        self.client.post(reverse('conversion:rename_process', args=[self.process.id]), data={'process_name': 'Hacked'})
+        self.process.refresh_from_db()
+        self.assertEqual(self.process.name, 'reads_R1.fastq.gz')
+
+    def test_anonymous_user_is_redirected_to_login(self):
+        self.client.logout()
+        for url in (reverse('conversion:assembly_ui'), reverse('conversion:annotation_ui'),
+                    reverse('conversion:process_list'), reverse('conversion:process_status', args=[self.process.id])):
+            with self.subTest(url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 302)
+                self.assertIn('login', response['Location'])
+
+

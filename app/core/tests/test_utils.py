@@ -1,44 +1,61 @@
 import os
 import shutil
 import tempfile
+import zipfile
 
-from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from core.utils import upload_file
+from django.test import TestCase, override_settings
 
+from core.models import File
+from core.utils import create_file_zip, upload_file
 
 User = get_user_model()
 
 
 class UtilsTests(TestCase):
     def setUp(self):
-        self.tmp_dir = tempfile.mkdtemp()
+        self.media_dir = tempfile.mkdtemp()
+        self.media_override = override_settings(MEDIA_ROOT=self.media_dir)
+        self.media_override.enable()
+        self.user = User.objects.create_user(username="user", password="pass1234")
 
     def tearDown(self):
-        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+        self.media_override.disable()
+        shutil.rmtree(self.media_dir, ignore_errors=True)
 
-    def test_upload_file_validates_inputs(self):
-        error_cases = [
-            (None, {"upload_dir": self.tmp_dir}, "None file"),
-            (SimpleUploadedFile("x.txt", b"x"), {}, "No upload_dir or user_id/file_kind"),
-            (SimpleUploadedFile("x.txt", b"x"), {"user_id": 1}, "No file_kind"),
-            (SimpleUploadedFile("x.txt", b"x"), {"file_kind": "fasta"}, "No user_id"),
-        ]
-        for file_arg, kwargs, desc in error_cases:
-            with self.subTest(desc=desc):
-                with self.assertRaises(ValueError):
-                    upload_file(file_arg, **kwargs)
+    def test_upload_file_requires_a_file(self):
+        with self.assertRaises(ValueError):
+            upload_file(None, self.user, File.FileType.FASTA)
 
-    def test_upload_file_writes_and_handles_collision(self):
-        first = upload_file(SimpleUploadedFile("sample.txt", b"first"), upload_dir=self.tmp_dir)
-        second = upload_file(SimpleUploadedFile("sample.txt", b"second"), upload_dir=self.tmp_dir)
+    def test_upload_file_stores_content_under_user_and_type(self):
+        upload = upload_file(SimpleUploadedFile("sample.fasta", b">a\nACGT\n"), self.user, File.FileType.FASTA)
 
-        self.assertTrue(os.path.exists(first))
-        self.assertTrue(os.path.exists(second))
-        self.assertNotEqual(first, second)
+        self.assertEqual(upload.user, self.user)
+        self.assertEqual(upload.file_type, File.FileType.FASTA)
+        self.assertIn(f"user_{self.user.id}/fasta/", upload.file.name.replace("\\", "/"))
+        with upload.file.open("rb") as f:
+            self.assertEqual(f.read(), b">a\nACGT\n")
 
-        with open(first, "rb") as f:
+    def test_upload_file_keeps_both_files_on_name_collision(self):
+        first = upload_file(SimpleUploadedFile("sample.fasta", b"first"), self.user, File.FileType.FASTA)
+        second = upload_file(SimpleUploadedFile("sample.fasta", b"second"), self.user, File.FileType.FASTA)
+
+        self.assertNotEqual(first.file.name, second.file.name)
+        with first.file.open("rb") as f:
             self.assertEqual(f.read(), b"first")
-        with open(second, "rb") as f:
+        with second.file.open("rb") as f:
             self.assertEqual(f.read(), b"second")
+
+    def test_create_file_zip_contains_every_upload(self):
+        uploads = [
+            upload_file(SimpleUploadedFile("r1.fastq.gz", b"R1"), self.user, File.FileType.FASTQ),
+            upload_file(SimpleUploadedFile("r2.fastq.gz", b"R2"), self.user, File.FileType.FASTQ),
+        ]
+        zip_path = create_file_zip(uploads)
+        try:
+            with zipfile.ZipFile(zip_path) as archive:
+                self.assertEqual(sorted(archive.namelist()), ["r1.fastq.gz", "r2.fastq.gz"])
+                self.assertEqual(archive.read("r1.fastq.gz"), b"R1")
+        finally:
+            os.unlink(zip_path)

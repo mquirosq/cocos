@@ -22,13 +22,12 @@ User = get_user_model()
 class NotificationServiceTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='user', password='pass1234', email='user@example.com')
+        self.process = ProcessGroup.objects.create(name='process-1', user=self.user)
         self.task = ConversionTask.objects.create(
             external_job_id='job-1',
             status='running',
-            input_path='uploads/persistent/user_1/fasta/demo.fasta',
             task_type='annotation',
-            user=self.user,
-            process_name='process-1',
+            process=self.process,
         )
 
     def test_notification_persist_events(self):
@@ -37,13 +36,13 @@ class NotificationServiceTests(TestCase):
                 'started',
                 lambda: notify_user_conversion_started(self.user, self.task),
                 TaskNotification.EVENT_STARTED,
-                'The annotation for the process process-1 has started and is now running.',
+                'The Annotation for the process process-1 has started and is now running.',
             ),
             (
                 'complete',
                 lambda: notify_user_conversion_complete(self.user, self.task),
                 TaskNotification.EVENT_COMPLETED,
-                'The annotation for the process process-1 is complete. You can now access your results.',
+                'The Annotation for the process process-1 is complete. You can now access your results.',
             ),
             (
                 'failed-custom',
@@ -55,7 +54,7 @@ class NotificationServiceTests(TestCase):
                 'failed-default',
                 lambda: notify_user_conversion_failed(self.user, self.task),
                 TaskNotification.EVENT_FAILED,
-                'The annotation for the process process-1 has failed. Please try again.',
+                'The Annotation for the process process-1 has failed. Please try again.',
             ),
             (
                 'server-busy',

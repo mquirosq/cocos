@@ -49,6 +49,9 @@ class BaktaJsonParserTests(TestCase):
         self.parser = BaktaJsonParser()
         self.fixture_path = Path(__file__).parent / "fixtures" / "small.json"
 
+    def _json_file(self):
+        return File.objects.create(user=self.user, file_type=File.FileType.JSON)
+
     def _load_small_payload(self):
         return json.loads(self.fixture_path.read_text(encoding="utf-8"))
 
@@ -70,7 +73,7 @@ class BaktaJsonParserTests(TestCase):
             with self.subTest(options=options):
                 upload = self.parser.parse(
                     single_feature_payload,
-                    ContentFile(b"{}", name="sample.json"),
+                    self._json_file(),
                     user=self.user,
                     options=options,
                 )
@@ -79,7 +82,7 @@ class BaktaJsonParserTests(TestCase):
                 gene = upload.genes.first()
                 for expected_identifier in [feature["gene"], feature["product"], feature["db_xrefs"][0]]:
                     self.assertIn(expected_identifier, gene.identifiers_list())
-                file_gene = FileGene.objects.filter(file_upload=upload).first()
+                file_gene = FileGene.objects.filter(file=upload).first()
                 self.assertEqual(file_gene.expert, feature["expert"][0]["type"])
                 self.assertEqual(file_gene.start, expected_start)
                 self.assertEqual(file_gene.stop, expected_stop)
@@ -92,7 +95,7 @@ class BaktaJsonParserTests(TestCase):
         existing = Gene.objects.create(identifiers=payload["features"][0]["gene"])
         upload = self.parser.parse(
             payload,
-            ContentFile(b"{}", name="reuse.json"),
+            self._json_file(),
             user=self.user,
         )
         self.assertIn(existing.id, upload.genes.values_list("id", flat=True))
@@ -102,7 +105,7 @@ class BaktaJsonParserTests(TestCase):
         fasta_file = File.objects.create(user=self.user, file_type=File.FileType.FASTA)
         gene = Gene.objects.create(identifiers='gatA')
 
-        file_gene = FileGene(file_upload=fasta_file, gene=gene, expert='expert')
+        file_gene = FileGene(file=fasta_file, gene=gene, expert='expert')
 
         with self.assertRaises(ValidationError):
             file_gene.save()

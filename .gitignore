@@ -12,3 +12,6 @@ app/static/css/tailwind.css
 
 *.gz
 example_files/ATCC25922.fastq.gz
+# Test coverage
+.coverage
+htmlcov/
