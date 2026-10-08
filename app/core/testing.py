@@ -32,9 +32,11 @@ class FakeBioService:
       the last one is repeated once the sequence is exhausted. When not given, assembly jobs
       end in 'assembled', auto-annotated assemblies and annotations end in 'annotated'.
     - `missing_jobs`: GET /jobs/<id> answers 404.
+    - `annotation_payload`: Bakta JSON returned by annotation downloads (defaults to the small fixture).
     """
 
-    def __init__(self, start_behavior='ok', status_sequence=None, missing_jobs=False):
+    def __init__(self, start_behavior='ok', status_sequence=None, missing_jobs=False, annotation_payload=None):
+        self.annotation_payload = BAKTA_JSON if annotation_payload is None else annotation_payload
         self.start_behavior = start_behavior
         self.status_sequence = status_sequence
         self.missing_jobs = missing_jobs
@@ -123,7 +125,7 @@ class FakeBioService:
         job = self.jobs.get(job_id)
         if not job or job['status'] != 'annotated':
             return (400, {}, json.dumps({'detail': 'Annotation not completed'}))
-        return (200, {}, json.dumps(BAKTA_JSON))
+        return (200, {}, json.dumps(self.annotation_payload))
 
 
 def _multipart_parts(request):

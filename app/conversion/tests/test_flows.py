@@ -229,6 +229,32 @@ class JsonFlowTests(ConversionFlowMixin, TestCase):
         self.assertEqual({task.status for task in self.process_tasks(process)}, {TaskStatus.FAILED})
         self.assertIn(TaskNotification.EVENT_FAILED, self.events(process))
 
+    def test_unparseable_features_fail_but_keep_the_uploaded_file(self):
+        with FakeBioService():
+            self.client.post(reverse('conversion:annotation_from_json'),
+                             data={'feature_file': bakta_json('broken.json', {'features': ['not a feature']})})
+
+        process = self.latest_process()
+        self.assertEqual({task.status for task in self.process_tasks(process)}, {TaskStatus.FAILED})
+        self.assertIn(TaskNotification.EVENT_FAILED, self.events(process))
+        uploaded = File.objects.get(user=self.user, file_type=File.FileType.JSON)
+        with uploaded.file.open('rb') as f:
+            self.assertEqual(json.loads(f.read()), {'features': ['not a feature']})
+        self.assertFalse(FileGene.objects.exists())
+
+    def test_unparseable_annotation_warns_and_keeps_bakta_json_downloadable(self):
+        broken = {'features': ['not a feature']}
+        with FakeBioService(annotation_payload=broken):
+            self.client.post(reverse('conversion:start_annotation_task'), data={'fasta_file': fasta()})
+
+        process = self.latest_process()
+        self.assertIn(TaskNotification.EVENT_WARNING, self.events(process))
+        self.assertFalse(FileGene.objects.exists())
+        json_outputs = self.process_outputs(process, File.FileType.JSON)
+        self.assertEqual(json_outputs.count(), 1)
+        with json_outputs.first().file.open('rb') as f:
+            self.assertEqual(json.loads(f.read()), broken)
+
 
 class BioServiceProblemsTests(ConversionFlowMixin, TestCase):
     def test_busy_server_retries_and_then_warns_user(self):

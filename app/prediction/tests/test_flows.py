@@ -94,6 +94,18 @@ class PredictionFlowTests(FlowTestMixin, TestCase):
         self.assertTrue(set(FAKE_MODELS) <= set(response.context['available_models']))
         self.assertTrue({'amikacin', 'ampicillin'} <= set(response.context['available_antibiotics']))
 
+    def test_files_without_genes_are_not_offered_nor_accepted(self):
+        broken = SimpleUploadedFile('broken.json', json.dumps({'features': ['not a feature']}).encode(),
+                                    content_type='application/json')
+        with FakeBioService():
+            self.client.post(reverse('conversion:annotation_from_json'), data={'feature_file': broken})
+        broken_file = File.objects.get(user=self.user, file_type=File.FileType.JSON, file__contains='broken')
+
+        options = self.client.get(reverse('prediction:prediction')).context['input_file_options']
+        self.assertEqual([option['id'] for option in options], [str(self.genes_file.id)])
+        self.assertEqual(self.predict(['fake_constant'], ['amikacin'], broken_file.id).status_code, 400)
+        self.assertFalse(PredictionTask.objects.exists())
+
     def test_prediction_with_several_models_builds_matrix_and_csv(self):
         response = self.predict(['fake_constant', 'fake_genes'], ['amikacin', 'ampicillin'])
         self.assertEqual(response.status_code, 202)

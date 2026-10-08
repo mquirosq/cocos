@@ -2,7 +2,7 @@ from django.db import models
 
 from .models import PredictionTask
 from conversion.models import ConversionTask
-from core.models import File
+from core.models import File, TaskStatus
 from conversion.services.presentation import format_process_label
 from conversion.task_types import ANNOTATED_TYPES
 
@@ -15,6 +15,7 @@ def get_prediction_input_options(user):
         models.Q(task_type=ConversionTask.ConversionTaskType.FROM_JSON) |
         models.Q(task_type__in=ANNOTATED_TYPES),
         process__user=user,
+        status=TaskStatus.COMPLETED,
     ).order_by('-created_at')
     options = []
 
@@ -23,10 +24,11 @@ def get_prediction_input_options(user):
         json_file = None
         if task.task_type == ConversionTask.ConversionTaskType.FROM_JSON:
             json_file = task.input_files.filter(file_type=File.FileType.JSON).first()
-        else: 
+        else:
             json_file = task.output_files.filter(file_type=File.FileType.JSON).first()
 
-        if not json_file:
+        # Files whose features could not be parsed have no genes to predict from.
+        if not json_file or not json_file.genes.exists():
             continue
 
         options.append({
@@ -51,9 +53,13 @@ def get_prediction_file(user, file_id):
         raise ValueError('Select a dataset.')
     
     try:
-        return File.objects.get(pk=int(file_id), user=user, file_type=File.FileType.JSON)
+        file = File.objects.get(pk=int(file_id), user=user, file_type=File.FileType.JSON)
     except (ValueError, File.DoesNotExist):
         raise ValueError('Selected file not found.')
+
+    if not file.genes.exists():
+        raise ValueError('Selected file has no annotated genes to predict from.')
+    return file
 
 def start_prediction(user, model_names, antibiotics, file_id):
     if not model_names:

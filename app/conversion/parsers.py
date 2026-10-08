@@ -97,11 +97,7 @@ class BaktaJsonParser(BaseParser):
                         file.genes.add(gene_obj)
 
             except Exception as e:
-                try:
-                    file.file.delete()
-                except Exception:
-                    pass
-                file.delete()
+                # Keep the file (the user may want to download it); only the genes are rolled back.
                 transaction.set_rollback(True)
                 raise RuntimeError(f'Error parsing features: {str(e)}')
 

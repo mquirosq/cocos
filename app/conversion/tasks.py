@@ -59,11 +59,11 @@ def _persist_annotation_json_output(task, complete_version=False):
 
     file = upload_file(source_file, task.process.user, File.FileType.JSON)
 
-    file = parse_file(parser="bakta_json", data=parsed_payload, file=file, user=task.process.user, options={"complete_version": complete_version})
+    # Attach the Bakta JSON before parsing so it stays downloadable if parsing fails.
+    task.output_files.add(file)
+    task.save(update_fields=["updated_at"])
 
-    if file:
-        task.output_files.add(file)
-        task.save(update_fields=["updated_at"])
+    parse_file(parser="bakta_json", data=parsed_payload, file=file, user=task.process.user, options={"complete_version": complete_version})
 
 def _ensure_in_app_notification(task, event_type, message):
     """Guarantee at least one in-app notification exists for task/event."""
