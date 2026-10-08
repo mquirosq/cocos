@@ -229,6 +229,11 @@ class JsonFlowTests(ConversionFlowMixin, TestCase):
         self.assertEqual({task.status for task in self.process_tasks(process)}, {TaskStatus.FAILED})
         self.assertIn(TaskNotification.EVENT_FAILED, self.events(process))
 
+    def test_json_processing_only_accepts_post(self):
+        response = self.client.get(reverse('conversion:annotation_from_json'))
+        self.assertEqual(response.status_code, 405)
+        self.assertFalse(ProcessGroup.objects.exists())
+
     def test_unparseable_features_fail_but_keep_the_uploaded_file(self):
         with FakeBioService():
             self.client.post(reverse('conversion:annotation_from_json'),

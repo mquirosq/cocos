@@ -91,6 +91,7 @@ def start_annotation_task(request):
 
     return redirect('conversion:process_status', process_id=task.process.id)
 
+@require_POST
 @login_required
 def parse_feature_file(request):
     """Start Bakta JSON processing from the Annotation tab."""
