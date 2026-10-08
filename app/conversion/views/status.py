@@ -40,14 +40,11 @@ def process_list_view(request):
 
 @login_required
 def process_status_view(request, process_id):
-    process = ProcessGroup.objects.filter(id=process_id).first()
+    # Another user's process is reported exactly like a missing one, so ids cannot be probed.
+    process = ProcessGroup.objects.filter(id=process_id, user=request.user).first()
 
     if not process:
         messages.error(request, 'Process not found.')
-        return redirect('conversion:process_list')
-
-    if process.user != request.user:
-        messages.error(request, 'You do not have permission to view this process.')
         return redirect('conversion:process_list')
 
     context = build_process_status_context(process, page=request.GET.get('page'))
@@ -140,14 +137,10 @@ def download_fastq_view(request, task_id):
 @require_POST
 @login_required
 def rename_process_view(request, process_id):
-    process = get_object_or_404(ProcessGroup, id=process_id)
+    process = get_object_or_404(ProcessGroup, id=process_id, user=request.user)
     new_name = (request.POST.get('process_name') or '').strip()
     if not new_name:
         messages.error(request, 'Process name cannot be empty.')
-        return redirect('conversion:process_status', process_id=process.id)
-
-    if process.user != request.user:
-        messages.error(request, 'You do not have permission to rename this process.')
         return redirect('conversion:process_status', process_id=process.id)
 
     rename_process(process, new_name)

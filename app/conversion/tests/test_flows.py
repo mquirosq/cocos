@@ -539,6 +539,20 @@ class PermissionsTests(ProcessContractMixin, TestCase):
         self.process.refresh_from_db()
         self.assertEqual(self.process.name, 'reads_R1.fastq.gz')
 
+    def test_other_users_process_looks_exactly_like_a_missing_one(self):
+        missing_id = ProcessGroup.objects.order_by('-id').first().id + 1000
+
+        def status_page(process_id):
+            response = self.client.get(reverse('conversion:process_status', args=[process_id]), follow=True)
+            return response.redirect_chain, [str(m) for m in response.context['messages']]
+
+        def rename(process_id):
+            return self.client.post(reverse('conversion:rename_process', args=[process_id]), data={'process_name': 'x'}).status_code
+
+        self.assertEqual(status_page(self.process.id), status_page(missing_id))
+        self.assertEqual(rename(self.process.id), rename(missing_id))
+        self.assertEqual(rename(self.process.id), 404)
+
     def test_anonymous_user_is_redirected_to_login(self):
         self.client.logout()
         for url in (reverse('conversion:assembly_ui'), reverse('conversion:annotation_ui'),
