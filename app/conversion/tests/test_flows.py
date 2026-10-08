@@ -341,7 +341,6 @@ class ProcessContractTests(ProcessContractMixin, TestCase):
         self.assertEqual(self.download('conversion:download_fasta', context['fasta_download_task_id']), ASSEMBLY_FASTA)
         self.assertEqual(json.loads(self.download('conversion:download_json', context['json_download_task_id'])), BAKTA_JSON)
 
-    @unittest.expectedFailure  # Known bug: a completed auto-annotated assembly shows 'Assembled' as current.
     def test_completed_auto_annotation_shows_assembled_step_complete(self):
         with FakeBioService():
             self.run_assembly('ont', annotate=True)
