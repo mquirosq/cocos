@@ -48,6 +48,19 @@ class NotificationViewsTests(FlowTestMixin, TestCase):
         self.client.post(reverse('notifications:mark_all_read'))
         self.assertFalse(self.mine.filter(is_read=False).exists())
 
+    def test_next_redirect_only_goes_to_this_site(self):
+        notification = self.mine.first()
+        cases = [
+            ('https://evil.example.com/phish', reverse('notifications:list')),
+            ('//evil.example.com/phish', reverse('notifications:list')),
+            ('/somewhere/', '/somewhere/'),
+        ]
+        for next_url, expected in cases:
+            for url in (reverse('notifications:mark_read', args=[notification.id]), reverse('notifications:mark_all_read')):
+                with self.subTest(next=next_url, url=url):
+                    response = self.client.post(url, data={'next': next_url})
+                    self.assertRedirects(response, expected, fetch_redirect_response=False)
+
     def test_other_user_cannot_mark_or_see_my_notifications(self):
         notification = self.mine.first()
         self.client.login(username='other-user', password='pass1234')
