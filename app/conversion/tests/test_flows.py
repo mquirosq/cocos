@@ -119,7 +119,6 @@ class AssemblyFlowTests(ConversionFlowMixin, TestCase):
         json_file = self.process_outputs(self.latest_process(), File.FileType.JSON).first()
         self.assertFalse(FileGene.objects.filter(file=json_file, nt__isnull=False).exists())
 
-    @unittest.expectedFailure  # Known bug: 'assembled' is taken as completion for auto-annotated jobs.
     def test_auto_annotated_job_waits_for_annotation_to_finish(self):
         sequence = ['running', 'assembled', 'annotation_pending', 'running', 'annotated']
         with FakeBioService(status_sequence=sequence):

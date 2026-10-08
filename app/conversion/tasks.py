@@ -105,6 +105,21 @@ def _fail_task(task, message):
         message=message,
     )
 
+def _normalize_external_status(task, external_status):
+    """Map a bio service job status to the TaskStatus of this task.
+
+    An auto-annotated assembly goes through 'assembled' before its annotation runs,
+    so it only finishes on 'annotated'. Intermediate statuses mean the job is running.
+    """
+    if external_status == "failed":
+        return TaskStatus.FAILED
+
+    finished_status = "annotated" if task.task_type in ANNOTATED_TYPES else "assembled"
+    if external_status in (finished_status, "completed"):
+        return TaskStatus.COMPLETED
+
+    return TaskStatus.RUNNING
+
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=10, max_retries=MAX_TRIES)
 def poll_conversion_status(self, task_id, complete_version=False):
     try:
@@ -123,10 +138,10 @@ def poll_conversion_status(self, task_id, complete_version=False):
         _fail_task(task, "External job not found")
         return
         
+    status = _normalize_external_status(task, status)
+
     if status != task.status:
         logger.info(f"Task {task.external_job_id}: status changed from {task.status} to {status}")
-        if status == "annotated" or status == "assembled":
-            status = "completed"
         task.status = status
         task.save()
 
