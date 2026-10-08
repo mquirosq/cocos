@@ -88,8 +88,6 @@ class ProfileSettingsForm(forms.Form):
         new_password1 = cleaned_data.get('new_password1')
         new_password2 = cleaned_data.get('new_password2')
 
-        # Changing the email also requires the password: with password reset by email,
-        # an email change would otherwise let an open session take over the account.
         new_email = cleaned_data.get('email') or ''
         changing_email = new_email.strip().lower() != (self.user.email or '').strip().lower()
         changing_password = any([new_password1, new_password2])

@@ -32,7 +32,6 @@ def profile_settings(request):
         if form.is_valid():
             form.save()
             if form.cleaned_data.get('new_password1'):
-                # Keep this session logged in; other sessions of the user are invalidated.
                 update_session_auth_hash(request, request.user)
             messages.success(request, 'Profile settings updated successfully.')
             return redirect('accounts:profile')

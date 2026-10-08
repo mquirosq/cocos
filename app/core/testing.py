@@ -1,7 +1,5 @@
-"""Test support: a fake bio service mocked at HTTP level and a mixin for end-to-end flow tests.
-
-The fake answers the same URLs as the real bio service, so flow tests do not depend on
-internal function names and keep working when the conversion code is refactored.
+"""
+Test support: a fake bio service mocked at HTTP level and a mixin for end-to-end flow tests.
 """
 import json
 import re

@@ -1,7 +1,6 @@
 """End-to-end conversion flows through the views, with the bio service mocked at HTTP level.
 
-These tests describe user-visible behaviour (what gets created, stored and notified) and must
-keep passing unchanged across internal refactors of tasks and services.
+These tests describe user-visible behaviour (what gets created, stored and notified).
 """
 import json
 import zipfile
