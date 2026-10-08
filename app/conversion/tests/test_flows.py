@@ -405,8 +405,11 @@ class ProcessContractTests(ProcessContractMixin, TestCase):
                        can_retry_annotation=False, has_fasta=False, has_json=True, stage_class='process-stage-max',
                        steps=steps(('Started', 'complete'), ('Parsed', 'complete')))
         self.assertEqual(self.row_for(process)['input_filename'], 'up.json')
-        self.assertStatus(process, [('From JSON', 'completed')], process_kind='json', pipeline_badges=['From JSON'],
-                          latest_task_status='completed', fasta_download_task_id=None, assembly_task_id=None)
+        context = self.assertStatus(process, [('From JSON', 'completed')], process_kind='json', pipeline_badges=['From JSON'],
+                                    latest_task_status='completed', fasta_download_task_id=None, assembly_task_id=None)
+        self.assertEqual(json.loads(self.download('conversion:download_json', context['json_download_task_id'])), BAKTA_JSON)
+        self.assertContains(self.client.get(reverse('conversion:process_status', args=[process.id])),
+                            reverse('conversion:download_json', args=[context['json_download_task_id']]))
 
     def test_pending_assembly_while_server_busy(self):
         with FakeBioService(start_behavior='busy'):

@@ -300,7 +300,7 @@ def _get_json_download_task_id(assembly_task, latest_annotation, latest_json, is
         return assembly_task.id
 
     if latest_json and latest_json.status == TaskStatus.COMPLETED:
-        if get_prefetched_file(latest_json.prefetched_output_files, File.FileType.JSON):
+        if get_prefetched_file(latest_json.prefetched_input_files, File.FileType.JSON):
             return latest_json.id
 
     return None
